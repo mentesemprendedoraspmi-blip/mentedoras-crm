@@ -395,7 +395,12 @@ select option{background:var(--bg3);}
   <div class="lb">
     <div class="lb-logo"><h1>Mentedoras</h1><p>Portal de gestión de clientes</p></div>
     <div class="f"><label>Usuario</label><input type="text" id="li-u" placeholder="tu nombre" autocomplete="off" onkeydown="if(event.key==='Enter')login()"></div>
-    <div class="f"><label>Contraseña</label><input type="password" id="li-p" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()"></div>
+    <div class="f"><label>Contraseña</label>
+      <div style="position:relative;">
+        <input type="password" id="li-p" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()" style="padding-right:38px;">
+        <button onclick="togglePassVis('li-p')" type="button" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--tx3);font-size:16px;padding:0;"><i class="ti ti-eye" id="eye-icon"></i></button>
+      </div>
+    </div>
     <button class="lbtn" onclick="login()">Entrar al CRM</button>
     <div class="lerr" id="lerr">Usuario o contraseña incorrectos</div>
   </div>
@@ -551,6 +556,19 @@ select option{background:var(--bg3);}
 <div class="mo" id="mo"><div class="modal" id="modal-c"></div></div>
 <div class="toast" id="toast"></div>
 
+<!-- WELCOME POPUP -->
+<div id="welcome-popup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rxl);padding:36px 40px;text-align:center;max-width:340px;width:90%;box-shadow:var(--s3);animation:popIn .4s ease;">
+    <div style="font-size:42px;margin-bottom:12px;" id="welcome-emoji">👋</div>
+    <div style="font-size:22px;font-weight:600;color:var(--tx);margin-bottom:6px;" id="welcome-title">¡Bienvenido!</div>
+    <div style="font-size:14px;color:var(--tx3);margin-bottom:24px;" id="welcome-sub">Listo para gestionar tus clientes</div>
+    <button onclick="closeWelcome()" style="padding:10px 28px;background:var(--cyan);color:var(--bg);border:none;border-radius:var(--r);font-size:14px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;">¡Vamos! 🚀</button>
+  </div>
+</div>
+<style>
+@keyframes popIn{from{transform:scale(0.8);opacity:0;}to{transform:scale(1);opacity:1;}}
+</style>
+
 <script>
 const TK='b0da7fd776bd891bf50dd102e7b17945',TT='ATTA14814e22f62b21b7b287528dbc6457a932db06b835ec3c328213fe08a08301bc36549482',BID='AyOrBLDP';
 const PHASES=['Pendiente de crear guion','Pendiente de OK de guion','Pendiente de grabación','Grabado, pendiente de editar','Editándose','Editado, pendiente de revisión','Revisado','Pendiente de subir','¡Subido! 🎉'];
@@ -659,7 +677,24 @@ function login(){
     document.getElementById('sb-av').textContent=currentUser.name.slice(0,2).toUpperCase();
     document.getElementById('sb-un').textContent=currentUser.name+' · '+currentUser.role;
     applyRoleUI();render();loadTrelloLists();
+    // Welcome popup
+    const hour=new Date().getHours();
+    const greeting=hour<13?'¡Buenos días':hour<20?'¡Buenas tardes':'¡Buenas noches';
+    document.getElementById('welcome-title').textContent=`${greeting}, ${currentUser.name}!`;
+    document.getElementById('welcome-sub').textContent=`Listo para gestionar tus clientes 💪`;
+    document.getElementById('welcome-emoji').textContent=hour<13?'☀️':hour<20?'👋':'🌙';
+    const wp=document.getElementById('welcome-popup');wp.style.display='flex';
   }else{document.getElementById('lerr').style.display='block';}
+}
+
+function closeWelcome(){document.getElementById('welcome-popup').style.display='none';}
+
+function togglePassVis(id){
+  const inp=document.getElementById(id);if(!inp)return;
+  const isPass=inp.type==='password';
+  inp.type=isPass?'text':'password';
+  const icon=document.getElementById('eye-icon');
+  if(icon)icon.className=isPass?'ti ti-eye-off':'ti ti-eye';
 }
 function logout(){currentUser=null;document.getElementById('app').classList.remove('on');document.getElementById('lp').style.display='flex';document.getElementById('li-u').value='';document.getElementById('li-p').value='';}
 
@@ -1292,7 +1327,6 @@ function addCred(cid){
 }
 function removeCred(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.credentials.splice(i,1);renderProfile(c);showToast('Credencial eliminada','ok');}
 function updateCred(cid,i,field,val){const c=clients.find(c=>c.id===cid);if(!c||!c.credentials[i])return;c.credentials[i][field]=val;}
-function togglePassVis(inputId){const inp=document.getElementById(inputId);if(!inp)return;inp.type=inp.type==='password'?'text':'password';}
 
 // CHAT
 function openChat(id){
@@ -1349,6 +1383,13 @@ function showPortal(c){
   if(c.delivery){const del=document.getElementById('portal-del');if(del){del.style.display='flex';document.getElementById('portal-del-date').textContent=fmtDate(c.delivery);}}
   renderPortalMsgs(c);
   document.getElementById('portal').classList.add('open');
+  // Welcome popup for client
+  const hour=new Date().getHours();
+  const greeting=hour<13?'¡Buenos días':hour<20?'¡Buenas tardes':'¡Buenas noches';
+  document.getElementById('welcome-title').textContent=`${greeting}, ${c.name}!`;
+  document.getElementById('welcome-sub').textContent='Aquí puedes ver el estado de tu contenido 🎬';
+  document.getElementById('welcome-emoji').textContent='🎉';
+  const wp=document.getElementById('welcome-popup');wp.style.display='flex';
   setTimeout(showPortalSuggestions,500);
 }
 
@@ -1763,6 +1804,12 @@ function createAutoTask(title){
   renderBoardBadge();
 }
 
-if(!checkRoute()){loadTheme();}</script>
+if(!checkRoute()){loadTheme();}
+// Fallback enter key on login
+document.addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&document.getElementById('lp')&&document.getElementById('lp').style.display!=='none'){
+    login();
+  }
+});</script>
 </body>
 </html>
