@@ -1235,7 +1235,7 @@ function renderProfile(c){
         <button class="btn btn-s" onclick="addCred('${c.id}')"><i class="ti ti-plus"></i>Añadir credencial</button>
       </div>
     </div>`:''}`;
-
+}
 
 function renderReelTable(c,mk){
   const reels=c.reels[mk]||[];
@@ -1618,7 +1618,7 @@ function showView(name){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('view-'+name)?.classList.add('on');
-  const icons={dash:'ti-layout-dashboard',pipeline:'ti-columns',board:'ti-layout-kanban',cal:'ti-calendar',payments:'ti-coin',profile:'ti-user'};
+  const icons={dash:'ti-layout-dashboard',pipeline:'ti-columns',board:'ti-layout-kanban',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',profile:'ti-user'};
   const titles={dash:'Resumen general',pipeline:'Pipeline de contenido',board:'Tablero del equipo',cal:'Calendario',payments:'Pagos del equipo',finance:'Facturación',profile:activeClient?.name||'Cliente'};
   document.getElementById('tb-ic').className='ti '+(icons[name]||'ti-layout-dashboard');
   document.getElementById('tb-t').textContent=titles[name]||'';
