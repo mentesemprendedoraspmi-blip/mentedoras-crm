@@ -40,7 +40,7 @@ body.theme-blue{
 .theme-btn-light{background:radial-gradient(circle,#fff,#E8EEF5);}
 .theme-btn-blue{background:radial-gradient(circle,#1D3360,#0A1628);}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;}
-::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:4px;}
+::-webkit-scrollbar{width:6px;height:8px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:4px;}::-webkit-scrollbar-thumb:hover{background:var(--tx3);}
 input,select,textarea{color:var(--tx);background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 11px;width:100%;transition:border-color .15s;}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--cyan);}
 select option{background:var(--bg3);}
@@ -570,21 +570,65 @@ select option{background:var(--bg3);}
 </style>
 
 <script>
-// DATA PERSISTENCE via localStorage
-let db=null;
+// FIREBASE - loaded dynamically so it never blocks login
+let db=null,fbReady=false;
+
+function initFirebase(){
+  return new Promise(resolve=>{
+    if(fbReady){resolve();return;}
+    const s1=document.createElement('script');
+    s1.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
+    s1.onload=()=>{
+      const s2=document.createElement('script');
+      s2.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js';
+      s2.onload=()=>{
+        try{
+          if(!firebase.apps.length){
+            firebase.initializeApp({apiKey:"AIzaSyBjPyF0q4KMH2LZ7qfBb9wvjZm2usYyIQM",authDomain:"mentedoras-crm.firebaseapp.com",projectId:"mentedoras-crm",storageBucket:"mentedoras-crm.firebasestorage.app",messagingSenderId:"965240949854",appId:"1:965240949854:web:151aebe243214b55c5f8cf"});
+          }
+          db=firebase.firestore();fbReady=true;
+        }catch(e){console.warn('FB init:',e);}
+        resolve();
+      };
+      s2.onerror=resolve;document.head.appendChild(s2);
+    };
+    s1.onerror=resolve;document.head.appendChild(s1);
+  });
+}
+
 async function fbSave(col,id,data){
   try{localStorage.setItem(`fb_${col}_${id}`,JSON.stringify(data));}catch(e){}
+  if(!fbReady)await initFirebase();
+  if(db){try{await db.collection(col).doc(id).set(data);}catch(e){console.warn('FB save:',e);}}
 }
 async function fbLoad(col,id){
+  if(!fbReady)await initFirebase();
+  if(db){try{const d=await db.collection(col).doc(id).get();if(d.exists)return d.data();}catch(e){}}
   try{const d=localStorage.getItem(`fb_${col}_${id}`);return d?JSON.parse(d):null;}catch(e){return null;}
 }
 async function fbDelete(col,id){
   try{localStorage.removeItem(`fb_${col}_${id}`);}catch(e){}
+  if(!fbReady)await initFirebase();
+  if(db){try{await db.collection(col).doc(id).delete();}catch(e){}}
 }
-async function saveClients(){await fbSave('crm','clients',{list:clients});}
-async function saveBoard(){await fbSave('crm','board',{cols:boardCols});}
-async function saveEvents(){await fbSave('crm','events',{list:calEvents});}
-function setupRealtimeSync(){}
+async function saveClients(){await fbSave('crm','clients',{list:clients,updatedAt:new Date().toISOString()});}
+async function saveBoard(){await fbSave('crm','board',{cols:boardCols,updatedAt:new Date().toISOString()});}
+async function saveEvents(){await fbSave('crm','events',{list:calEvents,updatedAt:new Date().toISOString()});}
+async function setupRealtimeSync(){
+  if(!fbReady)await initFirebase();
+  if(!db)return;
+  try{
+    db.collection('crm').doc('clients').onSnapshot(snap=>{
+      if(snap&&snap.exists){
+        const data=snap.data();
+        if(data&&data.list&&data.list.length>0){
+          clients=data.list;render();
+          if(activeClient){const u=clients.find(c=>c.id===activeClient.id);if(u){activeClient=u;if(document.getElementById('view-profile').classList.contains('on'))renderProfile(u);}}
+        }
+      }
+    });
+  }catch(e){console.warn('Realtime sync:',e);}
+}
 
 const TK='b0da7fd776bd891bf50dd102e7b17945',TT='ATTA14814e22f62b21b7b287528dbc6457a932db06b835ec3c328213fe08a08301bc36549482',BID='AyOrBLDP';
 const PHASES=['Pendiente de crear guion','Pendiente de OK de guion','Pendiente de grabación','Grabado, pendiente de editar','Editándose','Editado, pendiente de revisión','Revisado','Pendiente de subir','¡Subido! 🎉'];
@@ -747,35 +791,6 @@ async function loadFromFirebase(){
   }catch(e){console.warn('Firebase load error:',e);}
   render();
   setupRealtimeSync();
-}
-
-function setupRealtimeSync(){
-  if(!db)return;
-  try{
-    db.collection('crm').doc('clients').onSnapshot(snap=>{
-      if(snap.exists){
-        const data=snap.data();
-        if(data.list&&data.list.length>0){
-          clients=data.list;
-          render();
-          if(activeClient){
-            const updated=clients.find(c=>c.id===activeClient.id);
-            if(updated){activeClient=updated;if(document.getElementById('view-profile').classList.contains('on'))renderProfile(updated);}
-          }
-        }
-      }
-    });
-  }catch(e){console.warn('Realtime sync error:',e);}
-}
-
-async function saveClients(){
-  await fbSave('crm','clients',{list:clients,updatedAt:new Date().toISOString()});
-}
-async function saveBoard(){
-  await fbSave('crm','board',{cols:boardCols,updatedAt:new Date().toISOString()});
-}
-async function saveEvents(){
-  await fbSave('crm','events',{list:calEvents,updatedAt:new Date().toISOString()});
 }
 
 function applyRoleUI(){
@@ -1023,21 +1038,28 @@ function openTaskDetail(colId,taskId){
 function renderBoardBadge(){document.getElementById('bbadge').textContent=boardCols.reduce((s,c)=>s+c.tasks.filter(t=>!t.done).length,0);}
 
 // CALENDAR
+let calYear=new Date().getFullYear(),calMonth=new Date().getMonth(),calView='month';
 function renderCal(){
-  const now=new Date();
-  const year=now.getFullYear();const month=now.getMonth();
-  const first=new Date(year,month,1);const last=new Date(year,month+1,0);
+  const first=new Date(calYear,calMonth,1);
+  const last=new Date(calYear,calMonth+1,0);
   const startDay=first.getDay()||7;
   const days=['L','M','X','J','V','S','D'];
-  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-    <div class="st">${MONTHS[month]} ${year}</div>
+  let html=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+    <button class="btn btn-s" onclick="calNav(-1)"><i class="ti ti-chevron-left"></i></button>
+    <button class="btn btn-s" onclick="calGoToday()">Hoy</button>
+    <button class="btn btn-s" onclick="calNav(1)"><i class="ti ti-chevron-right"></i></button>
+    <div class="st" style="flex:1;">${MONTHS[calMonth]} ${calYear}</div>
+    <select class="psel" onchange="calChangeView(this.value)" style="font-size:12px;">
+      <option value="month"${calView==='month'?' selected':''}>Mes</option>
+      <option value="week"${calView==='week'?' selected':''}>Semana</option>
+    </select>
     <button class="btn btn-s btn-p" onclick="openModal('event')"><i class="ti ti-plus"></i>Evento</button>
   </div>
   <div class="cal-grid">
     ${days.map(d=>`<div class="cal-day-hdr">${d}</div>`).join('')}`;
   for(let i=1;i<startDay;i++)html+=`<div class="cal-day other-month"></div>`;
   for(let d=1;d<=last.getDate();d++){
-    const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dateStr=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isToday=dateStr===today();
     const dayEvents=calEvents.filter(e=>e.date===dateStr);
     html+=`<div class="cal-day${isToday?' today':''}" onclick="openModal('event','',null,dateStr)">
@@ -1048,33 +1070,72 @@ function renderCal(){
   html+='</div>';
   document.getElementById('cal-content').innerHTML=html;
 }
+function calNav(dir){
+  calMonth+=dir;
+  if(calMonth<0){calMonth=11;calYear--;}
+  if(calMonth>11){calMonth=0;calYear++;}
+  renderCal();
+}
+function calGoToday(){calYear=new Date().getFullYear();calMonth=new Date().getMonth();renderCal();}
+function calChangeView(v){calView=v;renderCal();}
 
 // PAYMENTS (CEO only)
+let paymentsList=[];
 function renderPayments(){
   const editors=['Dani','Darwin','Dante','Oscar'];
   const mk=currentMonthKey();
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
     <div class="st">Pagos equipo — ${monthLabel(mk)}</div>
-    <button class="btn btn-s btn-p" onclick="openModal('payment')"><i class="ti ti-plus"></i>Añadir pago</button>
   </div>`;
   editors.forEach(ed=>{
     const edClients=clients.filter(c=>c.editor===ed);
     const reelsCount=edClients.reduce((s,c)=>{const r=c.reels[mk]||[];return s+r.filter(r=>r.editado).length;},0);
+    const edPayments=paymentsList.filter(p=>p.editor===ed&&p.month===mk);
     html+=`<div class="pcard-box" style="margin-bottom:14px;">
-      <div class="pcard-title"><i class="ti ti-user"></i>${ed} · Editor</div>
-      <table class="pay-table">
-        <tr><th>Concepto</th><th>Clientes</th><th>Reels editados</th><th>Importe</th><th>Estado</th></tr>
-        <tr>
-          <td>Edición de reels</td>
-          <td>${edClients.map(c=>c.name).join(', ')||'—'}</td>
-          <td>${reelsCount} reels</td>
-          <td><input type="number" placeholder="0€" style="width:80px;padding:4px 6px;" /></td>
-          <td><span class="pay-badge pending">Pendiente</span></td>
-        </tr>
+      <div class="pcard-title" style="display:flex;align-items:center;gap:8px;"><i class="ti ti-user"></i>${ed} · Editor
+        <button class="btn btn-s" style="margin-left:auto;font-size:11px;padding:4px 8px;" onclick="addEditorPayment('${ed}','${mk}')"><i class="ti ti-plus"></i>Añadir pago</button>
+      </div>
+      <table class="pay-table" style="width:100%;">
+        <tr><th>Concepto</th><th>Importe</th><th>Estado</th><th></th></tr>
+        ${edPayments.length?edPayments.map((p,i)=>`<tr>
+          <td>${p.concepto||'Edición de reels'}</td>
+          <td style="color:var(--cyan);font-weight:600;">${p.importe||0}€</td>
+          <td><span class="pay-badge ${p.paid?'paid':'pending'}" style="cursor:pointer;" onclick="togglePayment('${ed}','${mk}',${i})">${p.paid?'✓ Pagado':'Pendiente'}</span></td>
+          <td><div style="display:flex;gap:4px;">
+            <button class="btn btn-s" style="padding:3px 7px;" onclick="editPayment('${ed}','${mk}',${i})"><i class="ti ti-pencil" style="font-size:11px;"></i></button>
+            <button class="btn btn-s" style="padding:3px 7px;color:var(--err);" onclick="deletePayment('${ed}','${mk}',${i})"><i class="ti ti-trash" style="font-size:11px;"></i></button>
+          </div></td>
+        </tr>`).join(''):`<tr><td colspan="4" style="text-align:center;color:var(--tx3);font-size:12px;padding:16px;">${reelsCount} reels editados este mes · Sin pagos registrados</td></tr>`}
       </table>
     </div>`;
   });
   document.getElementById('pay-content').innerHTML=html;
+}
+
+function addEditorPayment(editor,month){
+  const importe=prompt(`Importe para ${editor} (€):`);if(importe===null)return;
+  const concepto=prompt('Concepto:','Edición de reels');if(concepto===null)return;
+  paymentsList.push({editor,month,importe:parseFloat(importe)||0,concepto,paid:false});
+  renderPayments();showToast('Pago añadido ✓','ok');
+}
+function togglePayment(editor,month,i){
+  const list=paymentsList.filter(p=>p.editor===editor&&p.month===month);
+  if(list[i]){list[i].paid=!list[i].paid;renderPayments();showToast(list[i].paid?'Marcado como pagado ✓':'Marcado como pendiente','ok');}
+}
+function editPayment(editor,month,i){
+  const list=paymentsList.filter(p=>p.editor===editor&&p.month===month);
+  const p=list[i];if(!p)return;
+  const importe=prompt('Nuevo importe (€):',p.importe);if(importe===null)return;
+  const concepto=prompt('Concepto:',p.concepto);if(concepto===null)return;
+  p.importe=parseFloat(importe)||0;p.concepto=concepto;
+  renderPayments();showToast('Pago actualizado ✓','ok');
+}
+function deletePayment(editor,month,i){
+  if(!confirm('¿Eliminar este pago?'))return;
+  const list=paymentsList.filter(p=>p.editor===editor&&p.month===month);
+  const toDelete=list[i];
+  paymentsList=paymentsList.filter(p=>p!==toDelete);
+  renderPayments();showToast('Pago eliminado','ok');
 }
 
 // FINANCE (CEO + PM)
@@ -1132,6 +1193,7 @@ function renderProfile(c){
         <div><div class="prof-name">${c.name}${c.temp?` <span style="font-size:12px;background:rgba(245,158,11,0.15);color:var(--warn);padding:2px 8px;border-radius:20px;font-weight:500;">⏱ Temporal</span>`:''}</div><div class="prof-type">${c.type}</div></div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-s" onclick="openModal('edit-client','${c.id}')"><i class="ti ti-pencil"></i>Editar</button>
         <button class="btn btn-s" onclick="openChat('${c.id}')"><i class="ti ti-message-2"></i>Chat</button>
         <button class="btn btn-s btn-p" onclick="copyLinkStr('${link}')"><i class="ti ti-link"></i>Link cliente</button>
         <button class="btn btn-s" style="color:var(--err);border-color:rgba(239,68,68,0.3);" onclick="deleteClient('${c.id}')"><i class="ti ti-trash"></i>Eliminar</button>
@@ -1198,7 +1260,12 @@ function renderProfile(c){
 
     <div class="ptab-content${activeProfileTab==='fase0'?' on':''}" id="ptab-fase0">
       <div class="pcard-box">
-        <div class="pcard-title"><i class="ti ti-checklist"></i>Checklist de Onboarding</div>
+        <div class="pcard-title" style="display:flex;align-items:center;"><i class="ti ti-checklist"></i>Checklist de Onboarding
+          <div style="margin-left:auto;display:flex;gap:6px;">
+            <button class="btn btn-s" onclick="markAllFase0('${c.id}',true)" style="font-size:11px;padding:4px 8px;"><i class="ti ti-check"></i>Marcar todo</button>
+            <button class="btn btn-s" onclick="markAllFase0('${c.id}',false)" style="font-size:11px;padding:4px 8px;"><i class="ti ti-x"></i>Desmarcar</button>
+          </div>
+        </div>
         <div style="margin-bottom:10px;background:var(--bg3);border-radius:var(--r);padding:6px 10px;">
           <div style="font-size:11px;color:var(--tx3);">Progreso</div>
           <div style="height:4px;background:var(--border);border-radius:4px;margin-top:4px;overflow:hidden;">
@@ -1324,14 +1391,7 @@ function renderReelTable(c,mk){
   return`<div class="pcard-box">
     <table class="reel-table" style="width:100%;">
       <tr>
-        <th>Reel</th>
-        <th>Grabado</th>
-        <th>Fecha grab.</th>
-        <th>Editado</th>
-        <th>Fecha entrega</th>
-        <th>Subido</th>
-        <th>Editor</th>
-        <th>Notas</th>
+        <th>Reel</th><th>Grabado</th><th>Fecha grab.</th><th>Editado</th><th>Fecha entrega</th><th>Subido</th><th>Editor</th><th>Notas</th>
       </tr>
       ${reels.map((r,i)=>`<tr>
         <td style="font-weight:600;color:var(--tx);">${r.label}</td>
@@ -1347,18 +1407,27 @@ function renderReelTable(c,mk){
         <td><input type="text" value="${r.notas||''}" placeholder="Notas..." style="width:100%;padding:4px 6px;font-size:11px;" onchange="updateReel('${c.id}','${mk}',${i},'notas',this.value)"></td>
       </tr>`).join('')}
     </table>
+    <button class="badd" style="margin-top:8px;" onclick="addReel('${c.id}','${mk}')"><i class="ti ti-plus" style="font-size:12px;"></i>Añadir reel</button>
   </div>`;
+}
+
+function addReel(cid,mk){
+  const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
+  const n=c.reels[mk].length+1;
+  c.reels[mk].push({id:n,label:`Reel ${n}`,month:mk,grabado:false,fechaGrab:'',editado:false,fechaEdit:'',subido:false,editor:'',fase:0,notas:''});
+  switchReelMonth(cid,mk);saveClients();showToast(`Reel ${n} añadido ✓`,'ok');
 }
 
 function toggleReel(cid,mk,i,field){
   const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
   c.reels[mk][i][field]=!c.reels[mk][i][field];
+  saveClients();
   document.getElementById('ptab-reels').innerHTML=`<div class="reel-month-header"><div class="st">Reels por mes</div><div class="month-sel">${Object.keys(c.reels).sort().map(mk2=>`<button class="month-btn${mk2===mk?' on':''}" onclick="switchReelMonth('${cid}','${mk2}')">${monthLabel(mk2)}</button>`).join('')}<button class="month-btn" onclick="addReelMonth('${cid}')"><i class="ti ti-plus" style="font-size:12px;"></i>Mes</button></div></div>${renderReelTable(c,mk)}`;
 }
 
 function updateReel(cid,mk,i,field,val){
   const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
-  c.reels[mk][i][field]=val;
+  c.reels[mk][i][field]=val;saveClients();
 }
 
 function switchReelMonth(cid,mk){
@@ -1381,7 +1450,13 @@ function switchTab(tab){activeProfileTab=tab;if(activeClient)renderProfile(activ
 
 function toggleService(svc){if(!activeClient)return;activeClient.services[svc]=!activeClient.services[svc];renderProfile(activeClient);showToast('Servicios actualizados ✓','ok');}
 
-function toggleFase0(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.fase0[i].done=!c.fase0[i].done;renderProfile(c);}
+function toggleFase0(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.fase0[i].done=!c.fase0[i].done;renderProfile(c);saveClients();}
+
+function markAllFase0(cid,val){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  c.fase0.forEach(f=>f.done=val);renderProfile(c);saveClients();
+  showToast(val?'Todo marcado ✓':'Todo desmarcado','ok');
+}
 
 function setPhase(id,phase){const c=clients.find(c=>c.id===id);if(!c)return;c.phase=phase;renderProfile(c);renderDash();saveClients();showToast('Fase → '+PHASES[phase],'ok');}
 
@@ -1765,6 +1840,12 @@ function openModal(type,extra='',taskObj=null,dateStr=''){
       </div>
       <div class="f"><label>Cliente</label><select id="ev-cl"><option value="">— General —</option>${clients.map(cl=>`<option>${cl.name}</option>`).join('')}</select></div>
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveEvent()">Guardar</button></div>`;
+  }else if(type==='edit-client'){
+    const cl=clients.find(c=>c.id===extra);if(!cl)return;
+    c.innerHTML=`<div class="modal-t">Editar cliente — ${cl.name}</div>
+      <div class="f"><label>Nombre</label><input id="ec-name" type="text" value="${cl.name}"></div>
+      <div class="f"><label>Tipo de negocio</label><input id="ec-type" type="text" value="${cl.type}"></div>
+      <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveEditClient('${extra}')">Guardar</button></div>`;
   }else if(type==='edit-contract'){
     const cl=clients.find(c=>c.id===extra);
     c.innerHTML=`<div class="modal-t">Editar contrato — ${cl?.name}</div>
@@ -1861,7 +1942,12 @@ function saveEvent(){
   closeModal();renderCal();showToast('Evento añadido ✓','ok');
 }
 
-function saveContract(cid){
+function saveEditClient(id){
+  const c=clients.find(c=>c.id===id);if(!c)return;
+  c.name=document.getElementById('ec-name').value.trim()||c.name;
+  c.type=document.getElementById('ec-type').value.trim()||c.type;
+  closeModal();renderProfile(c);renderSB();renderDash();saveClients();showToast('Cliente actualizado ✓','ok');
+}
   const c=clients.find(c=>c.id===cid);if(!c)return;
   c.numReels=parseInt(document.getElementById('c-reels').value)||5;
   c.numST=parseInt(document.getElementById('c-st').value)||3;
