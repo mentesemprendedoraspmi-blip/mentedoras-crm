@@ -6,6 +6,8 @@
 <title>Mentedoras CRM</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -570,6 +572,21 @@ select option{background:var(--bg3);}
 </style>
 
 <script>
+// Firebase initialized via CDN scripts in head
+const firebaseConfig={apiKey:"AIzaSyBjPyF0q4KMH2LZ7qfBb9wvjZm2usYyIQM",authDomain:"mentedoras-crm.firebaseapp.com",projectId:"mentedoras-crm",storageBucket:"mentedoras-crm.firebasestorage.app",messagingSenderId:"965240949854",appId:"1:965240949854:web:151aebe243214b55c5f8cf"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.firestore();
+
+async function fbSave(col,id,data){
+  try{await db.collection(col).doc(id).set(data);}catch(e){console.warn('FB save:',e);}
+}
+async function fbLoad(col,id){
+  try{const d=await db.collection(col).doc(id).get();return d.exists?d.data():null;}catch(e){return null;}
+}
+async function fbDelete(col,id){
+  try{await db.collection(col).doc(id).delete();}catch(e){console.warn('FB delete:',e);}
+}
+
 const TK='b0da7fd776bd891bf50dd102e7b17945',TT='ATTA14814e22f62b21b7b287528dbc6457a932db06b835ec3c328213fe08a08301bc36549482',BID='AyOrBLDP';
 const PHASES=['Pendiente de crear guion','Pendiente de OK de guion','Pendiente de grabación','Grabado, pendiente de editar','Editándose','Editado, pendiente de revisión','Revisado','Pendiente de subir','¡Subido! 🎉'];
 const PHC=['p0','p1','p2','p3','p4','p5','p6','p7','p8'];
@@ -672,19 +689,27 @@ function login(){
   const matchPass=matchUser&&USERS[matchUser].pass.toLowerCase()===p;
   if(matchUser&&matchPass){
     currentUser={...USERS[matchUser],key:matchUser};
-    document.getElementById('lp').style.display='none';
-    document.getElementById('app').classList.add('on');
-    document.getElementById('sb-av').textContent=currentUser.name.slice(0,2).toUpperCase();
-    document.getElementById('sb-un').textContent=currentUser.name+' · '+currentUser.role;
-    applyRoleUI();render();loadTrelloLists();
-    // Welcome popup
-    const hour=new Date().getHours();
-    const greeting=hour<13?'¡Buenos días':hour<20?'¡Buenas tardes':'¡Buenas noches';
-    document.getElementById('welcome-title').textContent=`${greeting}, ${currentUser.name}!`;
-    document.getElementById('welcome-sub').textContent=`Listo para gestionar tus clientes 💪`;
-    document.getElementById('welcome-emoji').textContent=hour<13?'☀️':hour<20?'👋':'🌙';
-    const wp=document.getElementById('welcome-popup');wp.style.display='flex';
+    sessionStorage.setItem('mentedoras-user',JSON.stringify(currentUser));
+    showApp();
   }else{document.getElementById('lerr').style.display='block';}
+}
+
+function showApp(){
+  document.getElementById('lp').style.display='none';
+  document.getElementById('app').classList.add('on');
+  document.getElementById('sb-av').textContent=currentUser.name.slice(0,2).toUpperCase();
+  document.getElementById('sb-un').textContent=currentUser.name+' · '+currentUser.role;
+  applyRoleUI();
+  // Load data from Firebase then render
+  loadFromFirebase();
+  loadTrelloLists();
+  // Welcome popup
+  const hour=new Date().getHours();
+  const greeting=hour<13?'¡Buenos días':hour<20?'¡Buenas tardes':'¡Buenas noches';
+  document.getElementById('welcome-title').textContent=`${greeting}, ${currentUser.name}!`;
+  document.getElementById('welcome-sub').textContent='Listo para gestionar tus clientes 💪';
+  document.getElementById('welcome-emoji').textContent=hour<13?'☀️':hour<20?'👋':'🌙';
+  const wp=document.getElementById('welcome-popup');wp.style.display='flex';
 }
 
 function closeWelcome(){document.getElementById('welcome-popup').style.display='none';}
@@ -696,7 +721,63 @@ function togglePassVis(id){
   const icon=document.getElementById('eye-icon');
   if(icon)icon.className=isPass?'ti ti-eye-off':'ti ti-eye';
 }
-function logout(){currentUser=null;document.getElementById('app').classList.remove('on');document.getElementById('lp').style.display='flex';document.getElementById('li-u').value='';document.getElementById('li-p').value='';}
+function logout(){
+  currentUser=null;
+  sessionStorage.removeItem('mentedoras-user');
+  document.getElementById('app').classList.remove('on');
+  document.getElementById('lp').style.display='flex';
+  document.getElementById('li-u').value='';
+  document.getElementById('li-p').value='';
+}
+
+async function loadFromFirebase(){
+  // Try to load clients from Firebase
+  const saved=await fbLoad('crm','clients');
+  if(saved&&saved.list&&saved.list.length>0){
+    // Merge Firebase data with defaults
+    clients=saved.list.map(fc=>{
+      const def=clients.find(c=>c.id===fc.id);
+      return def?{...def,...fc}:fc;
+    });
+    // Add any default clients not in Firebase
+    clients.forEach(dc=>{if(!saved.list.find(fc=>fc.id===dc.id))clients.push(dc);});
+  }
+  const savedBoard=await fbLoad('crm','board');
+  if(savedBoard&&savedBoard.cols)boardCols=savedBoard.cols;
+  const savedEvents=await fbLoad('crm','events');
+  if(savedEvents&&savedEvents.list)calEvents=savedEvents.list;
+  render();
+  // Listen for real-time updates
+  setupRealtimeSync();
+}
+
+function setupRealtimeSync(){
+  try{
+    db.collection('crm').doc('clients').onSnapshot(snap=>{
+      if(snap.exists){
+        const data=snap.data();
+        if(data.list&&data.list.length>0){
+          clients=data.list;
+          render();
+          if(activeClient){
+            const updated=clients.find(c=>c.id===activeClient.id);
+            if(updated){activeClient=updated;if(document.getElementById('view-profile').classList.contains('on'))renderProfile(updated);}
+          }
+        }
+      }
+    });
+  }catch(e){console.warn('Realtime sync error:',e);}
+}
+
+async function saveClients(){
+  await fbSave('crm','clients',{list:clients,updatedAt:new Date().toISOString()});
+}
+async function saveBoard(){
+  await fbSave('crm','board',{cols:boardCols,updatedAt:new Date().toISOString()});
+}
+async function saveEvents(){
+  await fbSave('crm','events',{list:calEvents,updatedAt:new Date().toISOString()});
+}
 
 function applyRoleUI(){
   const isCEO=currentUser.level==='ceo';
@@ -1054,6 +1135,7 @@ function renderProfile(c){
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-s" onclick="openChat('${c.id}')"><i class="ti ti-message-2"></i>Chat</button>
         <button class="btn btn-s btn-p" onclick="copyLinkStr('${link}')"><i class="ti ti-link"></i>Link cliente</button>
+        <button class="btn btn-s" style="color:var(--err);border-color:rgba(239,68,68,0.3);" onclick="deleteClient('${c.id}')"><i class="ti ti-trash"></i>Eliminar</button>
       </div>
     </div>
     <div class="prof-tabs">
@@ -1302,11 +1384,18 @@ function toggleService(svc){if(!activeClient)return;activeClient.services[svc]=!
 
 function toggleFase0(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.fase0[i].done=!c.fase0[i].done;renderProfile(c);}
 
-function setPhase(id,phase){const c=clients.find(c=>c.id===id);if(!c)return;c.phase=phase;renderProfile(c);renderDash();showToast('Fase → '+PHASES[phase],'ok');}
+function setPhase(id,phase){const c=clients.find(c=>c.id===id);if(!c)return;c.phase=phase;renderProfile(c);renderDash();saveClients();showToast('Fase → '+PHASES[phase],'ok');}
 
-function uploadContract(id){const c=clients.find(c=>c.id===id);if(!c)return;c.contract='Contrato_'+c.name.replace(/\s+/g,'_')+'.pdf';renderProfile(c);showToast('Contrato subido ✓','ok');}
+function deleteClient(id){
+  const c=clients.find(c=>c.id===id);
+  if(!c)return;
+  if(!confirm(`¿Seguro que quieres eliminar a ${c.name}? Esta acción no se puede deshacer.`))return;
+  clients=clients.filter(c=>c.id!==id);
+  if(activeClient?.id===id){activeClient=null;showView('dash');}
+  saveClients();render();showToast(`${c.name} eliminado ✓`,'ok');
+}
 
-function saveDriveLink(cid,key,val){
+function uploadContract(id){const c=clients.find(c=>c.id===id);if(!c)return;c.contract='Contrato_'+c.name.replace(/\s+/g,'_')+'.pdf';renderProfile(c);saveClients();showToast('Contrato subido ✓','ok');}
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(key==='main'){c.driveMain=val;}else{if(!c.drive)c.drive={};c.drive[key]=val;}
   showToast('Link guardado ✓','ok');
@@ -1318,7 +1407,12 @@ function addDriveDoc(cid){
   if(!c.driveDocs)c.driveDocs=[];
   c.driveDocs.push({name,url});renderProfile(c);showToast('Documento añadido ✓','ok');
 }
-function removeDriveDoc(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.driveDocs.splice(i,1);renderProfile(c);}
+function saveDriveLink(cid,key,val){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  if(key==='main'){c.driveMain=val;}else{if(!c.drive)c.drive={};c.drive[key]=val;}
+  saveClients();showToast('Link guardado ✓','ok');
+}
+function removeDriveDoc(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.driveDocs.splice(i,1);renderProfile(c);saveClients();}
 function addCred(cid){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   const platform=prompt('Plataforma (ej. TikTok, YouTube, Facebook...):');if(!platform)return;
@@ -1721,7 +1815,7 @@ function saveClient(){
   if(!name)return;
   const id=name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
   clients.push({id,name,type:type||'Sin clasificar',phase,delivery:'',msgs:[],contract:null,temp:false,expires:'',services:{guion:true,grabacion:true,edicion:true,cm:true},numReels,numST,price,editor:'',cm:'',reels:makeMonthData(numReels),fase0:FASE0_ITEMS.map(t=>({text:t,done:false}))});
-  closeModal();render();showToast('Cliente añadido ✓','ok');
+  closeModal();saveClients();render();showToast('Cliente añadido ✓','ok');
 }
 
 function saveTempClient(){
@@ -1804,12 +1898,18 @@ function createAutoTask(title){
   renderBoardBadge();
 }
 
-if(!checkRoute()){loadTheme();}
+// Check for existing session
+const savedSession=sessionStorage.getItem('mentedoras-user');
+if(savedSession&&!checkRoute()){
+  try{
+    currentUser=JSON.parse(savedSession);
+    loadTheme();
+    showApp();
+  }catch(e){loadTheme();}
+}else if(!checkRoute()){loadTheme();}
 // Fallback enter key on login
 document.addEventListener('keydown',function(e){
-  if(e.key==='Enter'&&document.getElementById('lp')&&document.getElementById('lp').style.display!=='none'){
-    login();
-  }
+  if(e.key==='Enter'&&document.getElementById('lp')&&document.getElementById('lp').style.display!=='none'){login();}
 });</script>
 </body>
 </html>
