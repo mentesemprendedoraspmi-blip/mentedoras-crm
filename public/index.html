@@ -1948,6 +1948,8 @@ function saveEditClient(id){
   c.type=document.getElementById('ec-type').value.trim()||c.type;
   closeModal();renderProfile(c);renderSB();renderDash();saveClients();showToast('Cliente actualizado ✓','ok');
 }
+
+function saveContract(cid){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   c.numReels=parseInt(document.getElementById('c-reels').value)||5;
   c.numST=parseInt(document.getElementById('c-st').value)||3;
