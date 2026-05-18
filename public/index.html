@@ -6,8 +6,6 @@
 <title>Mentedoras CRM</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -572,28 +570,21 @@ select option{background:var(--bg3);}
 </style>
 
 <script>
-// Firebase initialized via CDN scripts in head
-const firebaseConfig={apiKey:"AIzaSyBjPyF0q4KMH2LZ7qfBb9wvjZm2usYyIQM",authDomain:"mentedoras-crm.firebaseapp.com",projectId:"mentedoras-crm",storageBucket:"mentedoras-crm.firebasestorage.app",messagingSenderId:"965240949854",appId:"1:965240949854:web:151aebe243214b55c5f8cf"};
+// DATA PERSISTENCE via localStorage
 let db=null;
-try{
-  if(typeof firebase!=='undefined'){
-    if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);
-    db=firebase.firestore();
-  }
-}catch(e){console.warn('Firebase no disponible:',e);}
-
 async function fbSave(col,id,data){
-  if(!db)return;
-  try{await db.collection(col).doc(id).set(data);}catch(e){console.warn('FB save:',e);}
+  try{localStorage.setItem(`fb_${col}_${id}`,JSON.stringify(data));}catch(e){}
 }
 async function fbLoad(col,id){
-  if(!db)return null;
-  try{const d=await db.collection(col).doc(id).get();return d.exists?d.data():null;}catch(e){return null;}
+  try{const d=localStorage.getItem(`fb_${col}_${id}`);return d?JSON.parse(d):null;}catch(e){return null;}
 }
 async function fbDelete(col,id){
-  if(!db)return;
-  try{await db.collection(col).doc(id).delete();}catch(e){console.warn('FB delete:',e);}
+  try{localStorage.removeItem(`fb_${col}_${id}`);}catch(e){}
 }
+async function saveClients(){await fbSave('crm','clients',{list:clients});}
+async function saveBoard(){await fbSave('crm','board',{cols:boardCols});}
+async function saveEvents(){await fbSave('crm','events',{list:calEvents});}
+function setupRealtimeSync(){}
 
 const TK='b0da7fd776bd891bf50dd102e7b17945',TT='ATTA14814e22f62b21b7b287528dbc6457a932db06b835ec3c328213fe08a08301bc36549482',BID='AyOrBLDP';
 const PHASES=['Pendiente de crear guion','Pendiente de OK de guion','Pendiente de grabación','Grabado, pendiente de editar','Editándose','Editado, pendiente de revisión','Revisado','Pendiente de subir','¡Subido! 🎉'];
@@ -1404,10 +1395,6 @@ function deleteClient(id){
 }
 
 function uploadContract(id){const c=clients.find(c=>c.id===id);if(!c)return;c.contract='Contrato_'+c.name.replace(/\s+/g,'_')+'.pdf';renderProfile(c);saveClients();showToast('Contrato subido ✓','ok');}
-  const c=clients.find(c=>c.id===cid);if(!c)return;
-  if(key==='main'){c.driveMain=val;}else{if(!c.drive)c.drive={};c.drive[key]=val;}
-  showToast('Link guardado ✓','ok');
-}
 function addDriveDoc(cid){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   const name=prompt('Nombre del documento:');if(!name)return;
