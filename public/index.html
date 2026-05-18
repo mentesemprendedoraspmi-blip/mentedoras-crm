@@ -574,16 +574,24 @@ select option{background:var(--bg3);}
 <script>
 // Firebase initialized via CDN scripts in head
 const firebaseConfig={apiKey:"AIzaSyBjPyF0q4KMH2LZ7qfBb9wvjZm2usYyIQM",authDomain:"mentedoras-crm.firebaseapp.com",projectId:"mentedoras-crm",storageBucket:"mentedoras-crm.firebasestorage.app",messagingSenderId:"965240949854",appId:"1:965240949854:web:151aebe243214b55c5f8cf"};
-firebase.initializeApp(firebaseConfig);
-const db=firebase.firestore();
+let db=null;
+try{
+  if(typeof firebase!=='undefined'){
+    if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);
+    db=firebase.firestore();
+  }
+}catch(e){console.warn('Firebase no disponible:',e);}
 
 async function fbSave(col,id,data){
+  if(!db)return;
   try{await db.collection(col).doc(id).set(data);}catch(e){console.warn('FB save:',e);}
 }
 async function fbLoad(col,id){
+  if(!db)return null;
   try{const d=await db.collection(col).doc(id).get();return d.exists?d.data():null;}catch(e){return null;}
 }
 async function fbDelete(col,id){
+  if(!db)return;
   try{await db.collection(col).doc(id).delete();}catch(e){console.warn('FB delete:',e);}
 }
 
@@ -731,27 +739,27 @@ function logout(){
 }
 
 async function loadFromFirebase(){
-  // Try to load clients from Firebase
-  const saved=await fbLoad('crm','clients');
-  if(saved&&saved.list&&saved.list.length>0){
-    // Merge Firebase data with defaults
-    clients=saved.list.map(fc=>{
-      const def=clients.find(c=>c.id===fc.id);
-      return def?{...def,...fc}:fc;
-    });
-    // Add any default clients not in Firebase
-    clients.forEach(dc=>{if(!saved.list.find(fc=>fc.id===dc.id))clients.push(dc);});
-  }
-  const savedBoard=await fbLoad('crm','board');
-  if(savedBoard&&savedBoard.cols)boardCols=savedBoard.cols;
-  const savedEvents=await fbLoad('crm','events');
-  if(savedEvents&&savedEvents.list)calEvents=savedEvents.list;
+  if(!db){render();return;}
+  try{
+    const saved=await fbLoad('crm','clients');
+    if(saved&&saved.list&&saved.list.length>0){
+      // Merge Firebase clients with defaults for any missing fields
+      clients=saved.list.map(fc=>{
+        const def=clients.find(c=>c.id===fc.id);
+        return def?{...def,...fc}:{...fc,msgs:fc.msgs||[],reels:fc.reels||makeMonthData(fc.numReels||5),fase0:fc.fase0||FASE0_ITEMS.map(t=>({text:t,done:false}))};
+      });
+    }
+    const savedBoard=await fbLoad('crm','board');
+    if(savedBoard&&savedBoard.cols)boardCols=savedBoard.cols;
+    const savedEvents=await fbLoad('crm','events');
+    if(savedEvents&&savedEvents.list)calEvents=savedEvents.list;
+  }catch(e){console.warn('Firebase load error:',e);}
   render();
-  // Listen for real-time updates
   setupRealtimeSync();
 }
 
 function setupRealtimeSync(){
+  if(!db)return;
   try{
     db.collection('crm').doc('clients').onSnapshot(snap=>{
       if(snap.exists){
