@@ -422,11 +422,13 @@ select option{background:var(--bg3);}
       <div class="ni" onclick="showView('board');closeSidebar()"><i class="ti ti-layout-kanban"></i>Tablero<span class="nbadge" id="bbadge">0</span></div>
       <div class="ni" onclick="showView('cal');closeSidebar()"><i class="ti ti-calendar"></i>Calendario</div>
       <div class="ni ceo-only" onclick="showView('payments');closeSidebar()"><i class="ti ti-coin"></i>Pagos equipo</div>
+      <div class="ni ceo-pm-only" onclick="showView('users');closeSidebar()"><i class="ti ti-users-group"></i>Usuarios</div>
       <div class="ni ceo-pm-only" onclick="showView('finance');closeSidebar()"><i class="ti ti-chart-bar"></i>Facturación</div>
       <div class="nl" style="margin-top:6px;">Clientes</div>
     </div>
-    <div style="padding:0 8px 6px;">
-      <input type="text" placeholder="🔍 Buscar cliente..." id="client-search" style="font-size:12px;padding:6px 10px;" oninput="filterClients(this.value)">
+    <div style="padding:0 8px 6px;display:flex;gap:6px;">
+      <input type="text" placeholder="🔍 Buscar cliente..." id="client-search" style="font-size:12px;padding:6px 10px;flex:1;" oninput="filterClients(this.value)">
+      <button class="btn btn-s btn-p" onclick="openModal('client')" style="padding:6px 8px;flex-shrink:0;" title="Nuevo cliente"><i class="ti ti-plus"></i></button>
     </div>
     <div class="sb-cl" id="sb-cl"></div>
     <button class="sb-out" onclick="logout()"><i class="ti ti-logout" style="font-size:13px;"></i>Cerrar sesión</button>
@@ -456,8 +458,8 @@ select option{background:var(--bg3);}
         <div class="sg">
           <div class="scard"><div class="scard-ic"><i class="ti ti-users"></i></div><div class="scard-v" id="st-c">0</div><div class="scard-l">Clientes activos</div></div>
           <div class="scard"><div class="scard-ic"><i class="ti ti-alarm" style="color:var(--err);"></i></div><div class="scard-v" id="st-o" style="color:var(--err);">0</div><div class="scard-l">Entregas vencidas</div></div>
-          <div class="scard"><div class="scard-ic"><i class="ti ti-video"></i></div><div class="scard-v" id="st-e">0</div><div class="scard-l">En edición</div></div>
-          <div class="scard"><div class="scard-ic"><i class="ti ti-rocket"></i></div><div class="scard-v" id="st-d">0</div><div class="scard-l">Pendientes subir</div></div>
+          <div class="scard"><div class="scard-ic"><i class="ti ti-cut"></i></div><div class="scard-v" id="st-e">0</div><div class="scard-l">Reels en edición</div></div>
+          <div class="scard"><div class="scard-ic"><i class="ti ti-video"></i></div><div class="scard-v" id="st-d">0</div><div class="scard-l">Grabados, pendientes editar</div></div>
         </div>
         <div class="sh"><div class="st">Todos los clientes</div></div>
         <div class="cg" id="cg"></div>
@@ -467,6 +469,7 @@ select option{background:var(--bg3);}
       <div class="view" id="view-cal"><div id="cal-content"></div></div>
       <div class="view ceo-only" id="view-payments"><div id="pay-content"></div></div>
       <div class="view ceo-pm-only" id="view-finance"><div id="finance-content"></div></div>
+      <div class="view ceo-pm-only" id="view-users"><div id="users-content"></div></div>
       <div class="view" id="view-profile"><div id="prof-content"></div></div>
     </div>
   </div>
@@ -731,9 +734,48 @@ let activeProfileTab='info';
 let activePortalMonth='';
 
 // ROUTING
-function checkRoute(){
+async function checkRoute(){
   const h=window.location.hash;
-  if(h.startsWith('#/cliente/')){const cid=h.replace('#/cliente/','');const c=clients.find(c=>c.id===cid);if(c){showPortal(c);return true;}}
+  if(h.startsWith('#/cliente/')){
+    const cid=h.replace('#/cliente/','');
+    // Load latest data from Firebase first
+    if(!fbReady)await initFirebase();
+    if(db){
+      try{
+        const saved=await fbLoad('crm','clients');
+        if(saved&&saved.list&&saved.list.length>0){
+          clients=saved.list.map(fc=>{
+            const def=clients.find(c=>c.id===fc.id);
+            return{...(def||{}),...fc,msgs:fc.msgs||[],reels:fc.reels||makeMonthData(fc.numReels||5),fase0:fc.fase0||FASE0_ITEMS.map(t=>({text:t,done:false}))};
+          });
+        }
+      }catch(e){console.warn('Portal load:',e);}
+    }
+    const c=clients.find(c=>c.id===cid);
+    if(c){
+      showPortal(c);
+      // Listen for real-time updates on portal too
+      if(db){
+        try{
+          db.collection('crm').doc('clients').onSnapshot(snap=>{
+            if(snap&&snap.exists){
+              const data=snap.data();
+              if(data&&data.list){
+                clients=data.list;
+                const updated=clients.find(c=>c.id===cid);
+                if(updated&&activeClient?.id===cid){
+                  activeClient=updated;
+                  const mk=activePortalMonth||currentMonthKey();
+                  renderPortalMonth(updated,mk);
+                }
+              }
+            }
+          });
+        }catch(e){}
+      }
+      return true;
+    }
+  }
   return false;
 }
 window.addEventListener('hashchange',()=>{if(!checkRoute())document.getElementById('portal').classList.remove('open');});
@@ -746,10 +788,11 @@ function closeSidebar(){document.getElementById('main-sb').classList.remove('ope
 function login(){
   const u=document.getElementById('li-u').value.trim().toLowerCase();
   const p=document.getElementById('li-p').value.trim().toLowerCase();
-  const matchUser=Object.keys(USERS).find(k=>k===u);
-  const matchPass=matchUser&&USERS[matchUser].pass.toLowerCase()===p;
+  const matchUser=Object.keys(USERS).find(k=>k===u)||customUsers.find(cu=>cu.key===u)?.key;
+  const userObj=USERS[matchUser]||customUsers.find(cu=>cu.key===u);
+  const matchPass=matchUser&&userObj&&userObj.pass.toLowerCase()===p;
   if(matchUser&&matchPass){
-    currentUser={...USERS[matchUser],key:matchUser};
+    currentUser={...userObj,key:matchUser};
     sessionStorage.setItem('mentedoras-user',JSON.stringify(currentUser));
     showApp();
   }else{document.getElementById('lerr').style.display='block';}
@@ -876,23 +919,43 @@ function renderSB(){
 }
 
 function renderDash(){
+  const mk=currentMonthKey();
+  // Real stats from actual reel data
+  let totalEditando=0,totalPendienteSubir=0,totalSubidos=0;
+  clients.forEach(c=>{
+    const reels=c.reels[mk]||[];
+    totalEditando+=reels.filter(r=>r.editado&&!r.subido).length;
+    totalPendienteSubir+=reels.filter(r=>r.grabado&&!r.editado).length;
+    totalSubidos+=reels.filter(r=>r.subido).length;
+  });
   const overdue=clients.filter(c=>c.delivery&&new Date(c.delivery+'T12:00:00')<new Date()).length;
   document.getElementById('st-c').textContent=clients.length;
   document.getElementById('st-o').textContent=overdue;
-  document.getElementById('st-e').textContent=clients.filter(c=>c.phase===4).length;
-  document.getElementById('st-d').textContent=clients.filter(c=>c.phase===7).length;
+  document.getElementById('st-e').textContent=totalEditando;
+  document.getElementById('st-d').textContent=totalPendienteSubir;
   document.getElementById('cg').innerHTML=clients.map(c=>{
-    const ds=dstatus(c.delivery);
-    const last=c.msgs.length?c.msgs[c.msgs.length-1]:null;
-    const mk=currentMonthKey();
     const reels=c.reels[mk]||[];
-    const done=reels.filter(r=>r.subido).length;
+    const subidos=reels.filter(r=>r.subido).length;
+    const editando=reels.filter(r=>r.editado&&!r.subido).length;
+    const grabados=reels.filter(r=>r.grabado&&!r.editado).length;
+    const pendientes=reels.filter(r=>!r.grabado).length;
+    // Build status bar
+    let statusHtml='';
+    if(reels.length>0){
+      statusHtml=`<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+        ${subidos>0?`<span style="font-size:10px;background:rgba(34,197,94,0.12);color:#4ADE80;padding:2px 7px;border-radius:20px;font-weight:600;">✅ ${subidos}</span>`:''}
+        ${editando>0?`<span style="font-size:10px;background:rgba(192,132,252,0.12);color:#C084FC;padding:2px 7px;border-radius:20px;font-weight:600;">✂️ ${editando}</span>`:''}
+        ${grabados>0?`<span style="font-size:10px;background:rgba(245,158,11,0.12);color:var(--warn);padding:2px 7px;border-radius:20px;font-weight:600;">🎬 ${grabados}</span>`:''}
+        ${pendientes>0?`<span style="font-size:10px;background:var(--bg3);color:var(--tx3);padding:2px 7px;border-radius:20px;font-weight:600;">⏳ ${pendientes}</span>`:''}
+      </div>`;
+    }else{
+      statusHtml=`<span style="font-size:11px;color:var(--tx3);">Sin reels este mes</span>`;
+    }
     return`<div class="cc${c.temp?' temp-client':''}" onclick="openProfile('${c.id}')">
-      <div class="cc-top"><div class="cc-av">${ini(c.name)}</div><span class="ph ${PHC[c.phase]}">${PHASES[c.phase]}</span></div>
+      <div class="cc-top"><div class="cc-av">${ini(c.name)}</div></div>
       <div class="cc-n">${c.name}</div><div class="cc-t">${c.type}</div>
-      <div class="cc-ft">
-        <div class="cc-lm">${reels.length?`📹 ${done}/${reels.length} reels`:last?`${last.from==='client'?'👤':'✓'} ${last.text}`:'Sin mensajes'}</div>
-        ${c.delivery?`<span class="dd ${ds.cls}">${ds.lbl}</span>`:''}
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+        ${statusHtml}
       </div>
     </div>`;
   }).join('');
@@ -1069,6 +1132,7 @@ function renderBoardBadge(){document.getElementById('bbadge').textContent=boardC
 // CALENDAR
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth(),calView='month';
 function renderCal(){
+  if(calView==='week'){renderCalWeek();return;}
   const first=new Date(calYear,calMonth,1);
   const last=new Date(calYear,calMonth+1,0);
   const startDay=first.getDay()||7;
@@ -1078,7 +1142,7 @@ function renderCal(){
     <button class="btn btn-s" onclick="calGoToday()">Hoy</button>
     <button class="btn btn-s" onclick="calNav(1)"><i class="ti ti-chevron-right"></i></button>
     <div class="st" style="flex:1;">${MONTHS[calMonth]} ${calYear}</div>
-    <select class="psel" onchange="calChangeView(this.value)" style="font-size:12px;">
+    <select class="psel" onchange="calChangeView(this.value)">
       <option value="month"${calView==='month'?' selected':''}>Mes</option>
       <option value="week"${calView==='week'?' selected':''}>Semana</option>
     </select>
@@ -1099,16 +1163,58 @@ function renderCal(){
   html+='</div>';
   document.getElementById('cal-content').innerHTML=html;
 }
-function calNav(dir){
-  calMonth+=dir;
-  if(calMonth<0){calMonth=11;calYear--;}
-  if(calMonth>11){calMonth=0;calYear++;}
-  renderCal();
+
+function renderCalWeek(){
+  const now=new Date(calYear,calMonth,1);
+  // Find Monday of current week
+  const todayDate=new Date();
+  const dayOfWeek=todayDate.getDay()||7;
+  const monday=new Date(todayDate);
+  monday.setDate(todayDate.getDate()-dayOfWeek+1);
+  const days=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  const hours=Array.from({length:15},(_,i)=>i+7); // 7am to 9pm
+  let weekDates=Array.from({length:7},(_,i)=>{const d=new Date(monday);d.setDate(monday.getDate()+i);return d;});
+  let html=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+    <button class="btn btn-s" onclick="calNav(-1)"><i class="ti ti-chevron-left"></i></button>
+    <button class="btn btn-s" onclick="calGoToday()">Hoy</button>
+    <button class="btn btn-s" onclick="calNav(1)"><i class="ti ti-chevron-right"></i></button>
+    <div class="st" style="flex:1;">Semana del ${monday.getDate()} ${MONTHS[monday.getMonth()]}</div>
+    <select class="psel" onchange="calChangeView(this.value)">
+      <option value="month">Mes</option>
+      <option value="week" selected>Semana</option>
+    </select>
+    <button class="btn btn-s btn-p" onclick="openModal('event')"><i class="ti ti-plus"></i>Evento</button>
+  </div>
+  <div style="overflow-x:auto;">
+  <table style="width:100%;border-collapse:collapse;min-width:700px;">
+    <tr>
+      <th style="width:50px;padding:6px;font-size:11px;color:var(--tx3);"></th>
+      ${weekDates.map((d,i)=>{
+        const isToday=d.toISOString().split('T')[0]===today();
+        return`<th style="padding:8px 4px;text-align:center;border-left:1px solid var(--border);">
+          <div style="font-size:11px;color:var(--tx3);">${days[i]}</div>
+          <div style="font-size:18px;font-weight:600;color:${isToday?'var(--cyan)':'var(--tx)'};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:2px auto 0;background:${isToday?'var(--cyan-dim)':'transparent'};">${d.getDate()}</div>
+        </th>`;
+      }).join('')}
+    </tr>
+    ${hours.map(h=>`<tr>
+      <td style="padding:4px 6px;font-size:10px;color:var(--tx3);vertical-align:top;white-space:nowrap;">${h}:00</td>
+      ${weekDates.map(d=>{
+        const dateStr=d.toISOString().split('T')[0];
+        const dayEvents=calEvents.filter(e=>e.date===dateStr);
+        return`<td style="border-left:1px solid var(--border);border-top:1px solid var(--border);padding:2px;min-height:40px;vertical-align:top;cursor:pointer;" onclick="openModal('event','',null,'${dateStr}')">
+          ${dayEvents.map(e=>`<div class="cal-event ${e.type}" style="margin-bottom:2px;">${e.title}</div>`).join('')}
+        </td>`;
+      }).join('')}
+    </tr>`).join('')}
+  </table>
+  </div>`;
+  document.getElementById('cal-content').innerHTML=html;
 }
+
+function calNav(dir){calMonth+=dir;if(calMonth<0){calMonth=11;calYear--;}if(calMonth>11){calMonth=0;calYear++;}renderCal();}
 function calGoToday(){calYear=new Date().getFullYear();calMonth=new Date().getMonth();renderCal();}
 function calChangeView(v){calView=v;renderCal();}
-
-// PAYMENTS (CEO only)
 let paymentsList=[];
 function renderPayments(){
   const editors=['Dani','Darwin','Dante','Oscar'];
@@ -1142,10 +1248,24 @@ function renderPayments(){
 }
 
 function addEditorPayment(editor,month){
-  const importe=prompt(`Importe para ${editor} (€):`);if(importe===null)return;
-  const concepto=prompt('Concepto:','Edición de reels');if(concepto===null)return;
-  paymentsList.push({editor,month,importe:parseFloat(importe)||0,concepto,paid:false});
-  renderPayments();showToast('Pago añadido ✓','ok');
+  openModal('add-payment',editor,month);
+}
+function calcPayment(){
+  const porReel=parseFloat(document.getElementById('p-por-reel')?.value)||0;
+  const nReels=parseFloat(document.getElementById('p-reels')?.value)||0;
+  const calc=document.getElementById('p-calc');
+  if(porReel&&nReels&&calc){
+    const total=porReel*nReels;
+    document.getElementById('p-importe').value=total;
+    calc.textContent=`${porReel}€ × ${nReels} reels = ${total}€`;
+  }
+}
+function savePaymentModal(editor,month){
+  const importe=parseFloat(document.getElementById('p-importe')?.value)||0;
+  const concepto=document.getElementById('p-concepto')?.value||'Edición de reels';
+  if(!importe)return showToast('Añade un importe','err');
+  paymentsList.push({editor,month,importe,concepto,paid:false});
+  closeModal();renderPayments();showToast('Pago añadido ✓','ok');
 }
 function togglePayment(editor,month,i){
   const list=paymentsList.filter(p=>p.editor===editor&&p.month===month);
@@ -1154,10 +1274,19 @@ function togglePayment(editor,month,i){
 function editPayment(editor,month,i){
   const list=paymentsList.filter(p=>p.editor===editor&&p.month===month);
   const p=list[i];if(!p)return;
-  const importe=prompt('Nuevo importe (€):',p.importe);if(importe===null)return;
-  const concepto=prompt('Concepto:',p.concepto);if(concepto===null)return;
-  p.importe=parseFloat(importe)||0;p.concepto=concepto;
-  renderPayments();showToast('Pago actualizado ✓','ok');
+  const c=document.getElementById('modal-c');
+  c.innerHTML=`<div class="modal-t">Editar pago — ${editor}</div>
+    <div class="f"><label>Concepto</label><input id="ep-concepto" type="text" value="${p.concepto||''}"></div>
+    <div class="f"><label>Importe (€)</label><input id="ep-importe" type="number" value="${p.importe||0}"></div>
+    <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveEditPayment('${editor}','${month}',${i})">Guardar</button></div>`;
+  document.getElementById('mo').classList.add('open');
+}
+function saveEditPayment(editor,month,i){
+  const list=paymentsList.filter(p=>p.editor===editor&&p.month===month);
+  const p=list[i];if(!p)return;
+  p.concepto=document.getElementById('ep-concepto').value;
+  p.importe=parseFloat(document.getElementById('ep-importe').value)||0;
+  closeModal();renderPayments();showToast('Pago actualizado ✓','ok');
 }
 function deletePayment(editor,month,i){
   if(!confirm('¿Eliminar este pago?'))return;
@@ -1167,41 +1296,95 @@ function deletePayment(editor,month,i){
   renderPayments();showToast('Pago eliminado','ok');
 }
 
-// FINANCE (CEO + PM)
+// USERS MANAGEMENT
+let customUsers=[];
+function renderUsers(){
+  const allUsers=[...Object.entries(USERS).map(([k,v])=>({key:k,...v,builtin:true})),...customUsers];
+  document.getElementById('users-content').innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div class="st">Gestión de usuarios</div>
+      <button class="btn btn-s btn-p" onclick="openModal('new-user')"><i class="ti ti-plus"></i>Nuevo usuario</button>
+    </div>
+    <div class="pcard-box">
+      <table class="pay-table" style="width:100%;">
+        <tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Acceso</th><th></th></tr>
+        ${allUsers.map(u=>`<tr>
+          <td style="font-family:'DM Mono',monospace;font-size:12px;">${u.key}</td>
+          <td style="font-weight:600;color:var(--tx);">${u.name}</td>
+          <td><span style="font-size:11px;padding:2px 8px;border-radius:20px;background:${u.level==='ceo'?'rgba(0,229,229,0.12)':u.level==='pm'?'rgba(192,132,252,0.12)':'rgba(74,222,128,0.12)'};color:${u.level==='ceo'?'var(--cyan)':u.level==='pm'?'#C084FC':'#4ADE80'};">${u.role}</span></td>
+          <td><span class="pay-badge ${u.active===false?'pending':'paid'}">${u.active===false?'Desactivado':'Activo'}</span></td>
+          <td><div style="display:flex;gap:4px;">
+            ${!u.builtin?`<button class="btn btn-s" onclick="editUser('${u.key}')"><i class="ti ti-pencil"></i></button>
+            <button class="btn btn-s" style="color:var(--err);" onclick="deleteUser('${u.key}')"><i class="ti ti-trash"></i></button>`:'<span style="font-size:11px;color:var(--tx3);">Sistema</span>'}
+          </div></td>
+        </tr>`).join('')}
+      </table>
+    </div>`;
+}
+
+function editUser(key){
+  const u=customUsers.find(u=>u.key===key);if(!u)return;
+  openModal('edit-user',key);
+}
+function deleteUser(key){
+  if(!confirm('¿Eliminar este usuario?'))return;
+  customUsers=customUsers.filter(u=>u.key!==key);
+  renderUsers();showToast('Usuario eliminado','ok');
+}
+let cobrosList=[];
 function renderFinance(){
   const mk=currentMonthKey();
   const activeC=clients.filter(c=>!c.temp&&c.price>0);
-  const totalMes=activeC.reduce((s,c)=>s+c.price,0);
-  const totalAnio=totalMes*12;
+  const totalEsperado=activeC.reduce((s,c)=>s+c.price,0);
+  const totalCobrado=cobrosList.filter(co=>co.month===mk&&co.pagado).reduce((s,co)=>s+co.importe,0);
+  const pendienteCobrar=totalEsperado-totalCobrado;
   const proxVencer=clients.filter(c=>c.contractEnd&&new Date(c.contractEnd+'T12:00:00')<=new Date(Date.now()+30*864e5)&&new Date(c.contractEnd+'T12:00:00')>=new Date()).sort((a,b)=>a.contractEnd.localeCompare(b.contractEnd));
   document.getElementById('finance-content').innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <div class="st">Facturación — ${monthLabel(mk)}</div>
     </div>
     <div class="fin-grid">
-      <div class="fin-card"><div class="fin-card-v">${totalMes.toLocaleString('es')}€</div><div class="fin-card-l">Facturación mensual</div></div>
-      <div class="fin-card"><div class="fin-card-v">${totalAnio.toLocaleString('es')}€</div><div class="fin-card-l">Proyección anual</div></div>
-      <div class="fin-card"><div class="fin-card-v">${activeC.length}</div><div class="fin-card-l">Clientes con precio</div></div>
+      <div class="fin-card"><div class="fin-card-v">${totalEsperado.toLocaleString('es')}€</div><div class="fin-card-l">Facturación esperada</div></div>
+      <div class="fin-card"><div class="fin-card-v" style="color:#4ADE80;">${totalCobrado.toLocaleString('es')}€</div><div class="fin-card-l">Cobrado este mes</div></div>
+      <div class="fin-card"><div class="fin-card-v" style="color:var(--warn);">${pendienteCobrar.toLocaleString('es')}€</div><div class="fin-card-l">Pendiente cobrar</div></div>
     </div>
     ${proxVencer.length?`<div class="pcard-box" style="margin-bottom:14px;border-left:3px solid var(--warn);">
       <div class="pcard-title"><i class="ti ti-alert-triangle" style="color:var(--warn);"></i>Contratos próximos a vencer</div>
       ${proxVencer.map(c=>`<div class="pf"><span class="pf-l">${c.name}</span><span class="dd warn">Vence ${fmtDate(c.contractEnd)}</span></div>`).join('')}
     </div>`:''}
+    <div class="pcard-box" style="margin-bottom:14px;">
+      <div class="pcard-title" style="display:flex;align-items:center;"><i class="ti ti-cash"></i>Cobros recibidos
+        <button class="btn btn-s btn-p" style="margin-left:auto;font-size:11px;" onclick="openModal('cobro')"><i class="ti ti-plus"></i>Añadir cobro</button>
+      </div>
+      <table class="pay-table" style="width:100%;">
+        <tr><th>Cliente</th><th>Concepto</th><th>Importe</th><th>Estado</th><th></th></tr>
+        ${cobrosList.filter(co=>co.month===mk).length?
+          cobrosList.filter(co=>co.month===mk).map((co,i)=>`<tr>
+            <td style="font-weight:600;">${co.cliente}</td>
+            <td>${co.concepto||'Mensualidad'}</td>
+            <td style="color:#4ADE80;font-weight:600;">${co.importe}€</td>
+            <td><span class="pay-badge ${co.pagado?'paid':'pending'}" style="cursor:pointer;" onclick="toggleCobro(${i})">${co.pagado?'✓ Cobrado':'Pendiente'}</span></td>
+            <td><button class="btn btn-s" style="color:var(--err);padding:3px 7px;" onclick="deleteCobro(${i})"><i class="ti ti-trash" style="font-size:11px;"></i></button></td>
+          </tr>`).join('')
+          :`<tr><td colspan="5" style="text-align:center;color:var(--tx3);font-size:12px;padding:16px;">Sin cobros este mes</td></tr>`}
+      </table>
+    </div>
     <div class="pcard-box">
       <div class="pcard-title"><i class="ti ti-list"></i>Detalle por cliente</div>
       <table class="pay-table" style="width:100%;">
-        <tr><th>Cliente</th><th>Tipo</th><th>Inicio</th><th>Fin</th><th>Precio/mes</th><th>Estado</th></tr>
+        <tr><th>Cliente</th><th>Precio/mes</th><th>Inicio</th><th>Fin</th><th>Estado</th></tr>
         ${clients.map(c=>`<tr>
           <td style="font-weight:600;color:var(--tx);">${c.name}</td>
-          <td>${c.contractType||'—'}</td>
+          <td style="color:var(--cyan);font-weight:600;">${c.price?c.price+'€':'—'}</td>
           <td>${c.contractStart?fmtDate(c.contractStart):'—'}</td>
           <td>${c.contractEnd?fmtDate(c.contractEnd):'—'}</td>
-          <td style="color:var(--cyan);font-weight:600;">${c.price?c.price+'€':'—'}</td>
           <td>${c.temp?'<span class="pay-badge pending">Temporal</span>':c.contractEnd&&new Date(c.contractEnd+'T12:00:00')<new Date()?'<span class="pay-badge" style="background:rgba(239,68,68,0.1);color:var(--err);">Vencido</span>':'<span class="pay-badge paid">Activo</span>'}</td>
         </tr>`).join('')}
       </table>
     </div>`;
 }
+function toggleCobro(i){if(cobrosList[i]){cobrosList[i].pagado=!cobrosList[i].pagado;renderFinance();}}
+function deleteCobro(i){if(!confirm('¿Eliminar?'))return;cobrosList.splice(i,1);renderFinance();}
 function openProfile(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
   activeClient=c;activeProfileTab='info';
@@ -1231,6 +1414,7 @@ function renderProfile(c){
     <div class="prof-tabs">
       <div class="ptab${activeProfileTab==='info'?' on':''}" onclick="switchTab('info')">Información</div>
       <div class="ptab${activeProfileTab==='reels'?' on':''}" onclick="switchTab('reels')">Reels del mes</div>
+      <div class="ptab${activeProfileTab==='produccion'?' on':''}" onclick="switchTab('produccion')">Producción</div>
       <div class="ptab${activeProfileTab==='fase0'?' on':''}" onclick="switchTab('fase0')">Fase 0 (${fase0done}/${c.fase0.length})</div>
       <div class="ptab${activeProfileTab==='drive'?' on':''}" onclick="switchTab('drive')"><i class="ti ti-brand-google-drive" style="font-size:13px;"></i> Drive</div>
       ${currentUser?.level==='ceo'||currentUser?.level==='pm'?`<div class="ptab${activeProfileTab==='creds'?' on':''}" onclick="switchTab('creds')">🔐 Credenciales</div>`:''}
@@ -1287,8 +1471,11 @@ function renderProfile(c){
       ${renderReelTable(c,mk)}
     </div>
 
-    <div class="ptab-content${activeProfileTab==='fase0'?' on':''}" id="ptab-fase0">
-      <div class="pcard-box">
+    <div class="ptab-content${activeProfileTab==='produccion'?' on':''}" id="ptab-produccion">
+      ${renderProduccionTab(c,mk)}
+    </div>
+
+    <div class="ptab-content${activeProfileTab==='fase0'?' on':''}" id="ptab-fase0">      <div class="pcard-box">
         <div class="pcard-title" style="display:flex;align-items:center;"><i class="ti ti-checklist"></i>Checklist de Onboarding
           <div style="margin-left:auto;display:flex;gap:6px;">
             <button class="btn btn-s" onclick="markAllFase0('${c.id}',true)" style="font-size:11px;padding:4px 8px;"><i class="ti ti-check"></i>Marcar todo</button>
@@ -1473,6 +1660,62 @@ function addReelMonth(cid){
   if(c.reels[next]){showToast('Ese mes ya existe','err');return;}
   c.reels[next]=makeReels(c.numReels,next);
   switchReelMonth(cid,next);showToast('Mes añadido: '+monthLabel(next),'ok');
+}
+
+function renderProduccionTab(c,mk){
+  const PROD_STEPS=[
+    {id:'guion',label:'Guionización de reels'},
+    {id:'guionEnsenado',label:'Guiones enseñados al cliente'},
+    {id:'guionOk',label:'OK del cliente a los guiones'},
+    {id:'grabAgendada',label:'Grabación agendada'},
+    {id:'grabRealizada',label:'Grabación realizada'},
+    {id:'edicion',label:'Edición completada'},
+    {id:'okModif',label:'OK a modificaciones'},
+    {id:'subida',label:'Subida a redes'},
+  ];
+  if(!c.produccion)c.produccion={};
+  if(!c.produccion[mk])c.produccion[mk]={};
+  const months=Object.keys(c.reels||{}).sort();
+  const prod=c.produccion[mk]||{};
+  const done=PROD_STEPS.filter(s=>prod[s.id]).length;
+  return`<div class="reel-month-header">
+    <div class="st">Producción mensual</div>
+    <div class="month-sel">
+      ${months.map(m=>`<button class="month-btn${m===mk?' on':''}" onclick="switchProduccionMonth('${c.id}','${m}')">${monthLabel(m)}</button>`).join('')}
+    </div>
+  </div>
+  <div class="pcard-box">
+    <div style="margin-bottom:10px;background:var(--bg3);border-radius:var(--r);padding:6px 10px;display:flex;align-items:center;gap:10px;">
+      <div style="flex:1;">
+        <div style="font-size:11px;color:var(--tx3);">Progreso ${monthLabel(mk)}</div>
+        <div style="height:4px;background:var(--border);border-radius:4px;margin-top:4px;overflow:hidden;">
+          <div style="height:100%;background:var(--cyan);width:${Math.round(done/PROD_STEPS.length*100)}%;transition:width .3s;border-radius:4px;"></div>
+        </div>
+      </div>
+      <span style="font-size:12px;font-weight:600;color:var(--cyan);">${done}/${PROD_STEPS.length}</span>
+    </div>
+    ${PROD_STEPS.map(step=>`
+      <div class="cl0-item" onclick="toggleProduccion('${c.id}','${mk}','${step.id}')">
+        <div class="cl0-chk${prod[step.id]?' on':''}">${prod[step.id]?'<i class="ti ti-check" style="font-size:10px;color:var(--bg);"></i>':''}</div>
+        <span class="cl0-txt${prod[step.id]?' on':''}">${step.label}</span>
+        ${prod[step.id]&&prod[step.id+'_date']?`<span style="font-size:10px;color:var(--tx3);margin-left:auto;">${fmtDate(prod[step.id+'_date'])}</span>`:''}
+      </div>`).join('')}
+  </div>`;
+}
+
+function toggleProduccion(cid,mk,stepId){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  if(!c.produccion)c.produccion={};
+  if(!c.produccion[mk])c.produccion[mk]={};
+  c.produccion[mk][stepId]=!c.produccion[mk][stepId];
+  if(c.produccion[mk][stepId])c.produccion[mk][stepId+'_date']=today();
+  document.getElementById('ptab-produccion').innerHTML=renderProduccionTab(c,mk);
+  saveClients();
+}
+
+function switchProduccionMonth(cid,mk){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  document.getElementById('ptab-produccion').innerHTML=renderProduccionTab(c,mk);
 }
 
 function switchTab(tab){activeProfileTab=tab;if(activeClient)renderProfile(activeClient);}
@@ -1811,8 +2054,8 @@ function showView(name){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('view-'+name)?.classList.add('on');
-  const icons={dash:'ti-layout-dashboard',pipeline:'ti-columns',board:'ti-layout-kanban',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',profile:'ti-user'};
-  const titles={dash:'Resumen general',pipeline:'Pipeline de contenido',board:'Tablero del equipo',cal:'Calendario',payments:'Pagos del equipo',finance:'Facturación',profile:activeClient?.name||'Cliente'};
+  const icons={dash:'ti-layout-dashboard',pipeline:'ti-columns',board:'ti-layout-kanban',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',profile:'ti-user'};
+  const titles={dash:'Resumen general',pipeline:'Pipeline de contenido',board:'Tablero del equipo',cal:'Calendario',payments:'Pagos del equipo',finance:'Facturación',users:'Gestión de usuarios',profile:activeClient?.name||'Cliente'};
   document.getElementById('tb-ic').className='ti '+(icons[name]||'ti-layout-dashboard');
   document.getElementById('tb-t').textContent=titles[name]||'';
   const viewNames=['dash','pipeline','board','cal','payments'];
@@ -1823,6 +2066,7 @@ function showView(name){
   if(name==='cal')renderCal();
   if(name==='payments')renderPayments();
   if(name==='finance')renderFinance();
+  if(name==='users')renderUsers();
   if(name!=='profile')activeClient=null;
 }
 
@@ -1869,7 +2113,47 @@ function openModal(type,extra='',taskObj=null,dateStr=''){
       </div>
       <div class="f"><label>Cliente</label><select id="ev-cl"><option value="">— General —</option>${clients.map(cl=>`<option>${cl.name}</option>`).join('')}</select></div>
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveEvent()">Guardar</button></div>`;
-  }else if(type==='edit-client'){
+  }else if(type==='cobro'){
+    c.innerHTML=`<div class="modal-t">Añadir cobro</div>
+      <div class="f"><label>Cliente</label><select id="co-cliente"><option value="">— Selecciona —</option>${clients.map(cl=>`<option>${cl.name}</option>`).join('')}</select></div>
+      <div class="f"><label>Concepto</label><select id="co-concepto">
+        <option>Mensualidad</option><option>Pago trimestral</option><option>Pago inicial</option><option>Otros</option>
+      </select></div>
+      <div class="f"><label>Importe (€)</label><input id="co-importe" type="number" placeholder="0" min="0"></div>
+      <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveCobro()">Añadir</button></div>`;
+    const editor=extra;const month=taskObj||currentMonthKey();
+    c.innerHTML=`<div class="modal-t">Añadir pago — ${editor}</div>
+      <div class="f"><label>Concepto</label><select id="p-concepto">
+        <option>Edición de reels</option>
+        <option>Storytellings</option>
+        <option>Extra grabación</option>
+        <option>Community Manager</option>
+        <option>Otros</option>
+      </select></div>
+      <div class="form-row">
+        <div class="f"><label>Importe (€)</label><input id="p-importe" type="number" placeholder="0" min="0"></div>
+        <div class="f"><label>Precio por reel (€)</label><input id="p-por-reel" type="number" placeholder="ej. 25" min="0" oninput="calcPayment()"></div>
+      </div>
+      <div class="f"><label>Nº de reels (opcional)</label><input id="p-reels" type="number" placeholder="0" min="0" oninput="calcPayment()"></div>
+      <div id="p-calc" style="font-size:12px;color:var(--cyan);padding:4px 0;"></div>
+      <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="savePaymentModal('${editor}','${month}')">Añadir</button></div>`;
+    const isEdit=type==='edit-user';
+    const eu=isEdit?customUsers.find(u=>u.key===extra):null;
+    c.innerHTML=`<div class="modal-t">${isEdit?'Editar usuario':'Nuevo usuario'}</div>
+      <div class="form-row">
+        <div class="f"><label>Nombre de usuario</label><input id="u-key" type="text" placeholder="ej. carlos" value="${eu?.key||''}" ${isEdit?'readonly':''}></div>
+        <div class="f"><label>Nombre completo</label><input id="u-name" type="text" placeholder="ej. Carlos López" value="${eu?.name||''}"></div>
+      </div>
+      <div class="form-row">
+        <div class="f"><label>Contraseña</label><input id="u-pass" type="text" placeholder="contraseña" value="${eu?.pass||''}"></div>
+        <div class="f"><label>Rol</label><select id="u-role">
+          <option value="Editor"${eu?.role==='Editor'?' selected':''}>Editor</option>
+          <option value="CM"${eu?.role==='CM'?' selected':''}>CM</option>
+          <option value="PM"${eu?.role==='PM'?' selected':''}>PM</option>
+          <option value="CEO"${eu?.role==='CEO'?' selected':''}>CEO</option>
+        </select></div>
+      </div>
+      <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveUser('${isEdit?extra:''}')">${isEdit?'Guardar':'Crear usuario'}</button></div>`;
     const cl=clients.find(c=>c.id===extra);if(!cl)return;
     c.innerHTML=`<div class="modal-t">Editar cliente — ${cl.name}</div>
       <div class="f"><label>Nombre</label><input id="ec-name" type="text" value="${cl.name}"></div>
@@ -1971,6 +2255,30 @@ function saveEvent(){
   closeModal();renderCal();showToast('Evento añadido ✓','ok');
 }
 
+function saveCobro(){
+  const cliente=document.getElementById('co-cliente').value;
+  const concepto=document.getElementById('co-concepto').value;
+  const importe=parseFloat(document.getElementById('co-importe').value)||0;
+  if(!cliente||!importe)return showToast('Rellena cliente e importe','err');
+  cobrosList.push({cliente,concepto,importe,month:currentMonthKey(),pagado:false});
+  closeModal();renderFinance();showToast('Cobro añadido ✓','ok');
+}
+function saveUser(editKey){
+  const key=document.getElementById('u-key').value.trim().toLowerCase().replace(/\s+/g,'');
+  const name=document.getElementById('u-name').value.trim();
+  const pass=document.getElementById('u-pass').value.trim();
+  const role=document.getElementById('u-role').value;
+  if(!key||!name||!pass)return showToast('Rellena todos los campos','err');
+  const level=role==='CEO'?'ceo':role==='PM'?'pm':'team';
+  if(editKey){
+    const u=customUsers.find(u=>u.key===editKey);
+    if(u){u.name=name;u.pass=pass;u.role=role;u.level=level;}
+  }else{
+    if(USERS[key]||customUsers.find(u=>u.key===key))return showToast('Ese usuario ya existe','err');
+    customUsers.push({key,name,pass,role,level,active:true,builtin:false});
+  }
+  closeModal();renderUsers();showToast(editKey?'Usuario actualizado ✓':'Usuario creado ✓','ok');
+}
 function saveEditClient(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
   c.name=document.getElementById('ec-name').value.trim()||c.name;
@@ -2011,14 +2319,18 @@ function createAutoTask(title){
 }
 
 // Check for existing session
-const savedSession=sessionStorage.getItem('mentedoras-user');
-if(savedSession&&!checkRoute()){
-  try{
-    currentUser=JSON.parse(savedSession);
+// Init
+(async()=>{
+  const isPortal=await checkRoute();
+  if(!isPortal){
     loadTheme();
-    showApp();
-  }catch(e){loadTheme();}
-}else if(!checkRoute()){loadTheme();}
+    const savedSession=sessionStorage.getItem('mentedoras-user');
+    if(savedSession){
+      try{currentUser=JSON.parse(savedSession);showApp();}
+      catch(e){}
+    }
+  }
+})();
 // Fallback enter key on login
 document.addEventListener('keydown',function(e){
   if(e.key==='Enter'&&document.getElementById('lp')&&document.getElementById('lp').style.display!=='none'){login();}
