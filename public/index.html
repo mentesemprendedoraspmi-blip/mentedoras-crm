@@ -618,16 +618,34 @@ async function setupRealtimeSync(){
   if(!fbReady)await initFirebase();
   if(!db)return;
   try{
+    // Real-time listener
     db.collection('crm').doc('clients').onSnapshot(snap=>{
       if(snap&&snap.exists){
         const data=snap.data();
         if(data&&data.list&&data.list.length>0){
-          clients=data.list;render();
-          if(activeClient){const u=clients.find(c=>c.id===activeClient.id);if(u){activeClient=u;if(document.getElementById('view-profile').classList.contains('on'))renderProfile(u);}}
+          clients=data.list;
+          render();
+          if(activeClient){
+            const u=clients.find(c=>c.id===activeClient.id);
+            if(u){
+              activeClient=u;
+              if(document.getElementById('view-profile').classList.contains('on'))renderProfile(u);
+            }
+          }
         }
       }
     });
-  }catch(e){console.warn('Realtime sync:',e);}
+    console.log('✅ Firebase sync activo');
+  }catch(e){
+    console.warn('Realtime sync error:',e);
+    // Fallback: poll every 30 seconds
+    setInterval(async()=>{
+      const saved=await fbLoad('crm','clients');
+      if(saved&&saved.list&&saved.list.length>0){
+        clients=saved.list;render();
+      }
+    },30000);
+  }
 }
 
 const TK='b0da7fd776bd891bf50dd102e7b17945',TT='ATTA14814e22f62b21b7b287528dbc6457a932db06b835ec3c328213fe08a08301bc36549482',BID='AyOrBLDP';
@@ -774,14 +792,25 @@ function logout(){
 }
 
 async function loadFromFirebase(){
+  // Init Firebase first
+  if(!fbReady)await initFirebase();
   if(!db){render();return;}
   try{
     const saved=await fbLoad('crm','clients');
     if(saved&&saved.list&&saved.list.length>0){
-      // Merge Firebase clients with defaults for any missing fields
+      // Use Firebase data as source of truth, fill missing fields from defaults
       clients=saved.list.map(fc=>{
         const def=clients.find(c=>c.id===fc.id);
-        return def?{...def,...fc}:{...fc,msgs:fc.msgs||[],reels:fc.reels||makeMonthData(fc.numReels||5),fase0:fc.fase0||FASE0_ITEMS.map(t=>({text:t,done:false}))};
+        return{
+          ...(def||{}),
+          ...fc,
+          msgs:fc.msgs||[],
+          reels:fc.reels||makeMonthData(fc.numReels||5),
+          fase0:fc.fase0||FASE0_ITEMS.map(t=>({text:t,done:false})),
+          drive:fc.drive||{},
+          driveDocs:fc.driveDocs||[],
+          credentials:fc.credentials||[{platform:'Instagram',user:'',pass:'',notes:''}],
+        };
       });
     }
     const savedBoard=await fbLoad('crm','board');
