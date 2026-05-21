@@ -3,7 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mentedoras CRM</title>
+<title>Mentedoras</title>
+<meta name="theme-color" content="#00E5E5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mentedoras">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <style>
@@ -280,7 +286,17 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
 .portal-inp-row{padding:12px 16px;border-top:1px solid var(--bd);display:flex;gap:8px}
 .portal-inp{flex:1;padding:9px 13px;border:1px solid var(--bd2);border-radius:20px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--tx);background:var(--bg3)}
 .portal-inp:focus{outline:none;border-color:var(--c)}
-.portal-send{padding:9px 16px;background:var(--c);color:var(--bg);border:none;border-radius:20px;font-size:13px;font-weight:600}
+.portal-send{padding:9px 16px;background:var(--c);color:var(--bg);border:none;border-radius:20px;font-size:13px;font-weight:600;display:flex;align-items:center}
+.sugg-btn{padding:6px 12px;border-radius:20px;border:1px solid var(--bd2);background:var(--bg3);color:var(--tx2);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s;white-space:nowrap}
+.sugg-btn:hover{border-color:var(--c);color:var(--c);background:var(--cdim)}
+.portal-stat{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rl);padding:14px;text-align:center}
+.portal-stat-v{font-size:24px;font-weight:600;color:var(--c)}
+.portal-stat-l{font-size:11px;color:var(--tx3);margin-top:3px}
+.portal-dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.portal-next{background:var(--cdim);border:1px solid rgba(0,229,229,.2);border-radius:var(--rl);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px}
+.portal-next-ic{font-size:24px}
+.portal-next-t{font-size:11px;color:var(--c);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.portal-next-v{font-size:16px;font-weight:600;margin-top:2px}
 
 /* MESSAGES */
 .msg{max-width:72%}
@@ -410,41 +426,47 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
 <!-- PORTAL -->
 <div class="portal" id="portal">
   <div class="portal-hdr">
-    <div><div style="font-size:18px;font-weight:600;color:var(--c);font-style:italic">Mentedoras</div><div style="font-size:12px;color:var(--tx3)" id="portal-cname"></div></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--cdim);border:1px solid rgba(0,229,229,.3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--c);font-style:italic">M</div>
+      <div><div style="font-size:16px;font-weight:600;color:var(--c);font-style:italic">Mentedoras</div><div style="font-size:11px;color:var(--tx3)" id="portal-cname"></div></div>
+    </div>
   </div>
   <div class="portal-body">
     <div class="portal-inner">
-      <div class="portal-box" id="portal-month-box">
-        <div class="portal-box-t">¿De qué mes quieres ver el estado?</div>
+      <!-- DASHBOARD -->
+      <div id="portal-dashboard"></div>
+      <!-- MONTH PICKER -->
+      <div class="portal-box" id="portal-month-box" style="display:none">
+        <div class="portal-box-t">📅 Selecciona el mes</div>
         <div style="display:flex;flex-wrap:wrap;gap:10px" id="portal-month-picker"></div>
       </div>
+      <!-- MONTH DETAIL -->
       <div id="portal-reels-section" style="display:none">
         <div class="portal-box">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
             <div class="portal-box-t" style="margin-bottom:0" id="portal-month-title"></div>
-            <button onclick="resetPortalMonth()" style="font-size:12px;color:var(--c);background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif">← Cambiar mes</button>
+            <button onclick="resetPortalMonth()" style="font-size:12px;color:var(--c);background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif">← Volver</button>
           </div>
           <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap" id="portal-status-strip"></div>
           <div id="portal-reels-list"></div>
         </div>
-        <div class="portal-box" id="portal-contract-info" style="display:none">
-          <div class="portal-box-t">Tu contrato</div>
-          <div id="portal-contract-content"></div>
-        </div>
-        <div class="portal-box" id="portal-invoice-box" style="display:none">
-          <div class="portal-box-t">💰 Tu factura</div>
-          <div id="portal-invoice-content"></div>
-        </div>
       </div>
+      <!-- CHAT -->
       <div class="portal-chat">
         <div class="portal-chat-hdr">
-          <div style="font-size:14px;font-weight:600">Habla con nosotros</div>
-          <div style="font-size:11px;color:var(--tx3);margin-top:2px">Chat directo con el equipo 👋</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--ok)"></div>
+            <div>
+              <div style="font-size:14px;font-weight:600">Asistente Mentedoras</div>
+              <div style="font-size:11px;color:var(--tx3)">Responde al instante 24/7 ⚡</div>
+            </div>
+          </div>
         </div>
         <div class="portal-msgs" id="portal-msgs" style="display:flex;flex-direction:column"></div>
+        <div id="portal-suggestions" style="padding:8px 14px;border-top:1px solid var(--bd);display:flex;flex-wrap:wrap;gap:6px"></div>
         <div class="portal-inp-row">
-          <input class="portal-inp" id="portal-inp" placeholder="Escribe tu mensaje..." onkeydown="if(event.key==='Enter')sendPortalMsg()">
-          <button class="portal-send" onclick="sendPortalMsg()">Enviar</button>
+          <input class="portal-inp" id="portal-inp" placeholder="Escribe tu pregunta..." onkeydown="if(event.key==='Enter')sendPortalMsg()" onfocus="showSuggestions()">
+          <button class="portal-send" onclick="sendPortalMsg()"><i class="ti ti-send" style="font-size:14px"></i></button>
         </div>
       </div>
     </div>
@@ -1752,41 +1774,84 @@ window.addEventListener('hashchange',async()=>{const r=await checkRoute();if(!r)
 
 function showPortal(c){
   activePortalClient=c;
-  document.getElementById('portal-cname').textContent=c.name+' · Portal cliente';
+  document.getElementById('portal-cname').textContent=c.name;
   document.getElementById('lp').style.display='none';
   document.getElementById('app').classList.remove('on');
-  // month picker - only active months
-  const months=Object.keys(c.reels||{}).sort();
-  document.getElementById('portal-month-picker').innerHTML=months.length?
-    months.map(mk=>`<button class="mbtn-big" onclick="selectPortalMonth('${c.id}','${mk}')">${monthLabel(mk)}</button>`).join(''):
-    '<p style="color:var(--tx3);font-size:13px">No hay meses configurados</p>';
-  document.getElementById('portal-month-box').style.display='';
+  renderPortalDashboard(c);
+  document.getElementById('portal-month-box').style.display='none';
   document.getElementById('portal-reels-section').style.display='none';
   renderPortalMsgs(c);
   document.getElementById('portal').classList.add('open');
+  showSuggestions();
   // welcome
   const h=new Date().getHours();
   const g=h<13?'¡Buenos días':h<20?'¡Buenas tardes':'¡Buenas noches';
   document.getElementById('w-emoji').textContent='🎉';
   document.getElementById('w-title').textContent=g+', '+c.name+'!';
-  document.getElementById('w-sub').textContent='Aquí puedes ver el estado de tu contenido 🎬';
+  document.getElementById('w-sub').textContent='Aquí tienes toda la información de tu contenido 🚀';
   document.getElementById('welcome').classList.add('open');
-  // realtime sync
+  // realtime
   if(db){try{db.collection('crm').doc('clients').onSnapshot(snap=>{
     if(snap&&snap.exists){const d=snap.data();if(d&&d.list){
-      clients=d.list;const u=clients.find(cc=>cc.id===c.id);
-      if(u&&activePortalMonth){activePortalClient=u;renderPortalMonth(u,activePortalMonth);}
+      clients=d.list.map(fc=>{const def=clients.find(cc=>cc.id===fc.id)||{};return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};});
+      const u=clients.find(cc=>cc.id===c.id);
+      if(u){activePortalClient=u;renderPortalDashboard(u);if(activePortalMonth)renderPortalMonth(u,activePortalMonth);}
     }}
   });}catch(e){}}
+}
+
+function renderPortalDashboard(c){
+  const mk=monthKey();
+  const reels=c.reels[mk]||[];
+  const sub=reels.filter(r=>r.subido).length;
+  const editing=reels.filter(r=>r.editado&&!r.subido).length;
+  const grabbed=reels.filter(r=>r.grabado&&!r.editado).length;
+  const pend=reels.filter(r=>!r.grabado).length;
+  const nextGrab=reels.filter(r=>!r.grabado&&r.fechaGrab).sort((a,b)=>a.fechaGrab.localeCompare(b.fechaGrab))[0];
+  const nextEdit=reels.filter(r=>r.grabado&&!r.subido&&r.fechaEdit).sort((a,b)=>a.fechaEdit.localeCompare(b.fechaEdit))[0];
+  const months=Object.keys(c.reels||{}).sort();
+  const cobro=cobrosList.find(co=>co.cliente===c.name&&co.month===mk);
+  document.getElementById('portal-dashboard').innerHTML=`
+    <div style="margin-bottom:20px">
+      <div style="font-size:22px;font-weight:600;margin-bottom:4px">Hola, ${c.name} 👋</div>
+      <div style="font-size:14px;color:var(--tx3)">Aquí tienes el estado de tu contenido</div>
+    </div>
+    ${nextGrab?`<div class="portal-next">
+      <div class="portal-next-ic">📅</div>
+      <div><div class="portal-next-t">Próxima grabación</div><div class="portal-next-v">${fmtDate(nextGrab.fechaGrab)} · ${nextGrab.label}</div></div>
+    </div>`:''}
+    ${nextEdit?`<div class="portal-next" style="background:rgba(192,132,252,.08);border-color:rgba(192,132,252,.2)">
+      <div class="portal-next-ic">🎬</div>
+      <div><div class="portal-next-t" style="color:#C084FC">Próxima entrega</div><div class="portal-next-v">${fmtDate(nextEdit.fechaEdit)} · ${nextEdit.label}</div></div>
+    </div>`:''}
+    <div class="portal-dash-grid">
+      <div class="portal-stat"><div class="portal-stat-v" style="color:#4ADE80">${sub}/${reels.length}</div><div class="portal-stat-l">✅ Publicados</div></div>
+      <div class="portal-stat"><div class="portal-stat-v" style="color:#C084FC">${editing}</div><div class="portal-stat-l">✂️ En edición</div></div>
+      <div class="portal-stat"><div class="portal-stat-v" style="color:var(--warn)">${grabbed}</div><div class="portal-stat-l">🎬 Grabados</div></div>
+      <div class="portal-stat"><div class="portal-stat-v" style="color:var(--tx3)">${pend}</div><div class="portal-stat-l">⏳ Pendientes</div></div>
+    </div>
+    ${c.contractEnd||c.price?`<div class="portal-box" style="margin-bottom:16px">
+      <div class="portal-box-t">Tu contrato</div>
+      ${c.contractStart?`<div class="pf"><span class="pf-l">Inicio</span><span class="pf-v">${fmtDate(c.contractStart)}</span></div>`:''}
+      ${c.contractEnd?`<div class="pf"><span class="pf-l">Fin</span><span class="pf-v">${fmtDate(c.contractEnd)}</span></div>`:''}
+      ${c.price?`<div class="pf"><span class="pf-l">Mensualidad</span><span class="pf-v" style="color:var(--c);font-weight:600">${c.price}€</span></div>`:''}
+      ${c.price?`<div class="pf"><span class="pf-l">Estado del pago</span><span class="badge ${cobro?.paid?'badge-ok':'badge-warn'}">${cobro?.paid?'✓ Recibido':'Pendiente'}</span></div>`:''}
+    </div>`:''}
+    ${months.length?`<div class="portal-box" style="margin-bottom:16px">
+      <div class="portal-box-t">Ver contenido por mes</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${months.map(m=>`<button class="mbtn-big" style="padding:10px 16px;font-size:13px" onclick="selectPortalMonth('${c.id}','${m}')">${monthLabel(m)}</button>`).join('')}
+      </div>
+    </div>`:''}`;
 }
 
 function selectPortalMonth(cid,mk){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   activePortalMonth=mk;
-  document.getElementById('portal-month-box').style.display='none';
   document.getElementById('portal-reels-section').style.display='';
   document.getElementById('portal-month-title').textContent='Tu contenido — '+monthLabel(mk);
   renderPortalMonth(c,mk);
+  setTimeout(()=>document.getElementById('portal-reels-section').scrollIntoView({behavior:'smooth'}),100);
   // contract info
   const contractBox=document.getElementById('portal-contract-info');
   const contractContent=document.getElementById('portal-contract-content');
@@ -1811,10 +1876,8 @@ function selectPortalMonth(cid,mk){
 }
 
 function resetPortalMonth(){
-  document.getElementById('portal-month-box').style.display='';
   document.getElementById('portal-reels-section').style.display='none';
-  document.getElementById('portal-contract-info').style.display='none';
-  document.getElementById('portal-invoice-box').style.display='none';
+  activePortalMonth='';
 }
 
 function renderPortalMonth(c,mk){
@@ -1847,43 +1910,150 @@ function renderPortalMonth(c,mk){
 
 function renderPortalMsgs(c){
   const el=document.getElementById('portal-msgs');if(!el)return;
-  if(!c.msgs.length){el.innerHTML=`<div style="text-align:center;color:var(--tx3);font-size:13px;padding:30px">¡Hola ${c.name}! ¿En qué podemos ayudarte? 👋</div>`;return;}
-  el.innerHTML=c.msgs.map(m=>`<div class="msg ${m.from==='client'?'client':'team'}">
-    <div class="msg-bub">${m.text}</div>
-    <div class="msg-time">${m.time||''}</div>
-  </div>`).join('');
+  if(!c.msgs.length){
+    el.innerHTML=`<div style="text-align:center;color:var(--tx3);font-size:13px;padding:30px">
+      <div style="font-size:28px;margin-bottom:8px">👋</div>
+      ¡Hola ${c.name}! Soy tu asistente.<br>Pregúntame lo que necesites.
+    </div>`;
+    return;
+  }
+  el.innerHTML=c.msgs.map(m=>{
+    const txt=(m.text||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    return`<div class="msg ${m.from==='client'?'client':'team'}">
+      <div class="msg-bub">${txt}</div>
+      <div class="msg-time">${m.time||''}</div>
+    </div>`;
+  }).join('');
   el.scrollTop=el.scrollHeight;
 }
 
+function showSuggestions(){
+  const el=document.getElementById('portal-suggestions');if(!el)return;
+  el.innerHTML=`
+    <button class="sugg-btn" onclick="askBot('¿Cuándo es mi próxima grabación?')">📅 Mi grabación</button>
+    <button class="sugg-btn" onclick="askBot('¿Cómo van mis reels?')">🎬 Estado reels</button>
+    <button class="sugg-btn" onclick="askBot('¿Cuándo me entregan mi contenido?')">📤 Mi entrega</button>
+    <button class="sugg-btn" onclick="askBot('¿Quién es mi editor?')">✂️ Mi editor</button>
+    <button class="sugg-btn" onclick="askBot('¿Cuánto me queda de contrato?')">📄 Mi contrato</button>
+    <button class="sugg-btn" onclick="askBot('¿Está pagada mi factura?')">💰 Mi factura</button>`;
+}
+function askBot(txt){
+  document.getElementById('portal-inp').value=txt;
+  sendPortalMsg();
+}
 function sendPortalMsg(){
   const inp=document.getElementById('portal-inp');const txt=inp.value.trim();
   if(!txt||!activePortalClient)return;
   inp.value='';
+  const el=document.getElementById('portal-suggestions');if(el)el.innerHTML='';
   activePortalClient.msgs.push({from:'client',text:txt,time:new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}),who:activePortalClient.name});
   renderPortalMsgs(activePortalClient);
   saveClients();
-  // Smart response
+  // Typing indicator
+  const msgs=document.getElementById('portal-msgs');
+  const typing=document.createElement('div');
+  typing.className='msg team';typing.id='typing-ind';
+  typing.innerHTML='<div class="msg-bub" style="opacity:.7">✍️ Escribiendo...</div>';
+  if(msgs)msgs.appendChild(typing);
+  if(msgs)msgs.scrollTop=msgs.scrollHeight;
   setTimeout(()=>{
-    let resp='Hemos recibido tu mensaje. El equipo te responderá lo antes posible 👋';
-    const tl=txt.toLowerCase();
-    const mk=activePortalMonth||monthKey();
-    const reels=activePortalClient.reels[mk]||[];
-    if(tl.includes('reel')||tl.includes('video')||tl.includes('vídeo')){
-      const sub=reels.filter(r=>r.subido).length;
-      resp=`Llevas ${sub} de ${reels.length} reels publicados este mes.`;
-    }else if(tl.includes('grab')){
-      const next=reels.find(r=>!r.grabado&&r.fechaGrab);
-      resp=next?`Tu próxima grabación es el ${fmtDate(next.fechaGrab)} 📅`:'El equipo confirmará la fecha de grabación en breve.';
-    }else if(tl.includes('cuando')||tl.includes('cuándo')||tl.includes('entrega')){
-      const next=reels.find(r=>r.grabado&&!r.subido&&r.fechaEdit);
-      resp=next?`La entrega del ${next.label} está prevista para el ${fmtDate(next.fechaEdit)} 🎬`:'El equipo está trabajando en ello, te avisamos cuando esté listo.';
-    }else{
-      createAutoTask(activePortalClient.name+' pregunta: "'+txt+'"');
-    }
+    const t=document.getElementById('typing-ind');if(t)t.remove();
+    const resp=getBotResponse(txt,activePortalClient);
     activePortalClient.msgs.push({from:'team',text:resp,time:new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}),who:'Mentedoras'});
     renderPortalMsgs(activePortalClient);
     saveClients();
-  },1000);
+    setTimeout(showSuggestions,500);
+  },800+Math.random()*600);
+}
+
+function getBotResponse(txt,c){
+  const tl=txt.toLowerCase();
+  const mk=monthKey();
+  const reels=c.reels[mk]||[];
+
+  // GRABACIÓN
+  if(tl.includes('grab')){
+    const next=reels.filter(r=>!r.grabado&&r.fechaGrab).sort((a,b)=>a.fechaGrab.localeCompare(b.fechaGrab))[0];
+    if(next)return`📅 Tu próxima grabación es el **${fmtDate(next.fechaGrab)}** (${next.label}). ¡Prepárate! 🎬`;
+    const yaGrabados=reels.filter(r=>r.grabado).length;
+    if(yaGrabados===reels.length&&reels.length>0)return`✅ ¡Todos tus reels de este mes ya están grabados! Ahora están en proceso de edición.`;
+    return`📅 Aún no tenemos fecha de grabación confirmada. El equipo te lo confirmará en breve. También puedes preguntarles directamente aquí.`;
+  }
+  // ENTREGA
+  if(tl.includes('entrega')||tl.includes('cuando me')||tl.includes('cuándo me')||tl.includes('listo')||tl.includes('lista')){
+    const next=reels.filter(r=>r.grabado&&!r.subido&&r.fechaEdit).sort((a,b)=>a.fechaEdit.localeCompare(b.fechaEdit))[0];
+    if(next)return`🎬 La entrega del **${next.label}** está prevista para el **${fmtDate(next.fechaEdit)}**. ¡Ya casi está! ✂️`;
+    const sub=reels.filter(r=>r.subido).length;
+    if(sub===reels.length&&reels.length>0)return`🎉 ¡Todo tu contenido de este mes ya está entregado y publicado! ¿Quieres ver el siguiente mes?`;
+    return`📤 El equipo está trabajando en tu contenido. Te avisaremos en cuanto esté listo.`;
+  }
+  // ESTADO REELS
+  if(tl.includes('reel')||tl.includes('video')||tl.includes('vídeo')||tl.includes('contenido')||tl.includes('cómo van')||tl.includes('como van')){
+    const sub=reels.filter(r=>r.subido).length;
+    const ed=reels.filter(r=>r.editado&&!r.subido).length;
+    const gr=reels.filter(r=>r.grabado&&!r.editado).length;
+    const pe=reels.filter(r=>!r.grabado).length;
+    if(!reels.length)return`No hay reels configurados para este mes. Contacta con el equipo para más info.`;
+    return`📊 **Resumen de ${monthLabel(mk)}:**\n✅ ${sub}/${reels.length} publicados\n✂️ ${ed} en edición\n🎬 ${gr} grabados (pendientes editar)\n⏳ ${pe} pendientes de grabar`;
+  }
+  // EDITOR
+  if(tl.includes('editor')||tl.includes('edita')||tl.includes('quién')||tl.includes('quien')){
+    if(c.editors&&c.editors.length)return`✂️ Tu${c.editors.length>1?'s editors son':'editor es'} **${c.editors.join(' y ')}**. ${c.editors.length>1?'Son':'Es'} quien edita todo tu contenido.`;
+    return`No hay editor asignado aún. El equipo te lo confirmará en breve.`;
+  }
+  // CONTRATO
+  if(tl.includes('contrato')||tl.includes('meses')||tl.includes('queda')||tl.includes('vence')||tl.includes('expira')){
+    if(c.contractEnd){
+      const diff=Math.ceil((new Date(c.contractEnd+'T12:00:00')-new Date())/864e5/30);
+      const vencido=diff<0;
+      if(vencido)return`⚠️ Tu contrato venció el **${fmtDate(c.contractEnd)}**. Contacta con Adri o Alan para renovarlo.`;
+      return`📄 Tu contrato es válido hasta el **${fmtDate(c.contractEnd)}** (${diff} mes${diff!==1?'es':''} restante${diff!==1?'s':''}). ${c.contractType?' Tipo: '+c.contractType:''} `;
+    }
+    if(c.contractStart)return`📄 Tu contrato comenzó el **${fmtDate(c.contractStart)}**. Para más detalles, contacta con el equipo.`;
+    return`No tengo datos de tu contrato. Contacta con Adri o Alan para más información.`;
+  }
+  // FACTURA / PAGO
+  if(tl.includes('factura')||tl.includes('pago')||tl.includes('pagado')||tl.includes('cobro')||tl.includes('dinero')){
+    const cobro=cobrosList.find(co=>co.cliente===c.name&&co.month===mk);
+    if(c.price){
+      if(cobro?.paid)return`💰 Tu pago de **${c.price}€** de ${monthLabel(mk)} está **recibido** ✅. ¡Gracias!`;
+      return`💰 Tu mensualidad es de **${c.price}€**. El estado de ${monthLabel(mk)} es: **pendiente de recibir**. Si tienes dudas contacta con Adri o Alan.`;
+    }
+    return`Para información sobre facturas y pagos, contacta directamente con Adri o Alan. 💼`;
+  }
+  // SIGUIENTE GRABACIÓN / REUNIÓN
+  if(tl.includes('reunión')||tl.includes('reunion')||tl.includes('meeting')||tl.includes('llamada')){
+    const nextMeet=calEvents.filter(e=>e.type==='meet'&&e.client===c.name&&e.date>=today()).sort((a,b)=>a.date.localeCompare(b.date))[0];
+    if(nextMeet)return`📞 Tu próxima reunión con nosotros es el **${fmtDate(nextMeet.date)}**: "${nextMeet.title}"`;
+    createAutoTask(c.name+' pregunta por reunión: "'+txt+'"');
+    return`No tengo reuniones programadas ahora mismo. He avisado al equipo para que os contacten. 👋`;
+  }
+  // PUBLICADO / SUBIDO
+  if(tl.includes('publi')||tl.includes('subido')||tl.includes('instagram')||tl.includes('redes')){
+    const sub=reels.filter(r=>r.subido).length;
+    if(sub===reels.length&&reels.length>0)return`🎉 ¡Todos tus ${reels.length} reels de ${monthLabel(mk)} están publicados! Puedes verlos en tu Instagram.`;
+    if(sub>0)return`📱 Tienes **${sub} de ${reels.length}** reels publicados en ${monthLabel(mk)}. Los demás están en proceso.`;
+    return`⏳ Aún no hemos publicado reels este mes. Te avisaremos en cuanto suba el primero.`;
+  }
+  // SERVICIOS
+  if(tl.includes('servicio')||tl.includes('incluye')||tl.includes('qué hac')||tl.includes('que hac')){
+    const svcs=(Array.isArray(c.services)?c.services:[]).map(id=>SERVICES.find(s=>s.id===id)?.label).filter(Boolean);
+    if(svcs.length)return`📋 Los servicios incluidos en tu contrato son:\n${svcs.map(s=>'• '+s).join('\n')}`;
+    return`Contacta con el equipo para conocer los detalles de tu contrato.`;
+  }
+  // SALUDOS
+  if(tl.includes('hola')||tl.includes('buenos')||tl.includes('buenas')||tl==='hi'||txt.length<8){
+    const h=new Date().getHours();
+    const g=h<13?'¡Buenos días':'¡Buenas';
+    return`${g}, ${c.name}! 👋 Soy el asistente de Mentedoras. Puedo decirte el estado de tus reels, fechas de grabación y entrega, info de tu contrato y más. ¿En qué puedo ayudarte?`;
+  }
+  // GRACIAS
+  if(tl.includes('gracias')||tl.includes('thank')||tl.includes('perfecto')||tl.includes('genial')){
+    return`¡De nada, ${c.name}! 😊 Estamos aquí para lo que necesites. ¿Algo más en lo que pueda ayudarte?`;
+  }
+  // NO SABE → tarjeta automática
+  createAutoTask(c.name+' pregunta: "'+txt+'"');
+  return`No tengo esa información exacta ahora mismo. He avisado a Adri y Alan con tu pregunta y te responderán lo antes posible. También puedes escribirles por WhatsApp si es urgente. 👋`;
 }
 
 // ============================================================
@@ -1898,6 +2068,8 @@ function showToast(msg,type=''){
 // INIT
 // ============================================================
 loadTheme();
+// Register service worker for PWA
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
 (async()=>{
   const isPortal=await checkRoute();
   if(!isPortal){
