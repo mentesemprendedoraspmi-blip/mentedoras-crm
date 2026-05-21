@@ -809,6 +809,7 @@ function setTheme(t){
   document.body.className=t==='dark'?'':'theme-'+t;
   document.querySelectorAll('.th-btn').forEach(b=>b.classList.remove('on'));
   document.getElementById('th-'+t)?.classList.add('on');
+  document.getElementById('pth-'+t)?.classList.add('on');
   localStorage.setItem('mt',t);
 }
 function loadTheme(){setTheme(localStorage.getItem('mt')||'dark');}
@@ -942,7 +943,7 @@ function renderBoard(){
             ondragstart="startDragBoard(event,'${col.id}','${t.id}')"
             ondragend="endDragBoard(event)">
             <div class="bc-top">
-              <div class="bc-chk${t.done?' on':''}" onclick="toggleTask('${col.id}','${t.id}')">${t.done?'<i class="ti ti-check" style="font-size:10px;color:#fff"></i>':''}</div>
+              <div class="bc-chk${t.done?' on':''}" onclick="event.stopPropagation();toggleTask('${col.id}','${t.id}')">${t.done?'<i class="ti ti-check" style="font-size:10px;color:#fff"></i>':''}</div>
               <div class="bc-title${t.done?' done':''}" onclick="openTaskDetail('${col.id}','${t.id}')" style="cursor:pointer;flex:1">${t.title}</div>
               <div class="dot-btn" onclick="openTaskDetail('${col.id}','${t.id}')"><i class="ti ti-pencil" style="font-size:13px"></i></div>
             </div>
