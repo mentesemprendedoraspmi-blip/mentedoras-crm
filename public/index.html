@@ -655,7 +655,7 @@ async function loadAll(){
     if(sc&&sc.list&&sc.list.length){
       clients=sc.list.map(fc=>{
         const def=clients.find(c=>c.id===fc.id)||{};
-        return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:fc.editors||[]};
+        return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};
       });
     }
     const sb=await fbGet('crm','board');
@@ -677,7 +677,7 @@ async function loadAll(){
           if(d&&d.list&&d.list.length){
             clients=d.list.map(fc=>{
               const def=clients.find(c=>c.id===fc.id)||{};
-              return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:fc.editors||[]};
+              return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};
             });
             renderDash();renderSB();
             if(activeClient){
@@ -1242,8 +1242,8 @@ function renderProfile(c){
           <div class="card" style="margin-top:14px">
             <div class="card-t"><i class="ti ti-settings"></i>Servicios</div>
             <div class="svc-grid">
-              ${SERVICES.map(s=>`<div class="svc-item${(c.services||[]).includes(s.id)?' on':''}" onclick="toggleService('${c.id}','${s.id}')">
-                <div class="svc-chk">${(c.services||[]).includes(s.id)?'<i class="ti ti-check" style="font-size:10px;color:var(--bg)"></i>':''}</div>
+              ${SERVICES.map(s=>`<div class="svc-item${(Array.isArray(c.services)?c.services:[]).includes(s.id)?' on':''}" onclick="toggleService('${c.id}','${s.id}')">
+                <div class="svc-chk">${(Array.isArray(c.services)?c.services:[]).includes(s.id)?'<i class="ti ti-check" style="font-size:10px;color:var(--bg)"></i>':''}</div>
                 <span class="svc-label">${s.label}</span>
               </div>`).join('')}
             </div>
@@ -1501,7 +1501,7 @@ function toggleEditor(cid,ed){
 function toggleCM(cid,cm){const c=clients.find(c=>c.id===cid);if(!c)return;c.cm=c.cm===cm?'':cm;saveClients();renderProfile(c);showToast('CM actualizado ✓','ok');}
 function toggleService(cid,svcId){
   const c=clients.find(c=>c.id===cid);if(!c)return;
-  if(!c.services)c.services=[];
+  if(!Array.isArray(c.services))c.services=[];
   if(c.services.includes(svcId))c.services=c.services.filter(s=>s!==svcId);
   else c.services.push(svcId);
   saveClients();renderProfile(c);showToast('Servicios actualizados ✓','ok');
