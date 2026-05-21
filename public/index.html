@@ -430,6 +430,11 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
       <div style="width:36px;height:36px;border-radius:50%;background:var(--cdim);border:1px solid rgba(0,229,229,.3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--c);font-style:italic">M</div>
       <div><div style="font-size:16px;font-weight:600;color:var(--c);font-style:italic">Mentedoras</div><div style="font-size:11px;color:var(--tx3)" id="portal-cname"></div></div>
     </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <div class="th-btn th-dark" id="pth-dark" onclick="setTheme('dark')" title="Oscuro"></div>
+      <div class="th-btn th-light" id="pth-light" onclick="setTheme('light')" title="Claro"></div>
+      <div class="th-btn th-blue" id="pth-blue" onclick="setTheme('blue')" title="Azul"></div>
+    </div>
   </div>
   <div class="portal-body">
     <div class="portal-inner">
@@ -906,29 +911,48 @@ function dropPL(e,phase){
 // ============================================================
 function renderBoard(){
   const visibleCols=isCMup()?boardCols:boardCols.filter(col=>col.name===CU?.name||col.id==='adri'||col.id==='alan');
-  document.getElementById('view-board').innerHTML=`<div class="bw"><div class="bcols">
+  const bw=document.getElementById('view-board');
+  bw.innerHTML=`<div class="bw" id="bw-scroll"><div class="bcols" id="bcols-inner">
     ${visibleCols.map(col=>{
       const pend=col.tasks.filter(t=>!t.done).length;
-      return`<div class="bcol" data-col="${col.id}" ondragover="event.preventDefault();this.classList.add('dov')" ondragleave="this.classList.remove('dov')" ondrop="dropBoard(event,'${col.id}')">
+      return`<div class="bcol" data-col="${col.id}"
+        ondragover="event.preventDefault();this.classList.add('dov')"
+        ondragleave="this.classList.remove('dov')"
+        ondrop="dropBoard(event,'${col.id}')">
         <div class="bch">
           <span class="bcn">${col.name}</span>
           <div style="display:flex;align-items:center;gap:6px">
             <span class="bcc">${pend}</span>
             ${isCMup()?`<div class="dot-btn" onclick="toggleColMenu('${col.id}')"><i class="ti ti-dots-vertical"></i>
               <div class="drop-menu" id="cm-${col.id}">
-                <div class="dm-item danger" onclick="deleteCol('${col.id}')"><i class="ti ti-trash"></i>Eliminar</div>
+                <div class="dm-item" onclick="openModal('task','${col.id}')"><i class="ti ti-plus"></i>Añadir tarjeta</div>
+                <div class="dm-item" onclick="copyCol('${col.id}')"><i class="ti ti-copy"></i>Copiar lista</div>
+                <div class="dm-item" onclick="moveColLeft('${col.id}')"><i class="ti ti-arrow-left"></i>Mover izquierda</div>
+                <div class="dm-item" onclick="moveColRight('${col.id}')"><i class="ti ti-arrow-right"></i>Mover derecha</div>
+                <div class="dm-item" onclick="moveAllCards('${col.id}')"><i class="ti ti-arrows-move"></i>Mover todas las tarjetas</div>
+                <div class="dm-item" onclick="sortCol('${col.id}','date')"><i class="ti ti-sort-ascending"></i>Ordenar por fecha</div>
+                <div class="dm-item" onclick="sortCol('${col.id}','name')"><i class="ti ti-sort-ascending-letters"></i>Ordenar por nombre</div>
+                <div class="dm-item danger" onclick="deleteCol('${col.id}')"><i class="ti ti-trash"></i>Eliminar columna</div>
               </div>
             </div>`:''}
           </div>
         </div>
         <div id="bcl-${col.id}">
-          ${col.tasks.map(t=>`<div class="bcard" draggable="true" ondragstart="event.dataTransfer.setData('bdata',JSON.stringify({colId:'${col.id}',taskId:'${t.id}'}))">
+          ${col.tasks.map(t=>`<div class="bcard" draggable="true"
+            ondragstart="startDragBoard(event,'${col.id}','${t.id}')"
+            ondragend="endDragBoard(event)">
             <div class="bc-top">
               <div class="bc-chk${t.done?' on':''}" onclick="toggleTask('${col.id}','${t.id}')">${t.done?'<i class="ti ti-check" style="font-size:10px;color:#fff"></i>':''}</div>
-              <div class="bc-title${t.done?' done':''}">${t.title}</div>
+              <div class="bc-title${t.done?' done':''}" onclick="openTaskDetail('${col.id}','${t.id}')" style="cursor:pointer;flex:1">${t.title}</div>
+              <div class="dot-btn" onclick="openTaskDetail('${col.id}','${t.id}')"><i class="ti ti-pencil" style="font-size:13px"></i></div>
             </div>
-            ${t.client?`<span style="font-size:10px;background:var(--cdim);color:var(--c);padding:2px 6px;border-radius:20px">${t.client}</span>`:''}
-            ${t.date?`<span class="badge ${dstatus(t.date).cls}" style="font-size:10px;margin-left:4px">${dstatus(t.date).lbl}</span>`:''}
+            <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">
+              ${(t.labels||[]).map(li=>`<span style="font-size:10px;padding:2px 6px;border-radius:20px;font-weight:600;background:${LABELS[li].bg};color:${LABELS[li].c}">${LABELS[li].n}</span>`).join('')}
+              ${t.client?`<span style="font-size:10px;background:var(--cdim);color:var(--c);padding:2px 6px;border-radius:20px">${t.client}</span>`:''}
+              ${t.date?`<span class="badge ${dstatus(t.date).cls}" style="font-size:10px">${dstatus(t.date).lbl}</span>`:''}
+              ${t.checklist&&t.checklist.length?`<span style="font-size:10px;background:var(--bg4);color:var(--tx3);padding:2px 6px;border-radius:20px"><i class="ti ti-checklist" style="font-size:9px"></i> ${t.checklist.filter(i=>i.done).length}/${t.checklist.length}</span>`:''}
+              ${t.links&&t.links.length?`<span style="font-size:10px;background:var(--bg4);color:var(--tx3);padding:2px 6px;border-radius:20px"><i class="ti ti-link" style="font-size:9px"></i> ${t.links.length}</span>`:''}
+            </div>
           </div>`).join('')}
         </div>
         <button class="badd" onclick="openModal('task','${col.id}')"><i class="ti ti-plus" style="font-size:12px"></i>Añadir tarea</button>
@@ -937,26 +961,164 @@ function renderBoard(){
     ${isCMup()?`<button class="add-col-btn" onclick="addBoardCol()"><i class="ti ti-plus"></i>Nueva columna</button>`:''}
   </div></div>`;
   renderBoardBadge();
+  // Auto-scroll on drag
+  setupBoardAutoScroll();
 }
-function toggleColMenu(id){document.querySelectorAll('.drop-menu').forEach(m=>m.classList.remove('open'));const m=document.getElementById('cm-'+id);if(m)m.classList.toggle('open');}
-document.addEventListener('click',e=>{if(!e.target.closest('.dot-btn'))document.querySelectorAll('.drop-menu').forEach(m=>m.classList.remove('open'));});
-function addBoardCol(){const name=prompt('Nombre de la columna:');if(!name)return;boardCols.push({id:'col'+Date.now(),name,color:'var(--bd2)',tasks:[]});saveBoard();renderBoard();}
-function deleteCol(id){if(!confirm('¿Eliminar columna?'))return;boardCols=boardCols.filter(c=>c.id!==id);saveBoard();renderBoard();}
-function toggleTask(colId,taskId){
-  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);
-  if(t){t.done=!t.done;saveBoard();renderBoard();}
+
+function setupBoardAutoScroll(){
+  const bw=document.getElementById('bw-scroll');if(!bw)return;
+  bw.addEventListener('dragover',e=>{
+    const rect=bw.getBoundingClientRect();
+    const edge=80;
+    if(e.clientX<rect.left+edge)bw.scrollLeft-=10;
+    else if(e.clientX>rect.right-edge)bw.scrollLeft+=10;
+  });
 }
-function dropBoard(e,targetColId){
-  e.preventDefault();document.querySelectorAll('.bcol').forEach(c=>c.classList.remove('dov'));
-  try{
-    const{colId,taskId}=JSON.parse(e.dataTransfer.getData('bdata'));
-    if(colId===targetColId)return;
-    const fromCol=boardCols.find(c=>c.id===colId);const toCol=boardCols.find(c=>c.id===targetColId);
-    if(!fromCol||!toCol)return;
-    const ti=fromCol.tasks.findIndex(t=>t.id==taskId);
-    if(ti>=0){const[task]=fromCol.tasks.splice(ti,1);toCol.tasks.unshift(task);}
-    saveBoard();renderBoard();showToast('Tarea movida ✓','ok');
-  }catch(e){}
+
+let dragColId=null,dragTaskId=null;
+function startDragBoard(e,colId,taskId){
+  dragColId=colId;dragTaskId=taskId;
+  e.dataTransfer.setData('bdata',JSON.stringify({colId,taskId}));
+  setTimeout(()=>{const el=e.target;if(el)el.classList.add('dragging');},0);
+}
+function endDragBoard(e){
+  const el=e.target;if(el)el.classList.remove('dragging');
+  dragColId=null;dragTaskId=null;
+}
+
+function copyCol(id){
+  const col=boardCols.find(c=>c.id===id);if(!col)return;
+  const newCol={...col,id:'col'+Date.now(),name:col.name+' (copia)',tasks:JSON.parse(JSON.stringify(col.tasks))};
+  const idx=boardCols.findIndex(c=>c.id===id);
+  boardCols.splice(idx+1,0,newCol);
+  saveBoard();renderBoard();showToast('Lista copiada ✓','ok');
+}
+function moveColLeft(id){
+  const idx=boardCols.findIndex(c=>c.id===id);
+  if(idx>0){[boardCols[idx-1],boardCols[idx]]=[boardCols[idx],boardCols[idx-1]];saveBoard();renderBoard();}
+}
+function moveColRight(id){
+  const idx=boardCols.findIndex(c=>c.id===id);
+  if(idx<boardCols.length-1){[boardCols[idx],boardCols[idx+1]]=[boardCols[idx+1],boardCols[idx]];saveBoard();renderBoard();}
+}
+function moveAllCards(fromId){
+  const fromCol=boardCols.find(c=>c.id===fromId);if(!fromCol||!fromCol.tasks.length)return showToast('Sin tarjetas que mover','err');
+  const opts=boardCols.filter(c=>c.id!==fromId).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  const mc=document.getElementById('modal-c');
+  mc.innerHTML=`<div class="modal-t">Mover todas las tarjetas</div>
+    <div class="f"><label>Mover a</label><select id="ma-col">${opts}</select></div>
+    <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="doMoveAll('${fromId}')">Mover</button></div>`;
+  document.getElementById('mo').classList.add('open');
+}
+function doMoveAll(fromId){
+  const toId=document.getElementById('ma-col').value;
+  const fromCol=boardCols.find(c=>c.id===fromId);const toCol=boardCols.find(c=>c.id===toId);
+  if(!fromCol||!toCol)return;
+  toCol.tasks=[...toCol.tasks,...fromCol.tasks];fromCol.tasks=[];
+  closeModal();saveBoard();renderBoard();showToast('Tarjetas movidas ✓','ok');
+}
+function sortCol(id,by){
+  const col=boardCols.find(c=>c.id===id);if(!col)return;
+  if(by==='date')col.tasks.sort((a,b)=>(a.date||'9').localeCompare(b.date||'9'));
+  if(by==='name')col.tasks.sort((a,b)=>a.title.localeCompare(b.title));
+  saveBoard();renderBoard();showToast('Ordenado ✓','ok');
+}
+
+function openTaskDetail(colId,taskId){
+  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
+  if(!t.checklist)t.checklist=[];
+  if(!t.links)t.links=[];
+  const mc=document.getElementById('modal-c');
+  mc.style.maxWidth='560px';
+  mc.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div class="modal-t" style="margin:0">${t.title}</div>
+    <button class="btn btn-s btn-danger" onclick="deleteTask('${colId}','${taskId}')"><i class="ti ti-trash"></i></button>
+  </div>
+  <div class="fg2" style="margin-bottom:12px">
+    <div class="f"><label>Título</label><input id="td-title" value="${t.title}"></div>
+    <div class="f"><label>Fecha límite</label><input id="td-date" type="date" value="${t.date||''}"></div>
+  </div>
+  <div class="f"><label>Cliente</label><select id="td-cl"><option value="">— Sin cliente —</option>${clients.map(c=>`<option${t.client===c.name?' selected':''}>${c.name}</option>`).join('')}</select></div>
+  <div class="f"><label>Etiquetas</label><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${LABELS.map((l,i)=>`<span id="lc-${i}" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;background:${(t.labels||[]).includes(i)?l.bg:'var(--bg3)'};color:${(t.labels||[]).includes(i)?l.c:'var(--tx3)'}" onclick="toggleLabel(${i},'${colId}','${taskId}')" data-sel="${(t.labels||[]).includes(i)?'1':''}">${l.n}</span>`).join('')}</div></div>
+  <div class="f"><label>Descripción</label><textarea id="td-desc" rows="3" placeholder="Añade más detalles..." style="resize:vertical">${t.desc||''}</textarea></div>
+  <div class="f">
+    <label>Links</label>
+    ${t.links.map((lk,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px">
+      <input type="text" value="${lk.url}" placeholder="URL" style="flex:1;font-size:12px;padding:5px 8px" onchange="updateLink('${colId}','${taskId}',${i},'url',this.value)">
+      <input type="text" value="${lk.label||''}" placeholder="Nombre" style="width:100px;font-size:12px;padding:5px 8px" onchange="updateLink('${colId}','${taskId}',${i},'label',this.value)">
+      <button class="btn btn-s btn-danger" onclick="removeLink('${colId}','${taskId}',${i})"><i class="ti ti-x"></i></button>
+    </div>`).join('')}
+    <button class="btn btn-s" onclick="addLink('${colId}','${taskId}')"><i class="ti ti-plus"></i>Añadir link</button>
+  </div>
+  <div class="f">
+    <label>Checklist</label>
+    <div id="td-checklist">
+      ${t.checklist.map((ci,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0">
+        <div class="chk${ci.done?' on':''}" onclick="toggleCheck('${colId}','${taskId}',${i})">${ci.done?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div>
+        <span style="font-size:13px;flex:1;${ci.done?'text-decoration:line-through;color:var(--tx3)':''}">${ci.text}</span>
+        <button class="btn btn-s btn-danger" onclick="removeCheck('${colId}','${taskId}',${i})" style="padding:2px 6px"><i class="ti ti-x" style="font-size:10px"></i></button>
+      </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <input id="new-check" placeholder="Nuevo elemento..." style="flex:1;font-size:12px;padding:5px 8px" onkeydown="if(event.key==='Enter')addCheck('${colId}','${taskId}')">
+      <button class="btn btn-s btn-p" onclick="addCheck('${colId}','${taskId}')"><i class="ti ti-plus"></i></button>
+    </div>
+  </div>
+  <div class="modal-acts">
+    <button class="btn btn-s" onclick="closeModal()">Cerrar</button>
+    <button class="btn btn-s btn-p" onclick="saveTaskDetail('${colId}','${taskId}')">Guardar</button>
+  </div>`;
+  document.getElementById('mo').classList.add('open');
+}
+
+function saveTaskDetail(colId,taskId){
+  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
+  t.title=document.getElementById('td-title').value;
+  t.date=document.getElementById('td-date').value;
+  t.client=document.getElementById('td-cl').value;
+  t.desc=document.getElementById('td-desc').value;
+  t.labels=[...document.querySelectorAll('[id^="lc-"]')].filter(el=>el.dataset.sel==='1').map(el=>parseInt(el.id.replace('lc-','')));
+  closeModal();saveBoard();renderBoard();showToast('Tarjeta guardada ✓','ok');
+}
+function toggleLabel(i,colId,taskId){
+  const el=document.getElementById('lc-'+i);if(!el)return;
+  const L=LABELS[i];const sel=el.dataset.sel=el.dataset.sel==='1'?'':'1';
+  el.style.background=sel?L.bg:'var(--bg3)';el.style.color=sel?L.c:'var(--tx3)';
+}
+function deleteTask(colId,taskId){
+  if(!confirm('¿Eliminar esta tarjeta?'))return;
+  const col=boardCols.find(c=>c.id===colId);if(!col)return;
+  col.tasks=col.tasks.filter(t=>t.id!=taskId);
+  closeModal();saveBoard();renderBoard();showToast('Tarjeta eliminada','ok');
+}
+function addLink(colId,taskId){
+  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
+  if(!t.links)t.links=[];
+  t.links.push({url:'',label:''});
+  openTaskDetail(colId,taskId);
+}
+function removeLink(colId,taskId,i){
+  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
+  t.links.splice(i,1);openTaskDetail(colId,taskId);
+}
+function updateLink(colId,taskId,i,field,val){
+  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t||!t.links[i])return;
+  t.links[i][field]=val;saveBoard();
+}
+function addCheck(colId,taskId){
+  const inp=document.getElementById('new-check');if(!inp||!inp.value.trim())return;
+  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
+  if(!t.checklist)t.checklist=[];
+  t.checklist.push({text:inp.value.trim(),done:false});
+  inp.value='';openTaskDetail(colId,taskId);
+}
+function removeCheck(colId,taskId,i){
+  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
+  t.checklist.splice(i,1);openTaskDetail(colId,taskId);
+}
+function toggleCheck(colId,taskId,i){
+  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t||!t.checklist[i])return;
+  t.checklist[i].done=!t.checklist[i].done;saveBoard();openTaskDetail(colId,taskId);
 }
 function renderBoardBadge(){
   const me=CU?.name;
@@ -1842,8 +2004,12 @@ function renderPortalDashboard(c){
       <div style="display:flex;flex-wrap:wrap;gap:8px">
         ${months.map(m=>`<button class="mbtn-big" style="padding:10px 16px;font-size:13px" onclick="selectPortalMonth('${c.id}','${m}')">${monthLabel(m)}</button>`).join('')}
       </div>
-    </div>`:''}`;
-}
+    </div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <button onclick="openMeetingModal()" style="padding:14px;border-radius:var(--rl);border:1.5px solid rgba(0,229,229,.3);background:var(--cdim);color:var(--c);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px"><i class="ti ti-calendar-plus" style="font-size:18px"></i>Agendar reunión</button>
+      <button onclick="selectPortalMonth('${c.id}','${months[months.length-1]||monthKey()}')" style="padding:14px;border-radius:var(--rl);border:1.5px solid var(--bd2);background:var(--bg3);color:var(--tx2);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px"><i class="ti ti-video" style="font-size:18px"></i>Ver mis reels</button>
+    </div>
+    ${calcAchievements(c)}`;}
 
 function selectPortalMonth(cid,mk){
   const c=clients.find(c=>c.id===cid);if(!c)return;
@@ -1927,6 +2093,52 @@ function renderPortalMsgs(c){
   el.scrollTop=el.scrollHeight;
 }
 
+function calcAchievements(c){
+  const allReels=Object.values(c.reels||{}).flat();
+  const totalPublished=allReels.filter(r=>r.subido).length;
+  const months=Object.keys(c.reels||{}).length;
+  if(!totalPublished&&!months)return'';
+  return`<div class="portal-box" style="margin-bottom:16px;background:linear-gradient(135deg,var(--bg2),var(--bg3))">
+    <div class="portal-box-t">🏆 Tus logros con Mentedoras</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${totalPublished?`<div style="text-align:center;padding:12px;background:rgba(34,197,94,.08);border-radius:var(--r);border:1px solid rgba(34,197,94,.2)">
+        <div style="font-size:28px;font-weight:700;color:#4ADE80">${totalPublished}</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:2px">📹 Reels publicados</div>
+      </div>`:''}
+      ${months?`<div style="text-align:center;padding:12px;background:var(--cdim);border-radius:var(--r);border:1px solid rgba(0,229,229,.2)">
+        <div style="font-size:28px;font-weight:700;color:var(--c)">${months}</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:2px">📅 Meses juntos</div>
+      </div>`:''}
+    </div>
+  </div>`;
+}
+
+function openMeetingModal(){
+  const mc=document.getElementById('modal-c');
+  mc.innerHTML=`<div class="modal-t">📅 Agendar reunión</div>
+    <div class="f"><label>Motivo de la reunión</label><input id="mt-motivo" placeholder="ej. Revisión de contenido del mes"></div>
+    <div class="fg2">
+      <div class="f"><label>Fecha preferida</label><input id="mt-fecha" type="date" value="${today()}"></div>
+      <div class="f"><label>Hora preferida</label><input id="mt-hora" type="time" value="10:00"></div>
+    </div>
+    <div class="f"><label>Notas adicionales (opcional)</label><textarea id="mt-notas" rows="2" placeholder="Cualquier detalle que quieras añadir..."></textarea></div>
+    <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveMeetingRequest()">Solicitar reunión</button></div>`;
+  document.getElementById('mo').classList.add('open');
+}
+function saveMeetingRequest(){
+  const motivo=document.getElementById('mt-motivo').value.trim();
+  const fecha=document.getElementById('mt-fecha').value;
+  const hora=document.getElementById('mt-hora').value;
+  const notas=document.getElementById('mt-notas').value;
+  if(!motivo||!fecha)return showToast('Añade motivo y fecha','err');
+  const title=`📅 ${activePortalClient?.name} solicita reunión: "${motivo}" — ${fmtDate(fecha)} ${hora}${notas?' · '+notas:''}`;
+  createAutoTask(title);
+  closeModal();
+  activePortalClient?.msgs.push({from:'team',text:`✅ ¡Solicitud de reunión recibida! Te confirmamos la cita para el **${fmtDate(fecha)} a las ${hora}** lo antes posible. Adri o Alan te contactarán para confirmar. 📅`,time:new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}),who:'Mentedoras'});
+  renderPortalMsgs(activePortalClient);
+  saveClients();
+  showToast('Solicitud enviada ✓','ok');
+}
 function showSuggestions(){
   const el=document.getElementById('portal-suggestions');if(!el)return;
   el.innerHTML=`
@@ -1970,90 +2182,126 @@ function getBotResponse(txt,c){
   const tl=txt.toLowerCase();
   const mk=monthKey();
   const reels=c.reels[mk]||[];
+  const driveMain=c.driveMain||'';
+  const driveReels=(c.drive||{}).reelsEdit||'';
+  const driveScripts=(c.drive||{}).scripts||'';
+  const drivePics=(c.drive||{}).pictures||'';
 
+  // IDENTIDAD / QUIÉN ERES
+  if(tl.includes('quién eres')||tl.includes('quien eres')||tl.includes('qué eres')||tl.includes('que eres')||tl.includes('cómo te llamas')||tl.includes('como te llamas')){
+    return`Soy el asistente virtual de **Mentedoras** 🤖✨ Creado con la inteligencia de Adri y Alan para ayudarte con todo lo relacionado con tu contenido. ¿En qué puedo ayudarte hoy?`;
+  }
+  // INFORMACIÓN INTERNA / CONFIDENCIAL
+  if(tl.includes('cuántos clientes')||tl.includes('cuantos clientes')||tl.includes('otros clientes')||tl.includes('el equipo')||tl.includes('cuánto cobráis')||tl.includes('precio de otros')||tl.includes('cuántas personas')||tl.includes('herramienta')||tl.includes('qué usáis')){
+    return`Eso es información interna de Mentedoras que no puedo compartir 😊 Si tienes alguna pregunta sobre tu proyecto, estaré encantado de ayudarte.`;
+  }
+  // SALUDOS / CONVERSACIÓN
+  if(tl.includes('hola')||tl.includes('buenos')||tl.includes('buenas')||tl==='hi'||tl==='hey'||txt.length<8){
+    const h=new Date().getHours();const g=h<13?'¡Buenos días':'¡Buenas';
+    return`${g}, ${c.name}! 👋 Soy tu asistente de Mentedoras. Estoy aquí para contarte todo sobre tu contenido, grabaciones, entregas y más. ¿Qué necesitas?`;
+  }
+  if(tl.includes('cómo estás')||tl.includes('como estas')||tl.includes('qué tal')||tl.includes('que tal')){
+    return`¡Muy bien, gracias por preguntar! 😄 Aquí, trabajando para que tu contenido sea el mejor. ¿Y tú qué tal? ¿En qué puedo ayudarte hoy?`;
+  }
+  if(tl.includes('gracias')||tl.includes('thank')||tl.includes('perfecto')||tl.includes('genial')||tl.includes('ok')){
+    return`¡De nada, ${c.name}! 😊 Para eso estamos. Si necesitas cualquier cosa más, aquí me tienes. ¡Seguimos creando contenido increíble! 🚀`;
+  }
+  if(tl.includes('adiós')||tl.includes('adios')||tl.includes('hasta luego')||tl.includes('bye')){
+    return`¡Hasta pronto, ${c.name}! 👋 Ha sido un placer. Recuerda que puedes escribirme cuando quieras. ¡Que tengas un gran día! ✨`;
+  }
   // GRABACIÓN
   if(tl.includes('grab')){
     const next=reels.filter(r=>!r.grabado&&r.fechaGrab).sort((a,b)=>a.fechaGrab.localeCompare(b.fechaGrab))[0];
-    if(next)return`📅 Tu próxima grabación es el **${fmtDate(next.fechaGrab)}** (${next.label}). ¡Prepárate! 🎬`;
+    if(next){
+      const diff=Math.ceil((new Date(next.fechaGrab+'T12:00:00')-new Date())/864e5);
+      const when=diff===0?'¡es hoy!':diff===1?'¡es mañana!':diff>0?`en ${diff} días`:'fue hace unos días';
+      return`📅 Tu próxima grabación es el **${fmtDate(next.fechaGrab)}** (${next.label}) — ${when} 🎬${drivePics?`\n\n📸 ¿Necesitas preparar looks o referencias? Aquí tienes tu carpeta de fotos: [Ver fotos](${drivePics})`:''}`;
+    }
     const yaGrabados=reels.filter(r=>r.grabado).length;
-    if(yaGrabados===reels.length&&reels.length>0)return`✅ ¡Todos tus reels de este mes ya están grabados! Ahora están en proceso de edición.`;
-    return`📅 Aún no tenemos fecha de grabación confirmada. El equipo te lo confirmará en breve. También puedes preguntarles directamente aquí.`;
+    if(yaGrabados===reels.length&&reels.length>0)return`✅ ¡Todos tus reels de este mes ya están grabados! Ahora están siendo editados por tu equipo. ✂️`;
+    return`📅 Aún no tenemos fecha de grabación confirmada para los próximos reels. El equipo te lo confirmará en breve. También puedes solicitarla por aquí escribiendo "quiero agendar grabación".`;
   }
   // ENTREGA
-  if(tl.includes('entrega')||tl.includes('cuando me')||tl.includes('cuándo me')||tl.includes('listo')||tl.includes('lista')){
+  if(tl.includes('entrega')||tl.includes('cuando me')||tl.includes('cuándo me')||tl.includes('listo')||tl.includes('lista')||tl.includes('terminado')){
     const next=reels.filter(r=>r.grabado&&!r.subido&&r.fechaEdit).sort((a,b)=>a.fechaEdit.localeCompare(b.fechaEdit))[0];
-    if(next)return`🎬 La entrega del **${next.label}** está prevista para el **${fmtDate(next.fechaEdit)}**. ¡Ya casi está! ✂️`;
+    if(next){
+      const diff=Math.ceil((new Date(next.fechaEdit+'T12:00:00')-new Date())/864e5);
+      const when=diff<=0?'¡muy pronto!':diff===1?'mañana':diff+' días';
+      return`🎬 La entrega del **${next.label}** está prevista para el **${fmtDate(next.fechaEdit)}** — ${when}${driveReels?`\n\n✂️ Cuando esté listo podrás verlo aquí: [Ver reels editados](${driveReels})`:''}`;
+    }
     const sub=reels.filter(r=>r.subido).length;
-    if(sub===reels.length&&reels.length>0)return`🎉 ¡Todo tu contenido de este mes ya está entregado y publicado! ¿Quieres ver el siguiente mes?`;
+    if(sub===reels.length&&reels.length>0)return`🎉 ¡Todo tu contenido de ${monthLabel(mk)} ya está entregado y publicado!${driveReels?` Puedes verlo todo aquí: [Ver reels](${driveReels})`:''}`;
     return`📤 El equipo está trabajando en tu contenido. Te avisaremos en cuanto esté listo.`;
   }
+  // VER REELS / DRIVE
+  if(tl.includes('ver')||tl.includes('enlace')||tl.includes('link')||tl.includes('drive')||tl.includes('carpeta')){
+    if(tl.includes('guion')||tl.includes('script')){
+      return driveScripts?`📝 Aquí tienes tus guiones: [Ver guiones](${driveScripts})`:`Tus guiones se te envían directamente antes de cada grabación. Si necesitas alguno, dímelo.`;
+    }
+    if(tl.includes('foto')||tl.includes('pic')){
+      return drivePics?`📸 Aquí tienes tu carpeta de fotos: [Ver fotos](${drivePics})`:`No tenemos carpeta de fotos configurada. Contacta con el equipo.`;
+    }
+    if(driveReels)return`✂️ Aquí tienes todos tus reels editados: [Ver reels editados](${driveReels})${driveMain?`\n\n📁 Y tu carpeta completa: [Ver todo](${driveMain})`:''}`;
+    if(driveMain)return`📁 Aquí tienes tu carpeta de Drive: [Ver todo mi contenido](${driveMain})`;
+    return`No tenemos los links de Drive configurados aún. Contacta con el equipo y lo solucionamos.`;
+  }
   // ESTADO REELS
-  if(tl.includes('reel')||tl.includes('video')||tl.includes('vídeo')||tl.includes('contenido')||tl.includes('cómo van')||tl.includes('como van')){
+  if(tl.includes('reel')||tl.includes('video')||tl.includes('vídeo')||tl.includes('contenido')||tl.includes('cómo van')||tl.includes('como van')||tl.includes('estado')){
     const sub=reels.filter(r=>r.subido).length;
     const ed=reels.filter(r=>r.editado&&!r.subido).length;
     const gr=reels.filter(r=>r.grabado&&!r.editado).length;
     const pe=reels.filter(r=>!r.grabado).length;
     if(!reels.length)return`No hay reels configurados para este mes. Contacta con el equipo para más info.`;
-    return`📊 **Resumen de ${monthLabel(mk)}:**\n✅ ${sub}/${reels.length} publicados\n✂️ ${ed} en edición\n🎬 ${gr} grabados (pendientes editar)\n⏳ ${pe} pendientes de grabar`;
+    let resp=`📊 **Tu contenido de ${monthLabel(mk)}:**\n✅ ${sub}/${reels.length} publicados\n✂️ ${ed} en edición\n🎬 ${gr} grabados\n⏳ ${pe} pendientes`;
+    if(sub>0&&driveReels)resp+=`\n\n👀 ¿Quieres ver los editados? [Ver reels](${driveReels})`;
+    return resp;
   }
   // EDITOR
   if(tl.includes('editor')||tl.includes('edita')||tl.includes('quién')||tl.includes('quien')){
-    if(c.editors&&c.editors.length)return`✂️ Tu${c.editors.length>1?'s editors son':'editor es'} **${c.editors.join(' y ')}**. ${c.editors.length>1?'Son':'Es'} quien edita todo tu contenido.`;
-    return`No hay editor asignado aún. El equipo te lo confirmará en breve.`;
+    if(c.editors&&c.editors.length)return`✂️ Tu${c.editors.length>1?'s editors son':'editor es'} **${c.editors.join(' y ')}**. Son quienes dan vida a tu contenido con cada edición 🎬`;
+    return`No hay editor asignado todavía. El equipo te lo confirmará en breve.`;
   }
-  // CONTRATO
-  if(tl.includes('contrato')||tl.includes('meses')||tl.includes('queda')||tl.includes('vence')||tl.includes('expira')){
+  // CONTRATO / MESES RESTANTES
+  if(tl.includes('contrato')||tl.includes('meses')||tl.includes('queda')||tl.includes('vence')||tl.includes('cuánto tiempo')||tl.includes('cuanto tiempo')){
     if(c.contractEnd){
       const diff=Math.ceil((new Date(c.contractEnd+'T12:00:00')-new Date())/864e5/30);
       const vencido=diff<0;
-      if(vencido)return`⚠️ Tu contrato venció el **${fmtDate(c.contractEnd)}**. Contacta con Adri o Alan para renovarlo.`;
-      return`📄 Tu contrato es válido hasta el **${fmtDate(c.contractEnd)}** (${diff} mes${diff!==1?'es':''} restante${diff!==1?'s':''}). ${c.contractType?' Tipo: '+c.contractType:''} `;
+      if(vencido)return`⚠️ Tu contrato venció el **${fmtDate(c.contractEnd)}**. Contacta con Adri o Alan para renovarlo y seguir creando contenido juntos.`;
+      const total=c.price?c.price*diff:0;
+      return`📄 Tu contrato es válido hasta el **${fmtDate(c.contractEnd)}**.\n📅 Te quedan **${diff} mes${diff!==1?'es':''} restante${diff!==1?'s':''}**${total?`\n💰 Pagos pendientes: **${total.toLocaleString('es')}€** (${diff} × ${c.price}€)`:''}`;
     }
-    if(c.contractStart)return`📄 Tu contrato comenzó el **${fmtDate(c.contractStart)}**. Para más detalles, contacta con el equipo.`;
+    if(c.contractStart)return`📄 Llevas trabajando con Mentedoras desde el **${fmtDate(c.contractStart)}**. ¡Ya somos un equipo! 💪`;
     return`No tengo datos de tu contrato. Contacta con Adri o Alan para más información.`;
   }
   // FACTURA / PAGO
-  if(tl.includes('factura')||tl.includes('pago')||tl.includes('pagado')||tl.includes('cobro')||tl.includes('dinero')){
+  if(tl.includes('factura')||tl.includes('pago')||tl.includes('pagado')||tl.includes('cobro')||tl.includes('precio')){
     const cobro=cobrosList.find(co=>co.cliente===c.name&&co.month===mk);
     if(c.price){
-      if(cobro?.paid)return`💰 Tu pago de **${c.price}€** de ${monthLabel(mk)} está **recibido** ✅. ¡Gracias!`;
-      return`💰 Tu mensualidad es de **${c.price}€**. El estado de ${monthLabel(mk)} es: **pendiente de recibir**. Si tienes dudas contacta con Adri o Alan.`;
+      if(cobro?.paid)return`💰 Tu pago de **${c.price}€** de ${monthLabel(mk)} está **recibido y confirmado** ✅ ¡Gracias! Seguimos creando.`;
+      return`💰 Tu mensualidad es **${c.price}€**. El estado de ${monthLabel(mk)}: **pendiente de recibir**. Si ya realizaste el pago y no se refleja, contacta con Adri o Alan.`;
     }
     return`Para información sobre facturas y pagos, contacta directamente con Adri o Alan. 💼`;
   }
-  // SIGUIENTE GRABACIÓN / REUNIÓN
-  if(tl.includes('reunión')||tl.includes('reunion')||tl.includes('meeting')||tl.includes('llamada')){
+  // REUNIÓN / MEETING
+  if(tl.includes('reunión')||tl.includes('reunion')||tl.includes('meeting')||tl.includes('llamada')||tl.includes('hablar')||tl.includes('agendar')){
     const nextMeet=calEvents.filter(e=>e.type==='meet'&&e.client===c.name&&e.date>=today()).sort((a,b)=>a.date.localeCompare(b.date))[0];
-    if(nextMeet)return`📞 Tu próxima reunión con nosotros es el **${fmtDate(nextMeet.date)}**: "${nextMeet.title}"`;
-    createAutoTask(c.name+' pregunta por reunión: "'+txt+'"');
-    return`No tengo reuniones programadas ahora mismo. He avisado al equipo para que os contacten. 👋`;
+    if(nextMeet)return`📞 Tienes una reunión con nosotros el **${fmtDate(nextMeet.date)}**: "${nextMeet.title}"\n\n¿Necesitas cambiarla o tienes alguna pregunta?`;
+    createAutoTask(c.name+' quiere agendar una reunión: "'+txt+'"');
+    return`¡Claro! Puedes solicitar una reunión directamente desde el botón **"Agendar reunión"** que tienes arriba. También le avisaré al equipo ahora mismo 👋`;
   }
-  // PUBLICADO / SUBIDO
-  if(tl.includes('publi')||tl.includes('subido')||tl.includes('instagram')||tl.includes('redes')){
-    const sub=reels.filter(r=>r.subido).length;
-    if(sub===reels.length&&reels.length>0)return`🎉 ¡Todos tus ${reels.length} reels de ${monthLabel(mk)} están publicados! Puedes verlos en tu Instagram.`;
-    if(sub>0)return`📱 Tienes **${sub} de ${reels.length}** reels publicados en ${monthLabel(mk)}. Los demás están en proceso.`;
-    return`⏳ Aún no hemos publicado reels este mes. Te avisaremos en cuanto suba el primero.`;
+  // GUIONES / SCRIPTS
+  if(tl.includes('guion')||tl.includes('guión')||tl.includes('script')){
+    return driveScripts?`📝 Aquí tienes tus guiones: [Ver guiones](${driveScripts})\n\nSi tienes algún cambio o corrección, dímelo aquí mismo.`:`Tus guiones se preparan antes de cada grabación y te los enviamos para revisión. ¿Tienes alguna duda sobre el contenido?`;
   }
   // SERVICIOS
   if(tl.includes('servicio')||tl.includes('incluye')||tl.includes('qué hac')||tl.includes('que hac')){
     const svcs=(Array.isArray(c.services)?c.services:[]).map(id=>SERVICES.find(s=>s.id===id)?.label).filter(Boolean);
-    if(svcs.length)return`📋 Los servicios incluidos en tu contrato son:\n${svcs.map(s=>'• '+s).join('\n')}`;
-    return`Contacta con el equipo para conocer los detalles de tu contrato.`;
-  }
-  // SALUDOS
-  if(tl.includes('hola')||tl.includes('buenos')||tl.includes('buenas')||tl==='hi'||txt.length<8){
-    const h=new Date().getHours();
-    const g=h<13?'¡Buenos días':'¡Buenas';
-    return`${g}, ${c.name}! 👋 Soy el asistente de Mentedoras. Puedo decirte el estado de tus reels, fechas de grabación y entrega, info de tu contrato y más. ¿En qué puedo ayudarte?`;
-  }
-  // GRACIAS
-  if(tl.includes('gracias')||tl.includes('thank')||tl.includes('perfecto')||tl.includes('genial')){
-    return`¡De nada, ${c.name}! 😊 Estamos aquí para lo que necesites. ¿Algo más en lo que pueda ayudarte?`;
+    if(svcs.length)return`📋 Los servicios incluidos en tu contrato con Mentedoras son:\n${svcs.map(s=>'• '+s).join('\n')}\n\n¿Tienes alguna duda sobre alguno de ellos?`;
+    return`Para conocer los detalles de tu contrato, contacta con Adri o Alan.`;
   }
   // NO SABE → tarjeta automática
   createAutoTask(c.name+' pregunta: "'+txt+'"');
-  return`No tengo esa información exacta ahora mismo. He avisado a Adri y Alan con tu pregunta y te responderán lo antes posible. También puedes escribirles por WhatsApp si es urgente. 👋`;
+  return`Hmm, esa pregunta se escapa de lo que sé 😅 Pero no te preocupes — le acabo de avisar a Adri y Alan con tu mensaje y te responderán lo antes posible. También puedes escribirles directamente si es urgente. 👋`;
 }
 
 // ============================================================
