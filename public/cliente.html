@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Mentedoras — Tu Portal</title>
+<meta name="theme-color" content="#00E5E5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mentedoras">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --c:#00E5E5;--cd:#00B8B8;--cdim:rgba(0,229,229,.12);
+  --bg:#111418;--bg2:#181D23;--bg3:#1E2530;--bg4:#252D38;
+  --bd:rgba(255,255,255,.07);--bd2:rgba(255,255,255,.12);
+  --tx:#F0F4F8;--tx2:#8FA3B8;--tx3:#4A6078;
+  --ok:#22C55E;--warn:#F59E0B;--err:#EF4444;
+  --r:8px;--rl:12px;--rxl:16px;
+  --s1:0 1px 4px rgba(0,0,0,.4);--s2:0 4px 16px rgba(0,0,0,.5);--s3:0 8px 32px rgba(0,0,0,.6)
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+body.light{--bg:#F0F4F8;--bg2:#fff;--bg3:#E8EEF5;--bg4:#D8E2ED;--bd:rgba(0,0,0,.08);--bd2:rgba(0,0,0,.13);--tx:#1A2332;--tx2:#4A5568;--tx3:#8FA3B8}
+body.blue{--bg:#0A1628;--bg2:#0F2040;--bg3:#162850;--bg4:#1D3360;--bd:rgba(0,229,229,.1);--bd2:rgba(0,229,229,.18);--tx:#E8F4FF;--tx2:#7FB3D3;--tx3:#3A6080}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:4px}
+input,select,textarea{color:var(--tx);background:var(--bg3);border:1px solid var(--bd2);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 11px;width:100%;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--c)}
+button{cursor:pointer;font-family:'DM Sans',sans-serif}
+
+/* LOADING */
+.loading{display:flex;min-height:100vh;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.loading-logo{font-size:32px;font-weight:600;color:var(--c);font-style:italic;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* NOT FOUND */
+.notfound{display:none;min-height:100vh;align-items:center;justify-content:center;flex-direction:column;gap:12px;text-align:center;padding:20px}
+
+/* APP */
+.app{display:none;flex-direction:column;min-height:100vh}
+.app.on{display:flex}
+
+/* HEADER */
+.hdr{background:var(--bg2);border-bottom:1px solid var(--bd);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.hdr-logo{font-size:18px;font-weight:600;color:var(--c);font-style:italic}
+.hdr-name{font-size:12px;color:var(--tx3);margin-top:1px}
+.hdr-acts{display:flex;align-items:center;gap:8px}
+.th-btn{width:18px;height:18px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:all .15s;flex-shrink:0}
+.th-btn.on{border-color:var(--c)}
+.th-dark{background:radial-gradient(circle,#252D38,#111418)}
+.th-light{background:radial-gradient(circle,#fff,#E8EEF5)}
+.th-blue{background:radial-gradient(circle,#1D3360,#0A1628)}
+
+/* NAV TABS */
+.nav{background:var(--bg2);border-bottom:1px solid var(--bd);display:flex;overflow-x:auto;padding:0 12px}
+.nav-tab{padding:12px 14px;font-size:13px;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;display:flex;align-items:center;gap:6px;transition:all .15s;flex-shrink:0}
+.nav-tab:hover{color:var(--tx)}
+.nav-tab.on{color:var(--c);border-bottom-color:var(--c);font-weight:500}
+.nav-tab i{font-size:15px}
+
+/* CONTENT */
+.cnt{flex:1;padding:16px;max-width:680px;margin:0 auto;width:100%}
+.view{display:none}
+.view.on{display:block}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rl);padding:16px;margin-bottom:14px}
+.card-t{font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.card-t i{font-size:14px;color:var(--c)}
+.pf{display:flex;align-items:flex-start;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bd);gap:10px}
+.pf:last-child{border-bottom:none}
+.pf-l{font-size:12px;color:var(--tx3);flex-shrink:0}
+.pf-v{font-size:13px;font-weight:500;text-align:right}
+
+/* STATS */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+.stat{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rl);padding:14px;text-align:center}
+.stat-v{font-size:26px;font-weight:600;letter-spacing:-.02em}
+.stat-l{font-size:11px;color:var(--tx3);margin-top:3px}
+
+/* ALERT */
+.alert{padding:12px 14px;border-radius:var(--r);margin-bottom:12px;display:flex;align-items:center;gap:10px;font-size:13px}
+.alert-ok{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);color:#4ADE80}
+.alert-warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);color:var(--warn)}
+.alert-info{background:var(--cdim);border:1px solid rgba(0,229,229,.2);color:var(--c)}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--r);font-size:13px;font-weight:500;border:1px solid var(--bd2);background:var(--bg3);color:var(--tx2);transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--bg4);color:var(--tx)}
+.btn-p{background:var(--c);color:var(--bg);border-color:var(--c);font-weight:600}
+.btn-p:hover{background:var(--cd)}
+.btn-s{padding:5px 10px;font-size:12px}
+.btn-block{width:100%;justify-content:center;padding:12px}
+
+/* CHIPS */
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600}
+
+/* MONTH TABS */
+.month-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.mbtn{padding:5px 12px;border-radius:20px;font-size:12px;border:1px solid var(--bd2);background:transparent;color:var(--tx3);transition:all .15s}
+.mbtn.on{background:var(--cdim);color:var(--c);border-color:var(--c)}
+
+/* REEL ROW */
+.reel-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bd);gap:10px}
+.reel-row:last-child{border-bottom:none}
+
+/* CHAT */
+.chat-wrap{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rxl);overflow:hidden;margin-bottom:14px}
+.chat-hdr{padding:14px 16px;background:var(--bg3);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px}
+.chat-online{width:8px;height:8px;border-radius:50%;background:var(--ok);flex-shrink:0}
+.chat-msgs{height:300px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:75%}
+.msg.me{align-self:flex-end}
+.msg.bot{align-self:flex-start}
+.msg-bub{padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5}
+.msg.me .msg-bub{background:var(--c);color:var(--bg);border-bottom-right-radius:3px;font-weight:500}
+.msg.bot .msg-bub{background:var(--bg3);color:var(--tx);border-bottom-left-radius:3px;border:1px solid var(--bd)}
+.msg-time{font-size:10px;color:var(--tx3);margin-top:3px;padding:0 4px}
+.msg.me .msg-time{text-align:right}
+.chat-sugg{padding:8px 14px;border-top:1px solid var(--bd);display:flex;flex-wrap:wrap;gap:5px}
+.sugg-btn{padding:5px 11px;border-radius:20px;border:1px solid var(--bd2);background:var(--bg3);color:var(--tx2);font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.sugg-btn:hover{border-color:var(--c);color:var(--c);background:var(--cdim)}
+.chat-inp-row{padding:10px 14px;border-top:1px solid var(--bd);display:flex;gap:8px}
+.chat-inp{flex:1;padding:8px 13px;border:1px solid var(--bd2);border-radius:20px;font-size:13px;color:var(--tx);background:var(--bg3)}
+.chat-inp:focus{outline:none;border-color:var(--c)}
+.chat-send{padding:8px 16px;background:var(--c);color:var(--bg);border:none;border-radius:20px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px}
+
+/* TIMELINE */
+.timeline{position:relative;padding-left:20px}
+.timeline::before{content:'';position:absolute;left:6px;top:0;bottom:0;width:2px;background:var(--bd2)}
+.tl-item{position:relative;padding:0 0 16px 20px}
+.tl-dot{position:absolute;left:-14px;top:3px;width:12px;height:12px;border-radius:50%;background:var(--bg3);border:2px solid var(--bd2)}
+.tl-dot.done{background:var(--ok);border-color:var(--ok)}
+.tl-dot.active{background:var(--c);border-color:var(--c);box-shadow:0 0 0 3px var(--cdim)}
+.tl-title{font-size:13px;font-weight:500}
+.tl-date{font-size:11px;color:var(--tx3);margin-top:2px}
+
+/* STARS */
+.stars{display:flex;gap:4px}
+.star{font-size:24px;cursor:pointer;transition:transform .15s;opacity:.3}
+.star.on{opacity:1}
+.star:hover{transform:scale(1.2)}
+
+/* GROWTH */
+.growth-bar{height:8px;background:var(--bd);border-radius:4px;overflow:hidden;margin-top:6px}
+.growth-fill{height:100%;background:linear-gradient(90deg,var(--c),#4ADE80);border-radius:4px;transition:width .6s ease}
+
+/* CREDENTIALS FORM */
+.cred-field{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:12px;margin-bottom:10px}
+
+/* MODAL */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(4px);padding:16px}
+.mo.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--rxl);padding:22px;width:100%;max-width:420px;box-shadow:var(--s3);max-height:90vh;overflow-y:auto}
+.modal-t{font-size:16px;font-weight:600;margin-bottom:16px}
+.modal-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.f{margin-bottom:12px}
+.f label{font-size:11px;font-weight:500;color:var(--tx2);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+
+/* WELCOME */
+.welcome{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:16px}
+.welcome.open{display:flex}
+.welcome-box{background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--rxl);padding:32px;text-align:center;max-width:320px;width:100%;box-shadow:var(--s3);animation:popIn .4s ease}
+@keyframes popIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);padding:10px 18px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:500;opacity:0;transition:all .3s;box-shadow:var(--s3);white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.ok{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.3);color:#4ADE80}
+
+/* FAQ */
+.faq-item{border:1px solid var(--bd);border-radius:var(--r);margin-bottom:8px;overflow:hidden}
+.faq-q{padding:12px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:500;background:var(--bg3);transition:background .15s}
+.faq-q:hover{background:var(--bg4)}
+.faq-a{display:none;padding:12px 14px;font-size:13px;color:var(--tx2);line-height:1.6;background:var(--bg2)}
+.faq-a.open{display:block}
+</style>
+</head>
+<body>
+
+<div class="loading" id="loading">
+  <div class="loading-logo">Mentedoras</div>
+  <div style="font-size:13px;color:var(--tx3)">Cargando tu portal...</div>
+</div>
+
+<div class="notfound" id="notfound">
+  <div style="font-size:48px">🔍</div>
+  <div style="font-size:20px;font-weight:600">Portal no encontrado</div>
+  <div style="font-size:14px;color:var(--tx3)">El link no es válido. Contacta con tu equipo de Mentedoras.</div>
+</div>
+
+<div class="app" id="app">
+  <div class="hdr">
+    <div>
+      <div class="hdr-logo">Mentedoras</div>
+      <div class="hdr-name" id="hdr-name"></div>
+    </div>
+    <div class="hdr-acts">
+      <div class="th-btn th-dark on" id="th-dark" onclick="setTheme('dark')" title="Oscuro"></div>
+      <div class="th-btn th-light" id="th-light" onclick="setTheme('light')" title="Claro"></div>
+      <div class="th-btn th-blue" id="th-blue" onclick="setTheme('blue')" title="Azul"></div>
+    </div>
+  </div>
+
+  <div class="nav">
+    <div class="nav-tab on" onclick="showTab('inicio')" id="nt-inicio"><i class="ti ti-home"></i>Inicio</div>
+    <div class="nav-tab" onclick="showTab('reels')" id="nt-reels"><i class="ti ti-video"></i>Reels</div>
+    <div class="nav-tab" onclick="showTab('contrato')" id="nt-contrato"><i class="ti ti-file-text"></i>Contrato</div>
+    <div class="nav-tab" onclick="showTab('crecimiento')" id="nt-crecimiento"><i class="ti ti-trending-up"></i>Crecimiento</div>
+    <div class="nav-tab" onclick="showTab('chat')" id="nt-chat"><i class="ti ti-message-2"></i>Chat</div>
+    <div class="nav-tab" onclick="showTab('ajustes')" id="nt-ajustes"><i class="ti ti-settings"></i>Ajustes</div>
+  </div>
+
+  <div class="cnt">
+    <!-- INICIO -->
+    <div class="view on" id="view-inicio"></div>
+    <!-- REELS -->
+    <div class="view" id="view-reels"></div>
+    <!-- CONTRATO -->
+    <div class="view" id="view-contrato"></div>
+    <!-- CRECIMIENTO -->
+    <div class="view" id="view-crecimiento"></div>
+    <!-- CHAT -->
+    <div class="view" id="view-chat"></div>
+    <!-- AJUSTES -->
+    <div class="view" id="view-ajustes"></div>
+  </div>
+</div>
+
+<div class="mo" id="mo"><div class="modal" id="modal-c"></div></div>
+<div class="toast" id="toast"></div>
+<div class="welcome" id="welcome">
+  <div class="welcome-box">
+    <div style="font-size:40px;margin-bottom:10px" id="w-emoji">👋</div>
+    <div style="font-size:20px;font-weight:600;margin-bottom:6px" id="w-title">¡Bienvenido!</div>
+    <div style="font-size:13px;color:var(--tx3);margin-bottom:20px" id="w-sub"></div>
+    <button onclick="closeWelcome()" class="btn btn-p btn-block">¡Vamos! 🚀</button>
+  </div>
+</div>
+
+<script>
+const FB_CONFIG={apiKey:"AIzaSyBjPyF0q4KMH2LZ7qfBb9wvjZm2usYyIQM",authDomain:"mentedoras-crm.firebaseapp.com",projectId:"mentedoras-crm",storageBucket:"mentedoras-crm.firebasestorage.app",messagingSenderId:"965240949854",appId:"1:965240949854:web:151aebe243214b55c5f8cf"};
+
+const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const PHASES=['Pendiente de crear guion','Pendiente de OK de guion','Pendiente de grabación','Grabado, pendiente de editar','Editándose','Editado, pendiente de revisión','Revisado','Pendiente de subir','¡Subido! 🎉'];
+const SERVICES=[
+  {id:'podcast_grab',label:'Grabación de Podcast'},
+  {id:'podcast_edit',label:'Grabación y edición de Podcast'},
+  {id:'podcast_reels',label:'Transcripción de Podcast a Reels virales'},
+  {id:'podcast_reels_edit',label:'Transcripción de Podcast a Reels + edición'},
+  {id:'youtube',label:'Gestión de canal de YouTube'},
+  {id:'youtube_thumb',label:'Creación de miniaturas para YouTube'},
+  {id:'content_5',label:'Creación de contenido mensual (5 vídeos)'},
+  {id:'content_8_cm',label:'Creación de contenido mensual (8 vídeos + CM)'},
+  {id:'vsl_grab',label:'Grabación de VSL'},
+  {id:'vsl_edit',label:'Grabación y edición de VSL'},
+  {id:'mentedoras_podcast',label:'Participación en el podcast de MENTEDORAS'},
+  {id:'custom',label:'Otros servicios personalizados'},
+];
+const FAQ=[
+  {q:'¿Cómo funciona el proceso de contenido?',a:'Primero creamos tus guiones, los revisamos contigo, agendamos la grabación, editamos el contenido y finalmente lo publicamos en tus redes. Puedes ver el estado de cada paso en tu portal.'},
+  {q:'¿Cuándo recibiré mi contenido?',a:'Los tiempos varían según el servicio. Generalmente la edición tarda entre 3-5 días hábiles desde la grabación. Puedes ver la fecha estimada de entrega en la sección Reels.'},
+  {q:'¿Cómo puedo pedir cambios en un reel?',a:'Escríbenos en el chat de este portal o directamente por WhatsApp. Cuéntanos qué quieres cambiar y lo gestionamos lo antes posible.'},
+  {q:'¿Cada cuánto grabamos?',a:'Depende de tu contrato. Normalmente organizamos sesiones de grabación mensualmente o cuando acumulamos suficiente material para editar.'},
+  {q:'¿Dónde puedo ver mis guiones?',a:'En la sección Reels encontrarás el link a tu carpeta de Drive donde están todos tus guiones disponibles para revisar antes de grabar.'},
+  {q:'¿Cómo puedo contactar con el equipo?',a:'Tienes el chat en este portal que responde al instante para dudas básicas. Para temas urgentes, usa el botón de WhatsApp directo con Adri o Alan.'},
+  {q:'¿Qué pasa si no puedo grabar el día acordado?',a:'Sin problema, escríbenos con la mayor antelación posible y reorganizamos la sesión. El chat de este portal o WhatsApp son las formas más rápidas.'},
+];
+
+let db=null,client=null,activeMonth='',chatMsgs=[];
+
+// ============================================================
+// FIREBASE
+// ============================================================
+function initFB(){
+  return new Promise(r=>{
+    const s1=document.createElement('script');
+    s1.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
+    s1.onload=()=>{
+      const s2=document.createElement('script');
+      s2.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js';
+      s2.onload=()=>{
+        try{if(!firebase.apps.length)firebase.initializeApp(FB_CONFIG);db=firebase.firestore();}catch(e){}
+        r();
+      };s2.onerror=r;document.head.appendChild(s2);
+    };s1.onerror=r;document.head.appendChild(s1);
+  });
+}
+async function loadClient(cid){
+  await initFB();
+  try{
+    const d=await db.collection('crm').doc('clients').get();
+    if(d.exists){
+      const list=d.data().list||[];
+      const c=list.find(c=>c.id===cid);
+      if(c)return{...c,editors:Array.isArray(c.editors)?c.editors:[],services:Array.isArray(c.services)?c.services:[]};
+    }
+  }catch(e){console.warn(e);}
+  return null;
+}
+async function saveClientData(){
+  if(!db||!client)return;
+  try{
+    const d=await db.collection('crm').doc('clients').get();
+    if(d.exists){
+      const list=d.data().list||[];
+      const idx=list.findIndex(c=>c.id===client.id);
+      if(idx>=0){list[idx]=client;await db.collection('crm').doc('clients').set({list,updatedAt:new Date().toISOString()});}
+    }
+  }catch(e){console.warn(e);}
+}
+async function loadPayments(){
+  try{
+    const d=await db.collection('crm').doc('payments').get();
+    if(d.exists)return d.data();
+  }catch(e){}
+  return{list:[],cobros:[]};
+}
+function listenRealtime(){
+  if(!db||!client)return;
+  db.collection('crm').doc('clients').onSnapshot(snap=>{
+    if(snap&&snap.exists){
+      const list=snap.data().list||[];
+      const updated=list.find(c=>c.id===client.id);
+      if(updated){
+        client={...updated,editors:Array.isArray(updated.editors)?updated.editors:[],services:Array.isArray(updated.services)?updated.services:[]};
+        // Refresh current tab
+        const activeTab=document.querySelector('.nav-tab.on')?.id?.replace('nt-','');
+        if(activeTab)renderTab(activeTab);
+      }
+    }
+  });
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function today(){return new Date().toISOString().split('T')[0];}
+function fmtDate(d){if(!d)return'';const dt=new Date(d+'T12:00:00');return dt.toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});}
+function monthKey(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');}
+function monthLabel(k){if(!k)return'';const[y,m]=k.split('-');return MONTHS[parseInt(m)-1]+' '+y;}
+function ini(n){return(n||'').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
+
+// ============================================================
+// THEME
+// ============================================================
+function setTheme(t){
+  document.body.className=t==='dark'?'':t;
+  document.querySelectorAll('.th-btn').forEach(b=>b.classList.remove('on'));
+  document.getElementById('th-'+t)?.classList.add('on');
+  localStorage.setItem('mt',t);
+}
+function loadTheme(){setTheme(localStorage.getItem('mt')||'dark');}
+
+// ============================================================
+// TABS
+// ============================================================
+function showTab(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  document.getElementById('view-'+name)?.classList.add('on');
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('nt-'+name)?.classList.add('on');
+  renderTab(name);
+}
+function renderTab(name){
+  if(name==='inicio')renderInicio();
+  if(name==='reels')renderReels();
+  if(name==='contrato')renderContrato();
+  if(name==='crecimiento')renderCrecimiento();
+  if(name==='chat')renderChat();
+  if(name==='ajustes')renderAjustes();
+}
+
+// ============================================================
+// INICIO
+// ============================================================
+function renderInicio(){
+  const mk=monthKey();
+  const reels=client.reels?.[mk]||[];
+  const sub=reels.filter(r=>r.subido).length;
+  const ed=reels.filter(r=>r.editado&&!r.subido).length;
+  const gr=reels.filter(r=>r.grabado&&!r.editado).length;
+  const pe=reels.filter(r=>!r.grabado).length;
+  const nextGrab=reels.filter(r=>!r.grabado&&r.fechaGrab).sort((a,b)=>a.fechaGrab.localeCompare(b.fechaGrab))[0];
+  const nextEdit=reels.filter(r=>r.grabado&&!r.subido&&r.fechaEdit).sort((a,b)=>a.fechaEdit.localeCompare(b.fechaEdit))[0];
+  const allReels=Object.values(client.reels||{}).flat();
+  const totalPub=allReels.filter(r=>r.subido).length;
+  const months=Object.keys(client.reels||{}).length;
+
+  let html=`
+    <div style="margin-bottom:20px">
+      <div style="font-size:22px;font-weight:600">Hola, ${client.name} 👋</div>
+      <div style="font-size:14px;color:var(--tx3);margin-top:4px">${monthLabel(mk)}</div>
+    </div>`;
+
+  // Alertas
+  if(nextGrab){
+    const diff=Math.ceil((new Date(nextGrab.fechaGrab+'T12:00:00')-new Date())/864e5);
+    if(diff<=3&&diff>=0)html+=`<div class="alert alert-warn"><i class="ti ti-calendar-event" style="font-size:18px"></i><div><div style="font-weight:600">¡Grabación próxima!</div><div style="font-size:12px">${nextGrab.label} — ${fmtDate(nextGrab.fechaGrab)}</div></div></div>`;
+  }
+  if(nextEdit){
+    const diff=Math.ceil((new Date(nextEdit.fechaEdit+'T12:00:00')-new Date())/864e5);
+    if(diff<=2&&diff>=0)html+=`<div class="alert alert-info"><i class="ti ti-video" style="font-size:18px"></i><div><div style="font-weight:600">¡Tu reel estará listo pronto!</div><div style="font-size:12px">${nextEdit.label} — ${fmtDate(nextEdit.fechaEdit)}</div></div></div>`;
+  }
+  if(sub>0)html+=`<div class="alert alert-ok"><i class="ti ti-check-circle" style="font-size:18px"></i><div><div style="font-weight:600">${sub} reel${sub>1?'s':''} publicado${sub>1?'s':''}  este mes</div><div style="font-size:12px">${sub}/${reels.length} en total</div></div></div>`;
+
+  // Stats
+  html+=`<div class="stat-grid">
+    <div class="stat"><div class="stat-v" style="color:#4ADE80">${sub}/${reels.length}</div><div class="stat-l">✅ Publicados</div></div>
+    <div class="stat"><div class="stat-v" style="color:#C084FC">${ed}</div><div class="stat-l">✂️ En edición</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--warn)">${gr}</div><div class="stat-l">🎬 Grabados</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--tx3)">${pe}</div><div class="stat-l">⏳ Pendientes</div></div>
+  </div>`;
+
+  // Próximas fechas
+  if(nextGrab||nextEdit){
+    html+=`<div class="card"><div class="card-t"><i class="ti ti-calendar"></i>Próximas fechas</div>`;
+    if(nextGrab)html+=`<div class="pf"><span class="pf-l">📅 Grabación</span><span class="pf-v">${fmtDate(nextGrab.fechaGrab)} · ${nextGrab.label}</span></div>`;
+    if(nextEdit)html+=`<div class="pf"><span class="pf-l">🎬 Entrega</span><span class="pf-v">${fmtDate(nextEdit.fechaEdit)} · ${nextEdit.label}</span></div>`;
+    html+=`</div>`;
+  }
+
+  // Logros
+  html+=`<div class="card" style="background:linear-gradient(135deg,var(--bg2),var(--bg3))">
+    <div class="card-t"><i class="ti ti-trophy"></i>Tus logros con Mentedoras</div>
+    <div class="stat-grid" style="margin-bottom:0">
+      <div class="stat"><div class="stat-v" style="color:#4ADE80">${totalPub}</div><div class="stat-l">📹 Reels publicados</div></div>
+      <div class="stat"><div class="stat-v" style="color:var(--c)">${months}</div><div class="stat-l">📅 Meses juntos</div></div>
+    </div>
+  </div>`;
+
+  // Acciones rápidas
+  html+=`<div class="card">
+    <div class="card-t"><i class="ti ti-bolt"></i>Acciones rápidas</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="btn btn-block" onclick="showTab('reels')"><i class="ti ti-video"></i>Ver mis reels</button>
+      <button class="btn btn-block" onclick="openMeetingModal()"><i class="ti ti-calendar-plus"></i>Agendar reunión</button>
+      <button class="btn btn-block" onclick="showTab('chat')"><i class="ti ti-message-2"></i>Hablar con equipo</button>
+      <button class="btn btn-block" onclick="showTab('contrato')"><i class="ti ti-file-text"></i>Mi contrato</button>
+    </div>
+  </div>`;
+
+  document.getElementById('view-inicio').innerHTML=html;
+}
+
+// ============================================================
+// REELS
+// ============================================================
+function renderReels(){
+  const months=Object.keys(client.reels||{}).sort();
+  if(!activeMonth||!months.includes(activeMonth))activeMonth=months[months.length-1]||monthKey();
+  const reels=client.reels[activeMonth]||[];
+  const sub=reels.filter(r=>r.subido).length;
+  const ed=reels.filter(r=>r.editado&&!r.subido).length;
+  const gr=reels.filter(r=>r.grabado&&!r.editado).length;
+  const driveReels=(client.drive||{}).reelsEdit||'';
+  const driveScripts=(client.drive||{}).scripts||'';
+
+  let html=`<div class="month-row">
+    ${months.map(m=>`<button class="mbtn${m===activeMonth?' on':''}" onclick="setActiveMonth('${m}')">${monthLabel(m)}</button>`).join('')}
+  </div>`;
+
+  html+=`<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+    ${sub?`<span class="chip" style="background:rgba(34,197,94,.12);color:#4ADE80">✅ ${sub} publicados</span>`:''}
+    ${ed?`<span class="chip" style="background:rgba(192,132,252,.12);color:#C084FC">✂️ ${ed} en edición</span>`:''}
+    ${gr?`<span class="chip" style="background:rgba(245,158,11,.12);color:var(--warn)">🎬 ${gr} grabados</span>`:''}
+  </div>`;
+
+  if(driveReels||driveScripts){
+    html+=`<div class="card" style="margin-bottom:14px">
+      <div class="card-t"><i class="ti ti-folder"></i>Mis carpetas</div>
+      ${driveReels?`<a href="${driveReels}" target="_blank" class="btn btn-block" style="margin-bottom:8px;text-decoration:none"><i class="ti ti-video"></i>Ver reels editados</a>`:''}
+      ${driveScripts?`<a href="${driveScripts}" target="_blank" class="btn btn-block" style="text-decoration:none"><i class="ti ti-pencil"></i>Ver mis guiones</a>`:''}
+    </div>`;
+  }
+
+  html+=`<div class="card">
+    <div class="card-t"><i class="ti ti-list"></i>Reels de ${monthLabel(activeMonth)}</div>
+    ${reels.length?reels.map(r=>{
+      let estado='⏳ Pendiente';let color='var(--tx3)';
+      if(r.subido){estado='✅ Publicado';color='#4ADE80';}
+      else if(r.editado){estado='👁 Revisión';color='#C084FC';}
+      else if(r.grabado){estado='✂️ Editándose';color='var(--warn)';}
+      return`<div class="reel-row">
+        <div>
+          <div style="font-size:13px;font-weight:500">${r.label}</div>
+          <div style="font-size:11px;color:var(--tx3);margin-top:2px">
+            ${r.editor?'Editor: '+r.editor:''}
+            ${r.fechaGrab&&!r.grabado?' · Grabación: '+fmtDate(r.fechaGrab):''}
+            ${r.fechaEdit&&!r.subido?' · Entrega: '+fmtDate(r.fechaEdit):''}
+          </div>
+        </div>
+        <span style="font-size:11px;font-weight:600;color:${color};white-space:nowrap">${estado}</span>
+      </div>`;
+    }).join(''):'<div style="text-align:center;padding:20px;color:var(--tx3)">Sin reels este mes</div>'}
+  </div>`;
+
+  // Línea de tiempo del mes
+  html+=`<div class="card">
+    <div class="card-t"><i class="ti ti-timeline"></i>Estado del proceso</div>
+    <div class="timeline">`;
+  const steps=[
+    {label:'Guionización',done:reels.some(r=>client.produccion?.[activeMonth]?.s0?.[r.id])},
+    {label:'Grabación',done:reels.some(r=>r.grabado)},
+    {label:'Edición',done:reels.some(r=>r.editado)},
+    {label:'Revisión y ajustes',done:reels.some(r=>r.editado)&&reels.filter(r=>r.editado).length===reels.length},
+    {label:'Publicación',done:reels.some(r=>r.subido)},
+  ];
+  const activeIdx=steps.findIndex(s=>!s.done);
+  steps.forEach((s,i)=>{
+    const isActive=i===activeIdx;
+    html+=`<div class="tl-item">
+      <div class="tl-dot ${s.done?'done':isActive?'active':''}"></div>
+      <div class="tl-title" style="color:${s.done?'var(--tx3)':isActive?'var(--c)':'var(--tx2)'}">${s.label}</div>
+      ${isActive?'<div class="tl-date" style="color:var(--c)">En proceso ahora</div>':''}
+    </div>`;
+  });
+  html+=`</div></div>`;
+
+  document.getElementById('view-reels').innerHTML=html;
+}
+
+function setActiveMonth(m){activeMonth=m;renderReels();}
+
+// ============================================================
+// CONTRATO
+// ============================================================
+function renderContrato(){
+  const svcs=(client.services||[]).map(id=>SERVICES.find(s=>s.id===id)?.label).filter(Boolean);
+  let html='';
+
+  if(client.contractEnd){
+    const diff=Math.ceil((new Date(client.contractEnd+'T12:00:00')-new Date())/864e5/30);
+    const vencido=diff<0;
+    html+=`<div class="alert ${vencido?'alert-warn':'alert-info'}">
+      <i class="ti ti-${vencido?'alert-triangle':'clock'}" style="font-size:18px"></i>
+      <div><div style="font-weight:600">${vencido?'Contrato vencido':'Contrato activo'}</div>
+      <div style="font-size:12px">${vencido?'Contacta con el equipo para renovar':'Te quedan '+diff+' mes'+(diff!==1?'es':'')}</div></div>
+    </div>`;
+  }
+
+  html+=`<div class="card">
+    <div class="card-t"><i class="ti ti-file-text"></i>Detalles del contrato</div>
+    ${client.contractStart?`<div class="pf"><span class="pf-l">Fecha de inicio</span><span class="pf-v">${fmtDate(client.contractStart)}</span></div>`:''}
+    ${client.contractEnd?`<div class="pf"><span class="pf-l">Fecha de fin</span><span class="pf-v">${fmtDate(client.contractEnd)}</span></div>`:''}
+    ${client.contractType?`<div class="pf"><span class="pf-l">Tipo de acuerdo</span><span class="pf-v">${client.contractType}</span></div>`:''}
+    ${client.price?`<div class="pf"><span class="pf-l">Precio mensual</span><span class="pf-v" style="color:var(--c);font-weight:600">${client.price}€</span></div>`:''}
+    ${client.numReels?`<div class="pf"><span class="pf-l">Reels al mes</span><span class="pf-v">${client.numReels}</span></div>`:''}
+    ${client.editors?.length?`<div class="pf"><span class="pf-l">Tu editor</span><span class="pf-v">${client.editors.join(' y ')}</span></div>`:''}
+    ${client.cm?`<div class="pf"><span class="pf-l">Tu CM</span><span class="pf-v">${client.cm}</span></div>`:''}
+  </div>`;
+
+  if(svcs.length){
+    html+=`<div class="card">
+      <div class="card-t"><i class="ti ti-checklist"></i>Servicios contratados</div>
+      ${svcs.map(s=>`<div class="pf"><span style="font-size:13px">✅ ${s}</span></div>`).join('')}
+    </div>`;
+  }
+
+  if(client.contractEnd&&client.price){
+    const diff=Math.max(0,Math.ceil((new Date(client.contractEnd+'T12:00:00')-new Date())/864e5/30));
+    html+=`<div class="card">
+      <div class="card-t"><i class="ti ti-coin"></i>Resumen económico</div>
+      <div class="pf"><span class="pf-l">Mensualidad</span><span class="pf-v" style="color:var(--c);font-weight:600">${client.price}€/mes</span></div>
+      <div class="pf"><span class="pf-l">Meses restantes</span><span class="pf-v">${diff} meses</span></div>
+      <div class="pf"><span class="pf-l">Total restante</span><span class="pf-v" style="font-weight:600">${(client.price*diff).toLocaleString('es')}€</span></div>
+    </div>`;
+  }
+
+  // FAQ
+  html+=`<div class="card">
+    <div class="card-t"><i class="ti ti-help-circle"></i>Preguntas frecuentes</div>
+    ${FAQ.map((f,i)=>`<div class="faq-item">
+      <div class="faq-q" onclick="toggleFAQ(${i})">
+        <span>${f.q}</span>
+        <i class="ti ti-chevron-down" style="font-size:14px;transition:transform .2s" id="faq-ic-${i}"></i>
+      </div>
+      <div class="faq-a" id="faq-a-${i}">${f.a}</div>
+    </div>`).join('')}
+  </div>`;
+
+  document.getElementById('view-contrato').innerHTML=html;
+}
+function toggleFAQ(i){
+  const a=document.getElementById('faq-a-'+i);
+  const ic=document.getElementById('faq-ic-'+i);
+  if(!a)return;
+  const isOpen=a.classList.toggle('open');
+  if(ic)ic.style.transform=isOpen?'rotate(180deg)':'';
+}
+
+// ============================================================
+// CRECIMIENTO
+// ============================================================
+function renderCrecimiento(){
+  const g=client.growth||{};
+  let html=`<div class="card">
+    <div class="card-t"><i class="ti ti-trending-up"></i>Tu crecimiento en redes</div>`;
+
+  if(g.igStart||g.igNow){
+    const pct=g.igStart&&g.igNow?Math.round(((g.igNow-g.igStart)/g.igStart)*100):0;
+    html+=`<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:12px;color:var(--tx3)">📸 Instagram — Seguidores</span>
+        ${pct>0?`<span class="chip" style="background:rgba(34,197,94,.12);color:#4ADE80">+${pct}%</span>`:''}
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+        <span>Inicio: <strong>${(g.igStart||0).toLocaleString('es')}</strong></span>
+        <span>Ahora: <strong style="color:var(--c)">${(g.igNow||0).toLocaleString('es')}</strong></span>
+      </div>
+      <div class="growth-bar"><div class="growth-fill" style="width:${Math.min(100,Math.max(5,pct))}%"></div></div>
+    </div>`;
+  }
+  if(g.avgViews){
+    html+=`<div class="pf"><span class="pf-l">👁 Media de visitas por reel</span><span class="pf-v" style="color:var(--c);font-weight:600">${g.avgViews.toLocaleString('es')}</span></div>`;
+  }
+  if(g.bestReel){
+    html+=`<div class="pf"><span class="pf-l">🔥 Mejor reel</span><span class="pf-v">${g.bestReel}</span></div>`;
+  }
+  if(g.totalReach){
+    html+=`<div class="pf"><span class="pf-l">📡 Alcance total</span><span class="pf-v" style="font-weight:600">${g.totalReach.toLocaleString('es')}</span></div>`;
+  }
+  if(!g.igStart&&!g.igNow&&!g.avgViews){
+    html+=`<div style="text-align:center;padding:20px;color:var(--tx3);font-size:13px">
+      <div style="font-size:32px;margin-bottom:8px">📊</div>
+      El equipo irá añadiendo tus estadísticas de crecimiento aquí. ¡Pronto verás tus resultados!
+    </div>`;
+  }
+  html+=`</div>`;
+
+  // Historial de reels publicados
+  const allMonths=Object.keys(client.reels||{}).sort();
+  if(allMonths.length){
+    html+=`<div class="card">
+      <div class="card-t"><i class="ti ti-history"></i>Histórico de publicaciones</div>
+      ${allMonths.map(mk=>{
+        const r=client.reels[mk]||[];
+        const s=r.filter(r=>r.subido).length;
+        return`<div class="pf">
+          <span class="pf-l">${monthLabel(mk)}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:80px;height:6px;background:var(--bd);border-radius:3px;overflow:hidden">
+              <div style="height:100%;background:var(--c);width:${r.length?Math.round(s/r.length*100):0}%;border-radius:3px"></div>
+            </div>
+            <span style="font-size:12px;font-weight:500">${s}/${r.length}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Valoración del mes
+  const mk=monthKey();
+  const rating=client.ratings?.[mk];
+  html+=`<div class="card">
+    <div class="card-t"><i class="ti ti-star"></i>Valora este mes</div>
+    <div style="text-align:center;padding:10px 0">
+      <div style="font-size:13px;color:var(--tx3);margin-bottom:12px">¿Cómo valorarías el contenido de ${monthLabel(mk)}?</div>
+      <div class="stars" style="justify-content:center">
+        ${[1,2,3,4,5].map(n=>`<span class="star${rating?.stars>=n?' on':''}" onclick="setRating(${n})" id="star-${n}">⭐</span>`).join('')}
+      </div>
+      ${rating?`<div style="font-size:12px;color:var(--tx3);margin-top:8px">Gracias por tu valoración 🙏</div>`:`<div style="font-size:11px;color:var(--tx3);margin-top:8px">Haz clic para valorar</div>`}
+      ${!rating?`<div style="margin-top:12px">
+        <textarea id="rating-comment" rows="2" placeholder="Comentario opcional..." style="font-size:12px"></textarea>
+        <button class="btn btn-p btn-block" style="margin-top:8px" onclick="submitRating()">Enviar valoración</button>
+      </div>`:''}
+    </div>
+  </div>`;
+
+  document.getElementById('view-crecimiento').innerHTML=html;
+}
+
+let pendingRating=0;
+function setRating(n){
+  pendingRating=n;
+  [1,2,3,4,5].forEach(i=>{const s=document.getElementById('star-'+i);if(s)s.className='star'+(i<=n?' on':'');});
+}
+async function submitRating(){
+  if(!pendingRating)return showToast('Selecciona una valoración','ok');
+  const comment=document.getElementById('rating-comment')?.value||'';
+  const mk=monthKey();
+  if(!client.ratings)client.ratings={};
+  client.ratings[mk]={stars:pendingRating,comment,date:today()};
+  await saveClientData();
+  renderCrecimiento();
+  showToast('¡Gracias por tu valoración! 🙏','ok');
+}
+
+// ============================================================
+// CHAT
+// ============================================================
+function renderChat(){
+  // Load msgs from client
+  chatMsgs=client.msgs||[];
+  const el=document.getElementById('view-chat');
+  el.innerHTML=`<div class="chat-wrap">
+    <div class="chat-hdr">
+      <div class="chat-online"></div>
+      <div>
+        <div style="font-size:14px;font-weight:600">Asistente Mentedoras</div>
+        <div style="font-size:11px;color:var(--tx3)">Responde al instante 24/7 ⚡</div>
+      </div>
+    </div>
+    <div class="chat-msgs" id="chat-msgs" style="display:flex;flex-direction:column"></div>
+    <div class="chat-sugg" id="chat-sugg"></div>
+    <div class="chat-inp-row">
+      <input class="chat-inp" id="chat-inp" placeholder="Escribe tu pregunta..." onkeydown="if(event.key==='Enter')sendMsg()">
+      <button class="chat-send" onclick="sendMsg()"><i class="ti ti-send" style="font-size:14px"></i></button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-t"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>Contacto directo</div>
+    <div style="font-size:13px;color:var(--tx2);margin-bottom:12px">Para temas urgentes, contacta directamente con el equipo:</div>
+    <a href="https://wa.me/34000000000" target="_blank" class="btn btn-block" style="text-decoration:none;margin-bottom:8px;justify-content:center"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>WhatsApp Adri</a>
+    <a href="https://wa.me/34000000000" target="_blank" class="btn btn-block" style="text-decoration:none;justify-content:center"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>WhatsApp Alan</a>
+  </div>`;
+  renderChatMsgs();
+  showSuggestions();
+}
+
+function renderChatMsgs(){
+  const el=document.getElementById('chat-msgs');if(!el)return;
+  if(!chatMsgs.length){
+    el.innerHTML=`<div style="text-align:center;color:var(--tx3);font-size:13px;padding:30px">
+      <div style="font-size:28px;margin-bottom:8px">👋</div>
+      ¡Hola! Soy tu asistente de Mentedoras.<br>Pregúntame lo que necesites.
+    </div>`;
+    return;
+  }
+  el.innerHTML=chatMsgs.map(m=>{
+    const txt=(m.text||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>').replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g,'<a href="$2" target="_blank" style="color:var(--c);text-decoration:underline">$1</a>');
+    return`<div class="msg ${m.from==='client'?'me':'bot'}">
+      <div class="msg-bub">${txt}</div>
+      <div class="msg-time">${m.time||''}</div>
+    </div>`;
+  }).join('');
+  el.scrollTop=el.scrollHeight;
+}
+
+function showSuggestions(){
+  const el=document.getElementById('chat-sugg');if(!el)return;
+  el.innerHTML=`
+    <button class="sugg-btn" onclick="askBot('¿Cuándo grabo?')">📅 Mi grabación</button>
+    <button class="sugg-btn" onclick="askBot('¿Cómo van mis reels?')">🎬 Mis reels</button>
+    <button class="sugg-btn" onclick="askBot('¿Cuándo me entregan?')">📤 Mi entrega</button>
+    <button class="sugg-btn" onclick="askBot('¿Qué me queda de contrato?')">📄 Mi contrato</button>
+    <button class="sugg-btn" onclick="askBot('¿Está pagada mi factura?')">💰 Mi factura</button>
+    <button class="sugg-btn" onclick="askBot('Quiero ver mis reels editados')">▶️ Ver reels</button>`;
+}
+
+function askBot(txt){const inp=document.getElementById('chat-inp');if(inp)inp.value=txt;sendMsg();}
+
+async function sendMsg(){
+  const inp=document.getElementById('chat-inp');if(!inp)return;
+  const txt=inp.value.trim();if(!txt)return;
+  inp.value='';
+  const sugg=document.getElementById('chat-sugg');if(sugg)sugg.innerHTML='';
+  chatMsgs.push({from:'client',text:txt,time:new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})});
+  client.msgs=chatMsgs;
+  renderChatMsgs();
+  // Typing
+  const msgs=document.getElementById('chat-msgs');
+  if(msgs){const t=document.createElement('div');t.className='msg bot';t.id='typing';t.innerHTML='<div class="msg-bub" style="opacity:.6">✍️ Escribiendo...</div>';msgs.appendChild(t);msgs.scrollTop=msgs.scrollHeight;}
+  setTimeout(async()=>{
+    const t=document.getElementById('typing');if(t)t.remove();
+    const resp=getBotResponse(txt);
+    chatMsgs.push({from:'team',text:resp,time:new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}),who:'Mentedoras'});
+    client.msgs=chatMsgs;
+    renderChatMsgs();
+    await saveClientData();
+    setTimeout(showSuggestions,400);
+  },700+Math.random()*500);
+}
+
+function getBotResponse(txt){
+  const tl=txt.toLowerCase();
+  const mk=monthKey();
+  const reels=client.reels?.[mk]||[];
+  const drive=client.drive||{};
+
+  // IDENTIDAD
+  if(tl.includes('quién eres')||tl.includes('quien eres')||tl.includes('qué eres')||tl.includes('como te llamas')){
+    return`Soy el asistente virtual de **Mentedoras** 🤖✨ Creado con la inteligencia de Adri y Alan para ayudarte con todo lo relacionado con tu contenido. ¿En qué puedo ayudarte?`;
+  }
+  // CONFIDENCIAL
+  if(tl.includes('cuántos clientes')||tl.includes('otros clientes')||tl.includes('cuánto cobráis')||tl.includes('el equipo tiene')||tl.includes('cuántas personas')||tl.includes('herramienta')){
+    return`Eso es información interna que no puedo compartir 😊 Pero si tienes alguna duda sobre tu proyecto, estoy aquí para ayudarte.`;
+  }
+  // SALUDOS
+  if(tl.includes('hola')||tl.includes('buenos')||tl.includes('buenas')||tl==='hi'||tl==='hey'||txt.length<6){
+    const h=new Date().getHours();
+    return`${h<13?'¡Buenos días':'¡Buenas'}, ${client.name}! 👋 ¿En qué puedo ayudarte hoy? Puedo contarte sobre tus grabaciones, reels, contrato y más.`;
+  }
+  if(tl.includes('cómo estás')||tl.includes('como estas')||tl.includes('qué tal')){
+    return`¡Muy bien, gracias por preguntar! 😄 Aquí trabajando para que tu contenido sea increíble. ¿Y tú? ¿En qué puedo ayudarte?`;
+  }
+  if(tl.includes('gracias')||tl.includes('perfecto')||tl.includes('genial')||tl.includes('ok gracias')){
+    return`¡De nada! 😊 Para eso estamos. ¿Necesitas algo más?`;
+  }
+  if(tl.includes('adiós')||tl.includes('hasta luego')||tl.includes('bye')){
+    return`¡Hasta pronto, ${client.name}! 👋 Ha sido un placer. ¡Seguimos creando contenido increíble! ✨`;
+  }
+  // GRABACIÓN
+  if(tl.includes('grab')||tl.includes('cuando grabo')||tl.includes('cuándo grabo')){
+    // Preguntar qué mes
+    const months=Object.keys(client.reels||{}).sort();
+    if(months.length>1){
+      return`📅 ¿De qué mes me hablas? Tengo datos de: **${months.map(m=>monthLabel(m)).join(', ')}**. Escribe el mes y te digo la fecha exacta.`;
+    }
+    const next=reels.filter(r=>!r.grabado&&r.fechaGrab).sort((a,b)=>a.fechaGrab.localeCompare(b.fechaGrab))[0];
+    if(next){const diff=Math.ceil((new Date(next.fechaGrab+'T12:00:00')-new Date())/864e5);return`📅 Tu próxima grabación es el **${fmtDate(next.fechaGrab)}** (${next.label}) — ${diff<=0?'¡muy pronto!':diff+' días'}. ¡Prepárate! 🎬`;}
+    return`No hay fecha de grabación confirmada aún. El equipo te lo confirmará en breve. También puedes solicitarlo aquí.`;
+  }
+  // REELS - preguntar mes
+  if(tl.includes('reel')||tl.includes('vídeo')||tl.includes('video')||tl.includes('contenido')||tl.includes('cómo van')||tl.includes('como van')||tl.includes('estado')){
+    const months=Object.keys(client.reels||{}).sort();
+    if(months.length>1){
+      return`🎬 ¿De qué mes quieres saber? Tengo datos de: **${months.map(m=>monthLabel(m)).join(', ')}**. Dime el mes y te doy todos los detalles.`;
+    }
+    const sub=reels.filter(r=>r.subido).length;const ed=reels.filter(r=>r.editado&&!r.subido).length;const gr=reels.filter(r=>r.grabado&&!r.editado).length;const pe=reels.filter(r=>!r.grabado).length;
+    let resp=`📊 **Resumen de ${monthLabel(mk)}:**\n✅ ${sub}/${reels.length} publicados\n✂️ ${ed} en edición\n🎬 ${gr} grabados\n⏳ ${pe} pendientes`;
+    if(drive.reelsEdit)resp+=`\n\n👀 ¿Quieres verlos? [Ver reels editados](${drive.reelsEdit})`;
+    return resp;
+  }
+  // Si menciona un mes específico
+  const mentionedMonth=Object.keys(client.reels||{}).find(mk=>txt.toLowerCase().includes(monthLabel(mk).toLowerCase().split(' ')[0].toLowerCase()));
+  if(mentionedMonth){
+    const mr=client.reels[mentionedMonth]||[];
+    const sub=mr.filter(r=>r.subido).length;const ed=mr.filter(r=>r.editado&&!r.subido).length;const gr=mr.filter(r=>r.grabado&&!r.editado).length;const pe=mr.filter(r=>!r.grabado).length;
+    return`📊 **${monthLabel(mentionedMonth)}:**\n✅ ${sub}/${mr.length} publicados\n✂️ ${ed} en edición\n🎬 ${gr} grabados\n⏳ ${pe} pendientes${drive.reelsEdit?`\n\n[Ver reels](${drive.reelsEdit})`:''}`;
+  }
+  // ENTREGA
+  if(tl.includes('entrega')||tl.includes('cuándo me')||tl.includes('cuando me')||tl.includes('listo')||tl.includes('lista')){
+    const next=reels.filter(r=>r.grabado&&!r.subido&&r.fechaEdit).sort((a,b)=>a.fechaEdit.localeCompare(b.fechaEdit))[0];
+    if(next){const diff=Math.ceil((new Date(next.fechaEdit+'T12:00:00')-new Date())/864e5);return`🎬 La entrega del **${next.label}** está prevista para el **${fmtDate(next.fechaEdit)}** — ${diff<=0?'¡muy pronto!':diff+' días'}${drive.reelsEdit?`\n\n[Ver carpeta de reels](${drive.reelsEdit})`:''}`;;}
+    const sub=reels.filter(r=>r.subido).length;
+    if(sub===reels.length&&reels.length>0)return`🎉 ¡Todo tu contenido de este mes ya está entregado!${drive.reelsEdit?` [Ver reels](${drive.reelsEdit})`:''}`;
+    return`El equipo está trabajando en ello. Te avisaremos en cuanto esté listo.`;
+  }
+  // VER / DRIVE
+  if(tl.includes('ver')||tl.includes('enlace')||tl.includes('link')||tl.includes('drive')||tl.includes('carpeta')){
+    if(tl.includes('guion')||tl.includes('script'))return drive.scripts?`📝 [Ver mis guiones](${drive.scripts})`:`Los guiones se comparten antes de cada grabación.`;
+    if(tl.includes('foto'))return drive.pictures?`📸 [Ver mis fotos](${drive.pictures})`:`No hay carpeta de fotos configurada.`;
+    if(drive.reelsEdit)return`✂️ [Ver reels editados](${drive.reelsEdit})${drive.driveMain?`\n📁 [Ver toda mi carpeta](${client.driveMain})`:''}`;
+    if(client.driveMain)return`📁 [Ver mi carpeta completa](${client.driveMain})`;
+    return`No tenemos los links de Drive configurados aún. Díselo al equipo.`;
+  }
+  // EDITOR
+  if(tl.includes('editor')||tl.includes('quién edita')||tl.includes('quien edita')){
+    if(client.editors?.length)return`✂️ Tu${client.editors.length>1?'s editors son':'editor es'} **${client.editors.join(' y ')}**. Son quienes dan vida a tu contenido 🎬`;
+    return`El editor será asignado próximamente.`;
+  }
+  // CONTRATO
+  if(tl.includes('contrato')||tl.includes('meses')||tl.includes('queda')||tl.includes('vence')||tl.includes('cuánto tiempo')){
+    if(client.contractEnd){
+      const diff=Math.max(0,Math.ceil((new Date(client.contractEnd+'T12:00:00')-new Date())/864e5/30));
+      const total=client.price?client.price*diff:0;
+      let resp=`📄 **Tu contrato:**\n`;
+      if(client.contractStart)resp+=`📅 Inicio: **${fmtDate(client.contractStart)}**\n`;
+      resp+=`📅 Fin: **${fmtDate(client.contractEnd)}**\n`;
+      resp+=`⏳ Te quedan **${diff} mes${diff!==1?'es':''}**\n`;
+      if(client.price)resp+=`💰 Mensualidad: **${client.price}€**\n`;
+      if(total)resp+=`💳 Total restante: **${total.toLocaleString('es')}€**`;
+      const svcs=(client.services||[]).map(id=>SERVICES.find(s=>s.id===id)?.label).filter(Boolean);
+      if(svcs.length)resp+=`\n\n📋 Servicios contratados:\n${svcs.map(s=>'• '+s).join('\n')}`;
+      return resp;
+    }
+    return`No tengo datos de tu contrato. Contacta con Adri o Alan.`;
+  }
+  // FACTURA / PAGO
+  if(tl.includes('factura')||tl.includes('pago')||tl.includes('pagado')||tl.includes('precio')){
+    if(client.price)return`💰 Tu mensualidad es **${client.price}€**. Para ver el estado de tu pago, revisa la sección **Contrato** de tu portal.`;
+    return`Para información sobre pagos, contacta con Adri o Alan directamente.`;
+  }
+  // REUNIÓN
+  if(tl.includes('reunión')||tl.includes('reunion')||tl.includes('meeting')||tl.includes('agendar')||tl.includes('hablar')){
+    return`¡Claro! Puedes solicitar una reunión directamente. Usa el botón **"Agendar reunión"** en la sección Inicio, o dime la fecha y hora que te va mejor y lo gestionamos. 📅`;
+  }
+  // GUIONES
+  if(tl.includes('guion')||tl.includes('guión')||tl.includes('script')){
+    return drive.scripts?`📝 Aquí tienes tus guiones: [Ver guiones](${drive.scripts})\n\nSi tienes algún cambio o corrección, dímelo aquí.`:`Tus guiones se preparan antes de cada grabación y te los enviamos para revisión.`;
+  }
+  // SERVICIOS
+  if(tl.includes('servicio')||tl.includes('incluye')||tl.includes('qué hace')||tl.includes('que hace')){
+    const svcs=(client.services||[]).map(id=>SERVICES.find(s=>s.id===id)?.label).filter(Boolean);
+    if(svcs.length)return`📋 Tus servicios contratados:\n${svcs.map(s=>'• '+s).join('\n')}`;
+    return`Para ver los detalles de tu contrato, revisa la sección **Contrato** de tu portal.`;
+  }
+  // NO SABE
+  notifyTeam(`${client.name} pregunta: "${txt}"`);
+  return`Esa pregunta me la anoto para consultarla con el equipo 📝 Le avisaré a Adri y Alan ahora mismo y te responderán lo antes posible. También puedes contactarles por WhatsApp si es urgente. 👋`;
+}
+
+async function notifyTeam(title){
+  if(!db)return;
+  try{
+    const d=await db.collection('crm').doc('board').get();
+    if(d.exists){
+      const data=d.data();
+      const cols=data.cols||[];
+      const adri=cols.find(c=>c.id==='adri');const alan=cols.find(c=>c.id==='alan');
+      const task={id:Date.now(),title,client:client.name,date:today(),done:false,labels:[0]};
+      if(adri)adri.tasks.unshift({...task});
+      if(alan)alan.tasks.unshift({...task,id:Date.now()+1});
+      await db.collection('crm').doc('board').set({cols,updatedAt:new Date().toISOString()});
+    }
+  }catch(e){console.warn(e);}
+}
+
+// ============================================================
+// AJUSTES
+// ============================================================
+function renderAjustes(){
+  const creds=client.credentials||[{platform:'Instagram',user:'',pass:'',notes:''}];
+  let html=`<div class="card">
+    <div class="card-t"><i class="ti ti-lock"></i>Mis credenciales
+      <button class="btn btn-s" style="margin-left:auto" onclick="addCredential()"><i class="ti ti-plus"></i>Añadir</button>
+    </div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">Deja aquí tus accesos para que el equipo pueda gestionar tus redes.</div>
+    <div id="creds-list">
+      ${creds.map((cr,i)=>`<div class="cred-field">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;display:flex;justify-content:space-between">
+          ${cr.platform}
+          ${i>0?`<button class="btn btn-s" style="color:var(--err)" onclick="removeCred(${i})"><i class="ti ti-trash"></i></button>`:''}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div><label style="font-size:10px;color:var(--tx3);display:block;margin-bottom:3px">USUARIO</label>
+            <input type="text" value="${cr.user||''}" placeholder="Usuario o email" style="font-size:12px;padding:6px 9px" onchange="updateCred(${i},'user',this.value)">
+          </div>
+          <div><label style="font-size:10px;color:var(--tx3);display:block;margin-bottom:3px">CONTRASEÑA</label>
+            <div style="display:flex;gap:4px">
+              <input type="password" id="cp-${i}" value="${cr.pass||''}" placeholder="Contraseña" style="font-size:12px;padding:6px 9px;flex:1" onchange="updateCred(${i},'pass',this.value)">
+              <button class="btn btn-s" onclick="togglePass('cp-${i}')"><i class="ti ti-eye"></i></button>
+            </div>
+          </div>
+        </div>
+        <input type="text" value="${cr.notes||''}" placeholder="Notas (ej. cuenta principal)" style="font-size:12px;padding:6px 9px" onchange="updateCred(${i},'notes',this.value)">
+      </div>`).join('')}
+    </div>
+    <button class="btn btn-p btn-block" onclick="saveCredentials()" style="margin-top:8px"><i class="ti ti-check"></i>Guardar credenciales</button>
+  </div>
+
+  <div class="card">
+    <div class="card-t"><i class="ti ti-user"></i>Mis datos</div>
+    <div class="f"><label>Nombre</label><input id="u-name" value="${client.name||''}" placeholder="Tu nombre"></div>
+    <div class="f"><label>Tipo de negocio</label><input id="u-type" value="${client.type||''}" placeholder="ej. Restaurante"></div>
+    <button class="btn btn-p btn-block" onclick="saveMyData()"><i class="ti ti-check"></i>Guardar cambios</button>
+  </div>
+
+  <div class="card">
+    <div class="card-t"><i class="ti ti-palette"></i>Apariencia</div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div class="th-btn th-dark${document.body.className===''?' on':''}" onclick="setTheme('dark')" style="width:30px;height:30px" title="Oscuro"></div>
+      <div class="th-btn th-light${document.body.className==='light'?' on':''}" onclick="setTheme('light')" style="width:30px;height:30px" title="Claro"></div>
+      <div class="th-btn th-blue${document.body.className==='blue'?' on':''}" onclick="setTheme('blue')" style="width:30px;height:30px" title="Azul"></div>
+      <span style="font-size:12px;color:var(--tx3)">Elige tu tema de color</span>
+    </div>
+  </div>`;
+
+  document.getElementById('view-ajustes').innerHTML=html;
+}
+
+function togglePass(id){const i=document.getElementById(id);if(i)i.type=i.type==='password'?'text':'password';}
+function addCredential(){
+  const platform=prompt('Plataforma (ej. TikTok, YouTube...):');if(!platform)return;
+  if(!client.credentials)client.credentials=[{platform:'Instagram',user:'',pass:'',notes:''}];
+  client.credentials.push({platform,user:'',pass:'',notes:''});
+  renderAjustes();
+}
+function removeCred(i){if(!client.credentials)return;client.credentials.splice(i,1);renderAjustes();}
+function updateCred(i,field,val){if(!client.credentials)return;client.credentials[i][field]=val;}
+async function saveCredentials(){
+  await saveClientData();
+  showToast('Credenciales guardadas ✓','ok');
+}
+async function saveMyData(){
+  const name=document.getElementById('u-name')?.value.trim();
+  const type=document.getElementById('u-type')?.value.trim();
+  if(name)client.name=name;
+  if(type)client.type=type;
+  await saveClientData();
+  document.getElementById('hdr-name').textContent=client.name;
+  showToast('Datos guardados ✓','ok');
+}
+
+// ============================================================
+// MODALS
+// ============================================================
+function openMeetingModal(){
+  const mc=document.getElementById('modal-c');
+  mc.innerHTML=`<div class="modal-t">📅 Solicitar reunión</div>
+    <div class="f"><label>Motivo</label><input id="mt-m" placeholder="ej. Revisión de contenido"></div>
+    <div class="f"><label>Fecha preferida</label><input id="mt-f" type="date" value="${today()}"></div>
+    <div class="f"><label>Hora preferida</label><input id="mt-h" type="time" value="10:00"></div>
+    <div class="f"><label>Notas (opcional)</label><textarea id="mt-n" rows="2" placeholder="Cualquier detalle..."></textarea></div>
+    <div class="modal-acts"><button class="btn btn-s" onclick="closeMo()">Cancelar</button><button class="btn btn-s btn-p" onclick="sendMeeting()">Solicitar</button></div>`;
+  document.getElementById('mo').classList.add('open');
+}
+async function sendMeeting(){
+  const m=document.getElementById('mt-m')?.value.trim();const f=document.getElementById('mt-f')?.value;
+  const h=document.getElementById('mt-h')?.value;const n=document.getElementById('mt-n')?.value;
+  if(!m||!f)return showToast('Rellena motivo y fecha','ok');
+  await notifyTeam(`📅 ${client.name} solicita reunión: "${m}" — ${fmtDate(f)} ${h}${n?' · '+n:''}`);
+  closeMo();
+  chatMsgs.push({from:'team',text:`✅ Solicitud de reunión recibida. Te confirmamos la cita para el **${fmtDate(f)} a las ${h}** lo antes posible. 📅`,time:new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}),who:'Mentedoras'});
+  client.msgs=chatMsgs;
+  await saveClientData();
+  showTab('chat');
+  showToast('Solicitud enviada ✓','ok');
+}
+function closeMo(){document.getElementById('mo').classList.remove('open');}
+document.getElementById('mo').addEventListener('click',e=>{if(e.target===document.getElementById('mo'))closeMo();});
+
+function closeWelcome(){document.getElementById('welcome').classList.remove('open');}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(type?' '+type:'');
+  setTimeout(()=>t.classList.add('show'),10);setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadTheme();
+(async()=>{
+  // Get client ID from URL params or path
+  const params=new URLSearchParams(location.search);
+  let cid=params.get('id');
+  if(!cid){
+    // Try from path like /cliente/greenwash or ?id=greenwash
+    const pathMatch=location.pathname.match(/\/cliente\/([^\/]+)/);
+    if(pathMatch)cid=pathMatch[1];
+  }
+  if(!cid){
+    // Try from hash
+    const hashMatch=location.hash.match(/#\/cliente\/([^\/]+)/);
+    if(hashMatch)cid=hashMatch[1];
+  }
+
+  document.getElementById('loading').style.display='flex';
+
+  if(!cid){
+    document.getElementById('loading').style.display='none';
+    document.getElementById('notfound').style.display='flex';
+    return;
+  }
+
+  const c=await loadClient(cid);
+  if(!c){
+    document.getElementById('loading').style.display='none';
+    document.getElementById('notfound').style.display='flex';
+    return;
+  }
+
+  client=c;
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').classList.add('on');
+  document.getElementById('hdr-name').textContent=client.name;
+
+  // Set active month
+  const months=Object.keys(client.reels||{}).sort();
+  activeMonth=months[months.length-1]||monthKey();
+
+  // Render initial tab
+  renderInicio();
+
+  // Welcome
+  const h=new Date().getHours();
+  document.getElementById('w-emoji').textContent=h<13?'☀️':h<20?'👋':'🌙';
+  document.getElementById('w-title').textContent=`${h<13?'¡Buenos días':h<20?'¡Buenas tardes':'¡Buenas noches'}, ${client.name}!`;
+  document.getElementById('w-sub').textContent='Aquí tienes toda la info de tu contenido 🚀';
+  document.getElementById('welcome').classList.add('open');
+
+  // Realtime
+  listenRealtime();
+
+  // Service worker
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+</body>
+</html>
