@@ -1562,8 +1562,13 @@ function renderProfile(c){
             <div class="card-t"><i class="ti ti-info-circle"></i>Estado general</div>
             <div class="pf"><span class="pf-l">Fase actual</span><span style="font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600;background:${PHC[c.phase]}22;color:${PHC[c.phase]}">${PHASES[c.phase]}</span></div>
             <div class="pf"><span class="pf-l">Editores</span><span class="pf-v">${(c.editors||[]).join(', ')||'—'}</span></div>
-            <div class="pf"><span class="pf-l">CM</span><span class="pf-v">${(Array.isArray(c.services)?c.services:[]).includes('content_8_cm')?c.cm||'Sin asignar':'No incluye CM'}</span></div>
+            <div class="pf"><span class="pf-l">CM</span><span class="pf-v">${c.cm||'No incluye CM'}</span></div>
             <div class="pf"><span class="pf-l">Reels/mes</span><span class="pf-v">${c.numReels}</span></div>
+            <div class="pf" style="flex-direction:column;align-items:flex-start;gap:6px">
+              <span class="pf-l">📋 Detalle del contrato</span>
+              <textarea style="width:100%;font-size:12px;padding:7px 10px;resize:vertical;min-height:70px" placeholder="Escribe aquí qué incluye exactamente este contrato..." onchange="updateClientField('${c.id}','contractNotes',this.value)">${c.contractNotes||''}</textarea>
+              <button class="btn btn-s btn-p" onclick="updateClientField('${c.id}','contractNotes',this.previousElementSibling.previousElementSibling.value);saveClients();showToast('Guardado ✓','ok')" style="align-self:flex-end"><i class="ti ti-check"></i>Guardar</button>
+            </div>
             <div class="pf"><span class="pf-l">Link cliente</span><div class="link-pill" onclick="copyLinkStr('${link}')"><i class="ti ti-copy" style="font-size:10px"></i>/cliente/${c.id}</div></div>
           </div>
           <div class="card" style="margin-top:14px">
@@ -1574,12 +1579,12 @@ function renderProfile(c){
                 ${editorNames.map(e=>`<div onclick="toggleEditor('${c.id}','${e}')" style="padding:5px 12px;border-radius:20px;border:1px solid ${(c.editors||[]).includes(e)?'var(--c)':'var(--bd2)'};background:${(c.editors||[]).includes(e)?'var(--cdim)':'transparent'};color:${(c.editors||[]).includes(e)?'var(--c)':'var(--tx3)'};font-size:12px;cursor:pointer;transition:all .15s">${e}</div>`).join('')}
               </div>
             </div>
-            ${(Array.isArray(c.services)?c.services:[]).includes('content_8_cm')?`<div>
+            ${(Array.isArray(c.services)?c.services:[]).includes('content_8_cm')||c.cm?`<div>
               <div style="font-size:11px;color:var(--tx3);margin-bottom:6px">CM</div>
               <div style="display:flex;flex-wrap:wrap;gap:6px">
                 ${cmNames.map(cm=>`<div onclick="toggleCM('${c.id}','${cm}')" style="padding:5px 12px;border-radius:20px;border:1px solid ${c.cm===cm?'var(--c)':'var(--bd2)'};background:${c.cm===cm?'var(--cdim)':'transparent'};color:${c.cm===cm?'var(--c)':'var(--tx3)'};font-size:12px;cursor:pointer;transition:all .15s">${cm}</div>`).join('')}
               </div>
-            </div>`:'<div style="font-size:12px;color:var(--tx3)">CM no incluido en este contrato</div>'}
+            </div>`:`<div style="font-size:12px;color:var(--tx3)">Sin CM asignado</div>`}
           </div>
         </div>
         <div>
