@@ -1562,7 +1562,7 @@ function renderProfile(c){
             <div class="card-t"><i class="ti ti-info-circle"></i>Estado general</div>
             <div class="pf"><span class="pf-l">Fase actual</span><span style="font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600;background:${PHC[c.phase]}22;color:${PHC[c.phase]}">${PHASES[c.phase]}</span></div>
             <div class="pf"><span class="pf-l">Editores</span><span class="pf-v">${(c.editors||[]).join(', ')||'—'}</span></div>
-            <div class="pf"><span class="pf-l">CM</span><span class="pf-v">${c.cm||'No incluye CM'}</span></div>
+            <div class="pf"><span class="pf-l">CM</span><span class="pf-v">${(Array.isArray(c.services)?c.services:[]).includes('content_8_cm')?c.cm||'Sin asignar':'No incluye CM'}</span></div>
             <div class="pf"><span class="pf-l">Reels/mes</span><span class="pf-v">${c.numReels}</span></div>
             <div class="pf"><span class="pf-l">Link cliente</span><div class="link-pill" onclick="copyLinkStr('${link}')"><i class="ti ti-copy" style="font-size:10px"></i>/cliente/${c.id}</div></div>
           </div>
@@ -1574,12 +1574,12 @@ function renderProfile(c){
                 ${editorNames.map(e=>`<div onclick="toggleEditor('${c.id}','${e}')" style="padding:5px 12px;border-radius:20px;border:1px solid ${(c.editors||[]).includes(e)?'var(--c)':'var(--bd2)'};background:${(c.editors||[]).includes(e)?'var(--cdim)':'transparent'};color:${(c.editors||[]).includes(e)?'var(--c)':'var(--tx3)'};font-size:12px;cursor:pointer;transition:all .15s">${e}</div>`).join('')}
               </div>
             </div>
-            <div>
+            ${(Array.isArray(c.services)?c.services:[]).includes('content_8_cm')?`<div>
               <div style="font-size:11px;color:var(--tx3);margin-bottom:6px">CM</div>
               <div style="display:flex;flex-wrap:wrap;gap:6px">
                 ${cmNames.map(cm=>`<div onclick="toggleCM('${c.id}','${cm}')" style="padding:5px 12px;border-radius:20px;border:1px solid ${c.cm===cm?'var(--c)':'var(--bd2)'};background:${c.cm===cm?'var(--cdim)':'transparent'};color:${c.cm===cm?'var(--c)':'var(--tx3)'};font-size:12px;cursor:pointer;transition:all .15s">${cm}</div>`).join('')}
               </div>
-            </div>
+            </div>`:'<div style="font-size:12px;color:var(--tx3)">CM no incluido en este contrato</div>'}
           </div>
         </div>
         <div>
@@ -1997,17 +1997,24 @@ function openModal(type,extra='',extra2=null){
   }else if(type==='growth'){
     const cl=clients.find(c=>c.id===extra);if(!cl)return;
     const g=cl.growth||{};
+    const allReels=Object.values(cl.reels||{}).flat();
+    const totalPub=allReels.filter(r=>r.subido).length;
     c.innerHTML=`<div class="modal-t">📊 Estadísticas — ${cl.name}</div>
       <div class="fg2">
         <div class="f"><label>Seguidores al inicio</label><input id="g-start" type="number" value="${g.igStart||0}" min="0"></div>
         <div class="f"><label>Seguidores ahora</label><input id="g-now" type="number" value="${g.igNow||0}" min="0"></div>
       </div>
+      <div style="font-size:12px;color:var(--c);padding:4px 0 8px" id="g-calc">
+        ${g.igStart&&g.igNow?`📈 Crecimiento: +${Math.round(((g.igNow-g.igStart)/g.igStart)*100)}% (${(g.igNow-g.igStart).toLocaleString('es')} seguidores)`:''}
+      </div>
       <div class="fg2">
         <div class="f"><label>Media visitas/reel</label><input id="g-views" type="number" value="${g.avgViews||0}" min="0"></div>
         <div class="f"><label>Alcance total</label><input id="g-reach" type="number" value="${g.totalReach||0}" min="0"></div>
       </div>
-      <div class="f"><label>Mejor reel (descripción)</label><input id="g-best" value="${g.bestReel||''}" placeholder="ej. Reel viral de mayo 2025"></div>
+      <div class="f"><label>Mejor reel</label><input id="g-best" value="${g.bestReel||''}" placeholder="ej. Reel viral de mayo 2025"></div>
+      <div class="pf" style="margin-top:8px"><span class="pf-l">Reels producidos en total</span><span style="font-weight:600;color:var(--c)">${totalPub}</span></div>
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveGrowth('${extra}')">Guardar</button></div>`;
+  }else if(type==='cobro'){
     c.innerHTML=`<div class="modal-t">Añadir cobro</div>
       <div class="f"><label>Cliente</label><select id="nc-cl"><option value="">— Selecciona —</option>${clients.map(cl=>`<option>${cl.name}</option>`).join('')}</select></div>
       <div class="fg2">
