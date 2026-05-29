@@ -418,6 +418,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
       <div class="view" id="view-payments"></div>
       <div class="view" id="view-finance"></div>
       <div class="view" id="view-users"></div>
+      <div class="view" id="view-config"></div>
       <div class="view" id="view-profile"></div>
     </div>
   </div>
@@ -754,7 +755,7 @@ function showApp(){
   document.getElementById('app').classList.add('on');
   document.getElementById('sb-av').textContent=ini(CU.name);
   document.getElementById('sb-un').textContent=CU.name+' · '+CU.role;
-  buildSBNav();loadAll();
+  buildSBNav();loadAll();loadConfig();
   const h=new Date().getHours();
   const g=h<13?'¡Buenos días':h<20?'¡Buenas tardes':'¡Buenas noches';
   document.getElementById('w-emoji').textContent=h<13?'☀️':h<20?'👋':'🌙';
@@ -777,6 +778,7 @@ function buildSBNav(){
   if(isCEO())html+=nav('payments','ti-coin','Pagos equipo');
   if(isPMup())html+=nav('finance','ti-chart-bar','Facturación');
   if(isCEO())html+=nav('users','ti-users-group','Usuarios');
+  if(isCEO())html+=nav('config','ti-settings','Configuración');
   if(!isCMup())html+='<div class="nl" style="margin-top:6px">Mis pagos</div>'+`<div class="ni" onclick="showMyPayments()"><i class="ti ti-wallet"></i>Mis pagos</div>`;
   if(isCMup())html+='<div class="nl" style="margin-top:6px">Clientes</div>';
   el.innerHTML=html;
@@ -822,8 +824,8 @@ function showView(name){
   document.getElementById('view-'+name)?.classList.add('on');
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('ni-'+name)?.classList.add('on');
-  const icons={dash:'ti-layout-dashboard',pipeline:'ti-columns',board:'ti-layout-kanban',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',profile:'ti-user'};
-  const titles={dash:'Resumen general',pipeline:'Pipeline de contenido',board:'Tablero del equipo',cal:'Calendario',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',profile:activeClient?.name||'Cliente'};
+  const icons={dash:'ti-layout-dashboard',pipeline:'ti-columns',board:'ti-layout-kanban',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',config:'ti-settings',profile:'ti-user'};
+  const titles={dash:'Resumen general',pipeline:'Pipeline de contenido',board:'Tablero del equipo',cal:'Calendario',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
   document.getElementById('tb-ic').className='ti '+(icons[name]||'ti-layout-dashboard');
   document.getElementById('tb-t').textContent=titles[name]||'';
   const acts={dash:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,profile:''};
@@ -835,6 +837,7 @@ function showView(name){
   if(name==='payments')renderPayments();
   if(name==='finance')renderFinance();
   if(name==='users')renderUsers();
+  if(name==='config')renderConfig();
   if(name!=='profile')activeClient=null;
   closeSB();
 }
@@ -917,8 +920,8 @@ function renderBoard(){
     ${visibleCols.map(col=>{
       const pend=col.tasks.filter(t=>!t.done).length;
       return`<div class="bcol" data-col="${col.id}"
-        ondragover="event.preventDefault();this.classList.add('dov')"
-        ondragleave="this.classList.remove('dov')"
+        ondragover="event.preventDefault();event.stopPropagation();this.classList.add('dov')"
+        ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dov')"
         ondrop="dropBoard(event,'${col.id}')">
         <div class="bch">
           <span class="bcn">${col.name}</span>
@@ -1296,7 +1299,52 @@ function showMyPayments(){
 }
 
 // ============================================================
-// FINANCE
+// CONFIG
+let appConfig={
+  whatsappAdri:'',whatsappAlan:'',
+  whatsappLabel1:'Adri (CEO)',whatsappLabel2:'Alan (CEO)',
+  agencyName:'Mentedoras',agencyTagline:'Agencia de Contenido',
+};
+async function loadConfig(){
+  const d=await fbGet('crm','config');
+  if(d)appConfig={...appConfig,...d};
+}
+async function saveConfig(){
+  await fbSet('crm','config',appConfig);
+  showToast('Configuración guardada ✓','ok');
+}
+function renderConfig(){
+  document.getElementById('view-config').innerHTML=`
+    <div class="st" style="margin-bottom:16px">Configuración del CRM</div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-t"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>Contactos WhatsApp para clientes</div>
+      <div style="font-size:12px;color:var(--tx3);margin-bottom:14px">Estos números aparecen en el portal del cliente como contacto directo.</div>
+      <div class="fg2" style="margin-bottom:10px">
+        <div class="f"><label>Nombre contacto 1</label><input id="cfg-l1" value="${appConfig.whatsappLabel1}" placeholder="ej. Adri (CEO)"></div>
+        <div class="f"><label>WhatsApp contacto 1 (solo número)</label><input id="cfg-w1" value="${appConfig.whatsappAdri}" placeholder="34612345678" type="tel"></div>
+      </div>
+      <div class="fg2" style="margin-bottom:10px">
+        <div class="f"><label>Nombre contacto 2</label><input id="cfg-l2" value="${appConfig.whatsappLabel2}" placeholder="ej. Alan (CEO)"></div>
+        <div class="f"><label>WhatsApp contacto 2 (solo número)</label><input id="cfg-w2" value="${appConfig.whatsappAlan}" placeholder="34612345678" type="tel"></div>
+      </div>
+      <button class="btn btn-s btn-p" onclick="saveConfigData()"><i class="ti ti-check"></i>Guardar</button>
+    </div>
+    <div class="card">
+      <div class="card-t"><i class="ti ti-building"></i>Datos de la agencia</div>
+      <div class="f"><label>Nombre de la agencia</label><input id="cfg-name" value="${appConfig.agencyName}"></div>
+      <div class="f"><label>Tagline</label><input id="cfg-tag" value="${appConfig.agencyTagline}" placeholder="ej. Agencia de Contenido"></div>
+      <button class="btn btn-s btn-p" onclick="saveConfigData()"><i class="ti ti-check"></i>Guardar</button>
+    </div>`;
+}
+async function saveConfigData(){
+  appConfig.whatsappAdri=document.getElementById('cfg-w1')?.value.trim()||'';
+  appConfig.whatsappAlan=document.getElementById('cfg-w2')?.value.trim()||'';
+  appConfig.whatsappLabel1=document.getElementById('cfg-l1')?.value.trim()||'Adri (CEO)';
+  appConfig.whatsappLabel2=document.getElementById('cfg-l2')?.value.trim()||'Alan (CEO)';
+  appConfig.agencyName=document.getElementById('cfg-name')?.value.trim()||'Mentedoras';
+  appConfig.agencyTagline=document.getElementById('cfg-tag')?.value.trim()||'';
+  await saveConfig();
+}
 // ============================================================
 function renderFinance(){
   const mk=monthKey();

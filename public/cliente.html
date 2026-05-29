@@ -198,6 +198,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
       <div class="hdr-name" id="hdr-name"></div>
     </div>
     <div class="hdr-acts">
+      <button onclick="toggleLang()" id="lang-btn" style="background:var(--bg3);border:1px solid var(--bd2);border-radius:var(--r);padding:4px 10px;font-size:12px;color:var(--tx2);font-family:'DM Sans',sans-serif">🇪🇸 ES</button>
       <div class="th-btn th-dark on" id="th-dark" onclick="setTheme('dark')" title="Oscuro"></div>
       <div class="th-btn th-light" id="th-light" onclick="setTheme('light')" title="Claro"></div>
       <div class="th-btn th-blue" id="th-blue" onclick="setTheme('blue')" title="Azul"></div>
@@ -205,12 +206,13 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
   </div>
 
   <div class="nav">
-    <div class="nav-tab on" onclick="showTab('inicio')" id="nt-inicio"><i class="ti ti-home"></i>Inicio</div>
-    <div class="nav-tab" onclick="showTab('reels')" id="nt-reels"><i class="ti ti-video"></i>Reels</div>
-    <div class="nav-tab" onclick="showTab('contrato')" id="nt-contrato"><i class="ti ti-file-text"></i>Contrato</div>
-    <div class="nav-tab" onclick="showTab('crecimiento')" id="nt-crecimiento"><i class="ti ti-trending-up"></i>Crecimiento</div>
-    <div class="nav-tab" onclick="showTab('chat')" id="nt-chat"><i class="ti ti-message-2"></i>Chat</div>
-    <div class="nav-tab" onclick="showTab('ajustes')" id="nt-ajustes"><i class="ti ti-settings"></i>Ajustes</div>
+    <div class="nav-tab on" onclick="showTab('inicio')" id="nt-inicio"><i class="ti ti-home"></i><span data-t="inicio">Inicio</span></div>
+    <div class="nav-tab" onclick="showTab('reels')" id="nt-reels"><i class="ti ti-video"></i><span data-t="reels">Reels</span></div>
+    <div class="nav-tab" onclick="showTab('contrato')" id="nt-contrato"><i class="ti ti-file-text"></i><span data-t="contrato">Contrato</span></div>
+    <div class="nav-tab" onclick="showTab('modif')" id="nt-modif"><i class="ti ti-edit"></i><span data-t="modif">Modificaciones</span></div>
+    <div class="nav-tab" onclick="showTab('crecimiento')" id="nt-crecimiento"><i class="ti ti-trending-up"></i><span data-t="crecimiento">Crecimiento</span></div>
+    <div class="nav-tab" onclick="showTab('chat')" id="nt-chat"><i class="ti ti-message-2"></i><span data-t="chat">Chat</span></div>
+    <div class="nav-tab" onclick="showTab('ajustes')" id="nt-ajustes"><i class="ti ti-settings"></i><span data-t="ajustes">Ajustes</span></div>
   </div>
 
   <div class="cnt">
@@ -220,6 +222,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
     <div class="view" id="view-reels"></div>
     <!-- CONTRATO -->
     <div class="view" id="view-contrato"></div>
+    <div class="view" id="view-modif"></div>
     <!-- CRECIMIENTO -->
     <div class="view" id="view-crecimiento"></div>
     <!-- CHAT -->
@@ -259,17 +262,28 @@ const SERVICES=[
   {id:'mentedoras_podcast',label:'Participación en el podcast de MENTEDORAS'},
   {id:'custom',label:'Otros servicios personalizados'},
 ];
-const FAQ=[
-  {q:'¿Cómo funciona el proceso de contenido?',a:'Primero creamos tus guiones, los revisamos contigo, agendamos la grabación, editamos el contenido y finalmente lo publicamos en tus redes. Puedes ver el estado de cada paso en tu portal.'},
-  {q:'¿Cuándo recibiré mi contenido?',a:'Los tiempos varían según el servicio. Generalmente la edición tarda entre 3-5 días hábiles desde la grabación. Puedes ver la fecha estimada de entrega en la sección Reels.'},
-  {q:'¿Cómo puedo pedir cambios en un reel?',a:'Escríbenos en el chat de este portal o directamente por WhatsApp. Cuéntanos qué quieres cambiar y lo gestionamos lo antes posible.'},
-  {q:'¿Cada cuánto grabamos?',a:'Depende de tu contrato. Normalmente organizamos sesiones de grabación mensualmente o cuando acumulamos suficiente material para editar.'},
-  {q:'¿Dónde puedo ver mis guiones?',a:'En la sección Reels encontrarás el link a tu carpeta de Drive donde están todos tus guiones disponibles para revisar antes de grabar.'},
-  {q:'¿Cómo puedo contactar con el equipo?',a:'Tienes el chat en este portal que responde al instante para dudas básicas. Para temas urgentes, usa el botón de WhatsApp directo con Adri o Alan.'},
-  {q:'¿Qué pasa si no puedo grabar el día acordado?',a:'Sin problema, escríbenos con la mayor antelación posible y reorganizamos la sesión. El chat de este portal o WhatsApp son las formas más rápidas.'},
-];
+const FAQ={
+  es:[
+    {q:'¿Cómo funciona el proceso de contenido?',a:'El proceso empieza con un análisis previo de tu competencia y nicho para ver qué funciona. Después viene la creación y guionización de los reels, los enseñamos para tu aprobación, agendamos la grabación, editamos el contenido, revisamos posibles modificaciones y finalmente lo subimos a redes. Puedes seguir cada paso en tu portal.'},
+    {q:'¿Cuándo recibiré mi contenido?',a:'Por contrato el tiempo de entrega es de 3 a 5 días por reel desde la grabación. En épocas de alta carga de trabajo te avisamos si hay algún retraso. El primer mes trabajamos para tener el 60% del contenido antes de empezar a publicar, porque una vez que empezamos no paramos.'},
+    {q:'¿Cómo puedo pedir cambios en un reel?',a:'Puedes hacerlo desde el chat de este portal, usando el apartado de modificaciones, o por WhatsApp. Cuéntanos qué quieres cambiar y lo gestionamos lo antes posible.'},
+    {q:'¿Cada cuánto grabamos?',a:'Siempre empezamos a los 15 días de firmar el contrato — ese tiempo lo usamos para hacer el análisis y organizar todo. Normalmente hacemos entre 2 y 3 sesiones de grabación al mes. Al final de cada sesión ya salimos con la siguiente agendada.'},
+    {q:'¿Dónde puedo ver mis guiones?',a:'En tu carpeta de Drive compartida. Puedes acceder desde la sección Reels de este portal. Antes de cada grabación te enviamos los guiones para que los revises.'},
+    {q:'¿Cómo puedo contactar con el equipo?',a:'A través del chat de este portal para dudas generales, o por WhatsApp si es algo urgente. Adri y Alan están disponibles para lo que necesites.'},
+    {q:'¿Qué pasa si no puedo grabar el día acordado?',a:'Sin problema, avísanos con antelación y reagendamos. Por nuestra parte intentamos que esto no pase porque retrasa todo el proceso de contenido, pero si ocurre lo solucionamos sin problema.'},
+  ],
+  en:[
+    {q:'How does the content process work?',a:'We start with a competitor and niche analysis to see what works. Then we create and script your reels, share them for your approval, schedule the recording session, edit the content, review any modifications, and finally publish to social media. You can track each step in your portal.'},
+    {q:'When will I receive my content?',a:'Our contract delivery time is 3-5 days per reel from the recording date. During high-volume periods we will let you know if there are any delays. In the first month we aim to have 60% of content ready before we start publishing — once we start, we never stop.'},
+    {q:'How can I request changes to a reel?',a:'You can do it through the chat in this portal, using the modifications section, or via WhatsApp. Tell us what you want to change and we will handle it as soon as possible.'},
+    {q:'How often do we record?',a:'We always start 15 days after signing the contract — we use that time for analysis and planning. We typically do 2-3 recording sessions per month, and at the end of each session we already schedule the next one.'},
+    {q:'Where can I see my scripts?',a:'In your shared Drive folder, accessible from the Reels section of this portal. We send you the scripts before each recording so you can review them.'},
+    {q:'How can I contact the team?',a:'Through the chat in this portal for general questions, or via WhatsApp for urgent matters. Adri and Alan are available for whatever you need.'},
+    {q:'What if I cannot record on the agreed date?',a:'No problem, just let us know in advance and we will reschedule. On our end we try to avoid this since it delays the whole content process, but if it happens we sort it out easily.'},
+  ]
+};
 
-let db=null,client=null,activeMonth='',chatMsgs=[];
+let db=null,client=null,activeMonth='',chatMsgs=[],lang='es',appConfig={};
 
 // ============================================================
 // FIREBASE
@@ -357,6 +371,18 @@ function loadTheme(){setTheme(localStorage.getItem('mt')||'dark');}
 // ============================================================
 // TABS
 // ============================================================
+function toggleLang(){
+  lang=lang==='es'?'en':'es';
+  const btn=document.getElementById('lang-btn');
+  if(btn)btn.textContent=lang==='es'?'🇪🇸 ES':'🇬🇧 EN';
+  localStorage.setItem('ml',lang);
+  // Re-render current tab
+  const activeTab=document.querySelector('.nav-tab.on')?.id?.replace('nt-','');
+  if(activeTab)renderTab(activeTab);
+}
+
+function t(esText,enText){return lang==='en'?enText:esText;}
+
 function showTab(name){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
   document.getElementById('view-'+name)?.classList.add('on');
@@ -368,6 +394,7 @@ function renderTab(name){
   if(name==='inicio')renderInicio();
   if(name==='reels')renderReels();
   if(name==='contrato')renderContrato();
+  if(name==='modif')renderModif();
   if(name==='crecimiento')renderCrecimiento();
   if(name==='chat')renderChat();
   if(name==='ajustes')renderAjustes();
@@ -570,9 +597,10 @@ function renderContrato(){
   }
 
   // FAQ
+  const faqData=FAQ[lang]||FAQ.es;
   html+=`<div class="card">
-    <div class="card-t"><i class="ti ti-help-circle"></i>Preguntas frecuentes</div>
-    ${FAQ.map((f,i)=>`<div class="faq-item">
+    <div class="card-t"><i class="ti ti-help-circle"></i>${t('Preguntas frecuentes','FAQ')}</div>
+    ${faqData.map((f,i)=>`<div class="faq-item">
       <div class="faq-q" onclick="toggleFAQ(${i})">
         <span>${f.q}</span>
         <i class="ti ti-chevron-down" style="font-size:14px;transition:transform .2s" id="faq-ic-${i}"></i>
@@ -689,32 +717,76 @@ async function submitRating(){
 }
 
 // ============================================================
-// CHAT
+// MODIFICACIONES
 // ============================================================
+function renderModif(){
+  const mods=client.modifications||[];
+  document.getElementById('view-modif').innerHTML=`
+    <div class="card">
+      <div class="card-t"><i class="ti ti-edit"></i>${t('Solicitar modificación','Request modification')}</div>
+      <div class="f"><label>${t('¿Qué reel?','Which reel?')}</label>
+        <select id="mod-reel">
+          <option value="">${t('— Selecciona —','— Select —')}</option>
+          ${Object.values(client.reels||{}).flat().map(r=>`<option value="${r.label}">${r.label}</option>`).join('')}
+          <option value="general">${t('General / No es un reel específico','General / Not a specific reel')}</option>
+        </select>
+      </div>
+      <div class="f"><label>${t('Descripción del cambio','Description of change')}</label>
+        <textarea id="mod-desc" rows="4" placeholder="${t('Explica qué quieres cambiar...','Explain what you want to change...')}"></textarea>
+      </div>
+      <button class="btn btn-p btn-block" onclick="sendModif()">${t('Enviar solicitud','Send request')}</button>
+    </div>
+    ${mods.length?`<div class="card">
+      <div class="card-t"><i class="ti ti-history"></i>${t('Historial de modificaciones','Modification history')}</div>
+      ${mods.slice().reverse().map(m=>`<div class="pf">
+        <div>
+          <div style="font-size:13px;font-weight:500">${m.reel}</div>
+          <div style="font-size:12px;color:var(--tx3);margin-top:2px">${m.desc}</div>
+          <div style="font-size:11px;color:var(--tx3);margin-top:2px">${m.date}</div>
+        </div>
+        <span class="chip" style="background:${m.done?'rgba(34,197,94,.12)':'rgba(245,158,11,.12)'};color:${m.done?'#4ADE80':'var(--warn)'};">${m.done?t('Resuelto','Resolved'):t('Pendiente','Pending')}</span>
+      </div>`).join('')}
+    </div>`:''}`;
+}
+async function sendModif(){
+  const reel=document.getElementById('mod-reel')?.value;
+  const desc=document.getElementById('mod-desc')?.value.trim();
+  if(!reel||!desc)return showToast(t('Rellena todos los campos','Fill all fields'),'ok');
+  if(!client.modifications)client.modifications=[];
+  client.modifications.push({reel,desc,date:new Date().toLocaleDateString('es-ES'),done:false});
+  await saveClientData();
+  await notifyTeam(`✏️ ${client.name} solicita modificación en "${reel}": "${desc}"`);
+  renderModif();
+  showToast(t('Solicitud enviada ✓','Request sent ✓'),'ok');
+}
 function renderChat(){
   // Load msgs from client
   chatMsgs=client.msgs||[];
+  const wa1=appConfig.whatsappAdri||'34000000000';
+  const wa2=appConfig.whatsappAlan||'34000000000';
+  const l1=appConfig.whatsappLabel1||'Adri (CEO)';
+  const l2=appConfig.whatsappLabel2||'Alan (CEO)';
   const el=document.getElementById('view-chat');
   el.innerHTML=`<div class="chat-wrap">
     <div class="chat-hdr">
       <div class="chat-online"></div>
       <div>
-        <div style="font-size:14px;font-weight:600">Asistente Mentedoras</div>
-        <div style="font-size:11px;color:var(--tx3)">Responde al instante 24/7 ⚡</div>
+        <div style="font-size:14px;font-weight:600">${t('Asistente Mentedoras','Mentedoras Assistant')}</div>
+        <div style="font-size:11px;color:var(--tx3)">${t('Responde al instante 24/7 ⚡','Responds instantly 24/7 ⚡')}</div>
       </div>
     </div>
     <div class="chat-msgs" id="chat-msgs" style="display:flex;flex-direction:column"></div>
     <div class="chat-sugg" id="chat-sugg"></div>
     <div class="chat-inp-row">
-      <input class="chat-inp" id="chat-inp" placeholder="Escribe tu pregunta..." onkeydown="if(event.key==='Enter')sendMsg()">
+      <input class="chat-inp" id="chat-inp" placeholder="${t('Escribe tu pregunta...','Type your question...')}" onkeydown="if(event.key==='Enter')sendMsg()">
       <button class="chat-send" onclick="sendMsg()"><i class="ti ti-send" style="font-size:14px"></i></button>
     </div>
   </div>
   <div class="card">
-    <div class="card-t"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>Contacto directo</div>
-    <div style="font-size:13px;color:var(--tx2);margin-bottom:12px">Para temas urgentes, contacta directamente con el equipo:</div>
-    <a href="https://wa.me/34000000000" target="_blank" class="btn btn-block" style="text-decoration:none;margin-bottom:8px;justify-content:center"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>WhatsApp Adri</a>
-    <a href="https://wa.me/34000000000" target="_blank" class="btn btn-block" style="text-decoration:none;justify-content:center"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>WhatsApp Alan</a>
+    <div class="card-t"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>${t('Contacto directo','Direct contact')}</div>
+    <div style="font-size:13px;color:var(--tx2);margin-bottom:12px">${t('Para temas urgentes, contacta directamente:','For urgent matters, contact us directly:')}</div>
+    <a href="https://wa.me/${wa1}" target="_blank" class="btn btn-block" style="text-decoration:none;margin-bottom:8px;justify-content:center"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>WhatsApp ${l1}</a>
+    <a href="https://wa.me/${wa2}" target="_blank" class="btn btn-block" style="text-decoration:none;justify-content:center"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>WhatsApp ${l2}</a>
   </div>`;
   renderChatMsgs();
   showSuggestions();
@@ -1051,6 +1123,12 @@ loadTheme();
   }
 
   const c=await loadClient(cid);
+  // Load app config
+  try{const d=await db.collection('crm').doc('config').get();if(d.exists)appConfig={...appConfig,...d.data()};}catch(e){}
+  // Load saved language
+  lang=localStorage.getItem('ml')||'es';
+  const lbtn=document.getElementById('lang-btn');
+  if(lbtn)lbtn.textContent=lang==='es'?'🇪🇸 ES':'🇬🇧 EN';
   if(!c){
     document.getElementById('loading').style.display='none';
     document.getElementById('notfound').style.display='flex';
