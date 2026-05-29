@@ -194,30 +194,34 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
 
 /* BOARD */
 .bw{overflow-x:auto;padding-bottom:8px}
-.bcols{display:flex;gap:12px;min-width:900px;align-items:flex-start}
-.bcol{min-width:200px;flex:1;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rl);padding:12px}
+.bcols{display:flex;gap:12px;min-width:max-content;align-items:flex-start}
+.bcol{width:240px;flex-shrink:0;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rl);padding:12px;display:flex;flex-direction:column;max-height:calc(100vh - 140px)}
 .bcol.dov{border-color:var(--c);background:var(--cdim)}
-.bch{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--bd);position:relative}
+.bcol.col-dragging{opacity:.5;border:2px dashed var(--c)}
+.bcol-body{overflow-y:auto;flex:1;padding-right:2px}
+.bch{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--bd);position:relative;cursor:grab;flex-shrink:0}
+.bch:active{cursor:grabbing}
 .bcn{font-size:12px;font-weight:600}
 .bcc{background:var(--bg3);font-size:10px;padding:1px 6px;border-radius:20px;color:var(--tx3)}
 .dot-btn{cursor:pointer;color:var(--tx3);font-size:16px;padding:2px 4px;border-radius:4px}
 .dot-btn:hover{background:var(--bg4);color:var(--tx)}
-.drop-menu{position:absolute;right:0;top:100%;background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--r);padding:4px;z-index:50;min-width:150px;box-shadow:var(--s3);display:none}
+.drop-menu{position:absolute;right:0;top:100%;background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--r);padding:4px;z-index:50;min-width:170px;box-shadow:var(--s3);display:none}
 .drop-menu.open{display:block}
 .dm-item{padding:7px 10px;font-size:12px;color:var(--tx2);cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:7px}
 .dm-item:hover{background:var(--bg3);color:var(--tx)}
 .dm-item.danger{color:var(--err)}
 .bcard{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:11px 12px;margin-bottom:7px;cursor:grab;user-select:none;transition:all .15s;position:relative}
 .bcard:hover{border-color:var(--bd2);box-shadow:var(--s1)}
-.bcard.dragging{opacity:.4}
+.bcard.dragging{opacity:.4;border:1px dashed var(--c)}
+.bcard.drag-over{border-top:2px solid var(--c)}
 .bc-top{display:flex;align-items:flex-start;gap:7px;margin-bottom:6px}
 .bc-chk{width:15px;height:15px;border-radius:3px;border:1px solid var(--bd2);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-top:2px;transition:all .15s}
 .bc-chk.on{background:var(--ok);border-color:var(--ok)}
 .bc-title{font-size:12px;line-height:1.4;flex:1}
 .bc-title.done{text-decoration:line-through;color:var(--tx3)}
-.badd{width:100%;padding:7px;border:1px dashed var(--bd);border-radius:var(--r);background:transparent;font-size:12px;color:var(--tx3);display:flex;align-items:center;justify-content:center;gap:5px;margin-top:4px;transition:all .15s}
+.badd{width:100%;padding:7px;border:1px dashed var(--bd);border-radius:var(--r);background:transparent;font-size:12px;color:var(--tx3);display:flex;align-items:center;justify-content:center;gap:5px;margin-top:4px;transition:all .15s;flex-shrink:0}
 .badd:hover{border-color:var(--c);color:var(--c);background:var(--cdim)}
-.add-col-btn{min-width:180px;flex-shrink:0;background:var(--bg2);border:1px dashed var(--bd2);border-radius:var(--rl);padding:12px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;color:var(--tx3);font-size:13px;transition:all .15s}
+.add-col-btn{width:200px;flex-shrink:0;background:var(--bg2);border:1px dashed var(--bd2);border-radius:var(--rl);padding:12px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;color:var(--tx3);font-size:13px;transition:all .15s;align-self:flex-start}
 .add-col-btn:hover{border-color:var(--c);color:var(--c);background:var(--cdim)}
 
 /* PIPELINE */
@@ -868,18 +872,21 @@ function renderDash(){
     <div class="sh"><div class="st">Clientes</div></div>
     <div class="cg">${mc.map(c=>{
       const r=c.reels[mk]||[];
-      const sub=r.filter(r=>r.subido).length;
+      const clientManagesUpload=!(Array.isArray(c.services)?c.services:[]).some(s=>['content_5','content_8_cm','podcast_reels_edit','youtube'].includes(s));
+      const done=clientManagesUpload?r.filter(r=>r.editado).length:r.filter(r=>r.subido).length;
       const ed=r.filter(r=>r.editado&&!r.subido).length;
       const gr=r.filter(r=>r.grabado&&!r.editado).length;
       const pe=r.filter(r=>!r.grabado).length;
+      const svcs=(Array.isArray(c.services)?c.services:[]).map(id=>SERVICES.find(s=>s.id===id)?.label).filter(Boolean);
       return`<div class="cc" onclick="openProfile('${c.id}')">
         <div class="cc-av">${ini(c.name)}</div>
         <div class="cc-n">${c.name}</div>
         <div class="cc-t">${c.type}</div>
+        ${svcs.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">${svcs.slice(0,2).map(s=>`<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--cdim);color:var(--c)">${s.split('(')[0].trim()}</span>`).join('')}${svcs.length>2?`<span style="font-size:10px;color:var(--tx3)">+${svcs.length-2}</span>`:''}</div>`:''}
         <div class="cc-ft">
           ${r.length?`<div style="display:flex;flex-wrap:wrap;gap:3px">
-            ${sub?`<span class="chip" style="background:rgba(34,197,94,.12);color:#4ADE80">✅ ${sub}/${r.length}</span>`:''}
-            ${ed?`<span class="chip" style="background:rgba(192,132,252,.12);color:#C084FC">✂️ ${ed}/${r.length}</span>`:''}
+            ${done?`<span class="chip" style="background:rgba(34,197,94,.12);color:#4ADE80">${clientManagesUpload?'✂️':'✅'} ${done}/${r.length}</span>`:''}
+            ${!clientManagesUpload&&ed?`<span class="chip" style="background:rgba(192,132,252,.12);color:#C084FC">✂️ ${ed}/${r.length}</span>`:''}
             ${gr?`<span class="chip" style="background:rgba(245,158,11,.12);color:var(--warn)">🎬 ${gr}/${r.length}</span>`:''}
             ${pe?`<span class="chip" style="background:var(--bg3);color:var(--tx3)">⏳ ${pe}/${r.length}</span>`:''}
           </div>`:'<span style="font-size:11px;color:var(--tx3)">Sin reels este mes</span>'}
@@ -913,42 +920,48 @@ function dropPL(e,phase){
 // ============================================================
 // BOARD
 // ============================================================
+let dragTaskColId=null,dragTaskId=null,dragBoardColId=null;
+
 function renderBoard(){
   const visibleCols=isCMup()?boardCols:boardCols.filter(col=>col.name===CU?.name||col.id==='adri'||col.id==='alan');
   const bw=document.getElementById('view-board');
-  bw.innerHTML=`<div class="bw" id="bw-scroll"><div class="bcols" id="bcols-inner">
+  bw.innerHTML=`<div class="bw" id="bw-scroll" style="overflow-x:auto;padding-bottom:8px"><div class="bcols" id="bcols-inner">
     ${visibleCols.map(col=>{
       const pend=col.tasks.filter(t=>!t.done).length;
       return`<div class="bcol" data-col="${col.id}"
-        ondragover="event.preventDefault();event.stopPropagation();this.classList.add('dov')"
-        ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dov')"
-        ondrop="dropBoard(event,'${col.id}')">
-        <div class="bch">
+        ondragover="boardColDragOver(event,'${col.id}')"
+        ondragleave="boardColDragLeave(event,'${col.id}')"
+        ondrop="boardColDrop(event,'${col.id}')">
+        <div class="bch" draggable="true"
+          ondragstart="startDragCol(event,'${col.id}')"
+          ondragend="endDragCol(event)">
           <span class="bcn">${col.name}</span>
-          <div style="display:flex;align-items:center;gap:6px">
+          <div style="display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">
             <span class="bcc">${pend}</span>
-            ${isCMup()?`<div class="dot-btn" onclick="toggleColMenu('${col.id}')"><i class="ti ti-dots-vertical"></i>
+            ${isCMup()?`<div class="dot-btn" onclick="event.stopPropagation();toggleColMenu('${col.id}')"><i class="ti ti-dots-vertical"></i>
               <div class="drop-menu" id="cm-${col.id}">
                 <div class="dm-item" onclick="openModal('task','${col.id}')"><i class="ti ti-plus"></i>Añadir tarjeta</div>
                 <div class="dm-item" onclick="copyCol('${col.id}')"><i class="ti ti-copy"></i>Copiar lista</div>
                 <div class="dm-item" onclick="moveColLeft('${col.id}')"><i class="ti ti-arrow-left"></i>Mover izquierda</div>
                 <div class="dm-item" onclick="moveColRight('${col.id}')"><i class="ti ti-arrow-right"></i>Mover derecha</div>
-                <div class="dm-item" onclick="moveAllCards('${col.id}')"><i class="ti ti-arrows-move"></i>Mover todas las tarjetas</div>
+                <div class="dm-item" onclick="moveAllCards('${col.id}')"><i class="ti ti-arrows-move"></i>Mover todas</div>
                 <div class="dm-item" onclick="sortCol('${col.id}','date')"><i class="ti ti-sort-ascending"></i>Ordenar por fecha</div>
                 <div class="dm-item" onclick="sortCol('${col.id}','name')"><i class="ti ti-sort-ascending-letters"></i>Ordenar por nombre</div>
-                <div class="dm-item danger" onclick="deleteCol('${col.id}')"><i class="ti ti-trash"></i>Eliminar columna</div>
+                <div class="dm-item danger" onclick="deleteCol('${col.id}')"><i class="ti ti-trash"></i>Eliminar</div>
               </div>
             </div>`:''}
           </div>
         </div>
-        <div id="bcl-${col.id}">
-          ${col.tasks.map(t=>`<div class="bcard" draggable="true"
-            ondragstart="startDragBoard(event,'${col.id}','${t.id}')"
-            ondragend="endDragBoard(event)">
+        <div class="bcol-body" id="bcl-${col.id}">
+          ${col.tasks.map((t,ti)=>`<div class="bcard" draggable="true" data-task="${t.id}" data-col="${col.id}"
+            ondragstart="startDragTask(event,'${col.id}','${t.id}')"
+            ondragend="endDragTask(event)"
+            ondragover="taskDragOver(event,'${col.id}',${ti})"
+            ondragleave="this.classList.remove('drag-over')">
             <div class="bc-top">
               <div class="bc-chk${t.done?' on':''}" onclick="event.stopPropagation();toggleTask('${col.id}','${t.id}')">${t.done?'<i class="ti ti-check" style="font-size:10px;color:#fff"></i>':''}</div>
               <div class="bc-title${t.done?' done':''}" onclick="openTaskDetail('${col.id}','${t.id}')" style="cursor:pointer;flex:1">${t.title}</div>
-              <div class="dot-btn" onclick="openTaskDetail('${col.id}','${t.id}')"><i class="ti ti-pencil" style="font-size:13px"></i></div>
+              <div class="dot-btn" onclick="event.stopPropagation();openTaskDetail('${col.id}','${t.id}')"><i class="ti ti-pencil" style="font-size:13px"></i></div>
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">
               ${(t.labels||[]).map(li=>`<span style="font-size:10px;padding:2px 6px;border-radius:20px;font-weight:600;background:${LABELS[li].bg};color:${LABELS[li].c}">${LABELS[li].n}</span>`).join('')}
@@ -965,10 +978,110 @@ function renderBoard(){
     ${isCMup()?`<button class="add-col-btn" onclick="addBoardCol()"><i class="ti ti-plus"></i>Nueva columna</button>`:''}
   </div></div>`;
   renderBoardBadge();
-  // Auto-scroll on drag
   setupBoardAutoScroll();
 }
 
+// COLUMN DRAG (reorder columns)
+function startDragCol(e,colId){
+  dragBoardColId=colId;
+  e.dataTransfer.setData('colId',colId);
+  e.dataTransfer.effectAllowed='move';
+  setTimeout(()=>{const el=e.target.closest('.bcol');if(el)el.classList.add('col-dragging');},0);
+}
+function endDragCol(e){
+  document.querySelectorAll('.bcol.col-dragging').forEach(el=>el.classList.remove('col-dragging'));
+  dragBoardColId=null;
+}
+
+// COLUMN DROP ZONE
+function boardColDragOver(e,colId){
+  e.preventDefault();e.stopPropagation();
+  if(dragBoardColId&&dragBoardColId!==colId){
+    // Column reorder
+    document.querySelectorAll('.bcol').forEach(c=>c.classList.remove('dov'));
+    document.querySelector(`.bcol[data-col="${colId}"]`)?.classList.add('dov');
+  }else if(dragTaskColId){
+    document.querySelectorAll('.bcol').forEach(c=>c.classList.remove('dov'));
+    document.querySelector(`.bcol[data-col="${colId}"]`)?.classList.add('dov');
+  }
+}
+function boardColDragLeave(e,colId){
+  if(!e.currentTarget.contains(e.relatedTarget)){
+    document.querySelector(`.bcol[data-col="${colId}"]`)?.classList.remove('dov');
+  }
+}
+function boardColDrop(e,targetColId){
+  e.preventDefault();e.stopPropagation();
+  document.querySelectorAll('.bcol').forEach(c=>c.classList.remove('dov'));
+  document.querySelectorAll('.bcard.drag-over').forEach(c=>c.classList.remove('drag-over'));
+  // Column reorder
+  if(dragBoardColId&&dragBoardColId!==targetColId){
+    const fromIdx=boardCols.findIndex(c=>c.id===dragBoardColId);
+    const toIdx=boardCols.findIndex(c=>c.id===targetColId);
+    if(fromIdx>=0&&toIdx>=0){
+      const[col]=boardCols.splice(fromIdx,1);
+      boardCols.splice(toIdx,0,col);
+      saveBoard();renderBoard();showToast('Columna movida ✓','ok');
+    }
+    return;
+  }
+  // Task to column
+  if(dragTaskColId&&dragTaskId){
+    if(dragTaskColId===targetColId)return;
+    const fromCol=boardCols.find(c=>c.id===dragTaskColId);
+    const toCol=boardCols.find(c=>c.id===targetColId);
+    if(!fromCol||!toCol)return;
+    const ti=fromCol.tasks.findIndex(t=>String(t.id)===String(dragTaskId));
+    if(ti>=0){const[task]=fromCol.tasks.splice(ti,1);toCol.tasks.unshift(task);}
+    dragTaskColId=null;dragTaskId=null;
+    saveBoard();renderBoard();showToast('Tarea movida ✓','ok');
+  }
+}
+
+// TASK DRAG (reorder within column or move between columns)
+function startDragTask(e,colId,taskId){
+  dragTaskColId=colId;dragTaskId=taskId;
+  e.dataTransfer.setData('taskData',JSON.stringify({colId,taskId}));
+  e.dataTransfer.effectAllowed='move';
+  e.stopPropagation();
+  setTimeout(()=>{const el=e.target.closest('.bcard');if(el)el.classList.add('dragging');},0);
+}
+function endDragTask(e){
+  document.querySelectorAll('.bcard.dragging').forEach(el=>el.classList.remove('dragging'));
+  document.querySelectorAll('.bcard.drag-over').forEach(el=>el.classList.remove('drag-over'));
+  document.querySelectorAll('.bcol.dov').forEach(el=>el.classList.remove('dov'));
+  dragTaskColId=null;dragTaskId=null;
+}
+function taskDragOver(e,colId,taskIndex){
+  e.preventDefault();e.stopPropagation();
+  if(!dragTaskColId)return;
+  document.querySelectorAll('.bcard.drag-over').forEach(el=>el.classList.remove('drag-over'));
+  e.currentTarget.classList.add('drag-over');
+  // Handle drop within same column to reorder
+  e.currentTarget.ondrop=function(ev){
+    ev.preventDefault();ev.stopPropagation();
+    document.querySelectorAll('.bcol').forEach(c=>c.classList.remove('dov'));
+    document.querySelectorAll('.bcard.drag-over').forEach(c=>c.classList.remove('drag-over'));
+    if(!dragTaskColId||!dragTaskId)return;
+    const fromCol=boardCols.find(c=>c.id===dragTaskColId);
+    const toCol=boardCols.find(c=>c.id===colId);
+    if(!fromCol||!toCol)return;
+    const fromIdx=fromCol.tasks.findIndex(t=>String(t.id)===String(dragTaskId));
+    if(fromIdx<0)return;
+    if(dragTaskColId===colId){
+      // Reorder within same column
+      const[task]=fromCol.tasks.splice(fromIdx,1);
+      const insertAt=taskIndex>fromIdx?taskIndex:taskIndex;
+      toCol.tasks.splice(insertAt,0,task);
+    }else{
+      // Move to different column at position
+      const[task]=fromCol.tasks.splice(fromIdx,1);
+      toCol.tasks.splice(taskIndex,0,task);
+    }
+    dragTaskColId=null;dragTaskId=null;
+    saveBoard();renderBoard();showToast('Tarea movida ✓','ok');
+  };
+}
 function setupBoardAutoScroll(){
   const bw=document.getElementById('bw-scroll');if(!bw)return;
   bw.addEventListener('dragover',e=>{
@@ -978,39 +1091,24 @@ function setupBoardAutoScroll(){
     else if(e.clientX>rect.right-edge)bw.scrollLeft+=10;
   });
 }
-
-let dragColId=null,dragTaskId=null;
-function startDragBoard(e,colId,taskId){
-  dragColId=colId;dragTaskId=taskId;
-  e.dataTransfer.setData('bdata',JSON.stringify({colId,taskId}));
-  setTimeout(()=>{const el=e.target.closest('.bcard');if(el)el.classList.add('dragging');},0);
-}
-function endDragBoard(e){
-  document.querySelectorAll('.bcard.dragging').forEach(el=>el.classList.remove('dragging'));
-  document.querySelectorAll('.bcol.dov').forEach(el=>el.classList.remove('dov'));
-  dragColId=null;dragTaskId=null;
-}
-function dropBoard(e,targetColId){
-  e.preventDefault();
-  document.querySelectorAll('.bcol').forEach(c=>c.classList.remove('dov'));
-  try{
-    const data=JSON.parse(e.dataTransfer.getData('bdata'));
-    const{colId,taskId}=data;
-    if(colId===targetColId)return;
-    const fromCol=boardCols.find(c=>c.id===colId);
-    const toCol=boardCols.find(c=>c.id===targetColId);
-    if(!fromCol||!toCol)return;
-    const ti=fromCol.tasks.findIndex(t=>String(t.id)===String(taskId));
-    if(ti>=0){const[task]=fromCol.tasks.splice(ti,1);toCol.tasks.unshift(task);}
-    saveBoard();renderBoard();showToast('Tarea movida ✓','ok');
-  }catch(err){console.warn('dropBoard:',err);}
-}
+// drag vars declared above
 function toggleTask(colId,taskId){
   const col=boardCols.find(c=>c.id===colId);
   const t=col?.tasks.find(t=>String(t.id)===String(taskId));
   if(t){t.done=!t.done;saveBoard();renderBoard();}
 }
 
+function addBoardCol(){
+  const name=prompt('Nombre de la nueva columna:');
+  if(!name)return;
+  boardCols.push({id:'col'+Date.now(),name,color:'var(--bd2)',tasks:[]});
+  saveBoard();renderBoard();showToast('Columna añadida ✓','ok');
+}
+function toggleColMenu(id){
+  document.querySelectorAll('.drop-menu').forEach(m=>m.classList.remove('open'));
+  const m=document.getElementById('cm-'+id);if(m)m.classList.toggle('open');
+}
+document.addEventListener('click',e=>{if(!e.target.closest('.dot-btn'))document.querySelectorAll('.drop-menu').forEach(m=>m.classList.remove('open'));});
 function copyCol(id){
   const col=boardCols.find(c=>c.id===id);if(!col)return;
   const newCol={...col,id:'col'+Date.now(),name:col.name+' (copia)',tasks:JSON.parse(JSON.stringify(col.tasks))};
@@ -1254,7 +1352,7 @@ function renderPayments(){
         <tr><th>Concepto</th><th>Importe</th><th>Estado</th><th></th></tr>
         ${edP.length?edP.map((p,i)=>`<tr>
           <td>${p.concepto}</td>
-          <td style="color:var(--c);font-weight:600">${p.importe}€</td>
+          <td style="color:var(--c);font-weight:600">${currSymbol(p.currency||"EUR")+p.importe}</td>
           <td><span class="badge ${p.paid?'badge-ok':'badge-warn'}" style="cursor:pointer" onclick="togglePay('${ed}','${mk}',${i})">${p.paid?'✓ Pagado':'Pendiente'}</span></td>
           <td style="display:flex;gap:4px">
             <button class="btn btn-s" onclick="editPay('${ed}','${mk}',${i})"><i class="ti ti-pencil"></i></button>
@@ -1289,7 +1387,7 @@ function showMyPayments(){
           <tr><th>Concepto</th><th>Importe</th><th>Estado</th></tr>
           ${myP.length?myP.map(p=>`<tr>
             <td>${p.concepto}</td>
-            <td style="color:var(--c);font-weight:600">${p.importe}€</td>
+            <td style="color:var(--c);font-weight:600">${currSymbol(p.currency||"EUR")+p.importe}</td>
             <td><span class="badge ${p.paid?'badge-ok':'badge-warn'}">${p.paid?'✓ Pagado':'Pendiente'}</span></td>
           </tr>`).join(''):`<tr><td colspan="3" style="text-align:center;color:var(--tx3);padding:20px">Sin pagos registrados este mes</td></tr>`}
         </table>
@@ -1454,6 +1552,7 @@ function renderProfile(c){
       <div class="tab${activeTab==='drive'?' on':''}" onclick="switchTab('drive')">Drive</div>
       ${isCMup()?`<div class="tab${activeTab==='creds'?' on':''}" onclick="switchTab('creds')">🔐 Credenciales</div>`:''}
       ${isPMup()?`<div class="tab${activeTab==='contrato'?' on':''}" onclick="switchTab('contrato')">Contrato</div>`:''}
+      ${isCMup()?`<div class="tab${activeTab==='crecimiento'?' on':''}" onclick="switchTab('crecimiento')">Crecimiento</div>`:''}
     </div>
 
     <div class="tc${activeTab==='info'?' on':''}" id="tc-info">
@@ -1494,13 +1593,17 @@ function renderProfile(c){
             </div>`).join('')}
           </div>
           <div class="card" style="margin-top:14px">
-            <div class="card-t"><i class="ti ti-settings"></i>Servicios</div>
+            <div class="card-t"><i class="ti ti-settings"></i>Servicios contratados</div>
             <div class="svc-grid">
               ${SERVICES.map(s=>`<div class="svc-item${(Array.isArray(c.services)?c.services:[]).includes(s.id)?' on':''}" onclick="toggleService('${c.id}','${s.id}')">
                 <div class="svc-chk">${(Array.isArray(c.services)?c.services:[]).includes(s.id)?'<i class="ti ti-check" style="font-size:10px;color:var(--bg)"></i>':''}</div>
                 <span class="svc-label">${s.label}</span>
               </div>`).join('')}
             </div>
+            ${(Array.isArray(c.services)?c.services:[]).includes('custom')?`<div style="margin-top:10px">
+              <label style="font-size:11px;color:var(--tx3);display:block;margin-bottom:4px">DETALLE DEL SERVICIO PERSONALIZADO</label>
+              <input type="text" value="${c.customServiceDetail||''}" placeholder="ej. Generación de leads, Estrategia de contenido..." onchange="updateClientField('${c.id}','customServiceDetail',this.value)">
+            </div>`:''}
           </div>
         </div>
       </div>
@@ -1627,6 +1730,36 @@ function renderProfile(c){
             <p style="font-size:13px;color:var(--tx3)">Haz clic para subir contrato</p>
           </div>`}
         </div>
+      </div>
+    </div>`:''}
+    ${isCMup()?`<div class="tc${activeTab==='crecimiento'?' on':''}" id="tc-crecimiento">
+      <div class="card">
+        <div class="card-t"><i class="ti ti-trending-up"></i>Estadísticas de crecimiento
+          <button class="btn btn-s btn-p" style="margin-left:auto" onclick="openModal('growth','${c.id}')"><i class="ti ti-pencil"></i>Editar</button>
+        </div>
+        ${c.growth?.igStart||c.growth?.igNow?`
+          <div class="pf"><span class="pf-l">📸 Seguidores al inicio</span><span class="pf-v">${(c.growth.igStart||0).toLocaleString('es')}</span></div>
+          <div class="pf"><span class="pf-l">📈 Seguidores ahora</span><span class="pf-v" style="color:var(--c);font-weight:600">${(c.growth.igNow||0).toLocaleString('es')}</span></div>
+          ${c.growth.igNow&&c.growth.igStart?`<div class="pf"><span class="pf-l">🚀 Crecimiento</span><span class="pf-v" style="color:#4ADE80;font-weight:600">+${Math.round(((c.growth.igNow-c.growth.igStart)/c.growth.igStart)*100)}%</span></div>`:''}
+          ${c.growth.avgViews?`<div class="pf"><span class="pf-l">👁 Media de visitas/reel</span><span class="pf-v">${c.growth.avgViews.toLocaleString('es')}</span></div>`:''}
+          ${c.growth.bestReel?`<div class="pf"><span class="pf-l">🔥 Mejor reel</span><span class="pf-v">${c.growth.bestReel}</span></div>`:''}
+          ${c.growth.totalReach?`<div class="pf"><span class="pf-l">📡 Alcance total</span><span class="pf-v">${c.growth.totalReach.toLocaleString('es')}</span></div>`:''}
+        `:`<div style="text-align:center;padding:20px;color:var(--tx3);font-size:13px">
+          <div style="font-size:28px;margin-bottom:8px">📊</div>
+          Sin estadísticas aún. Haz clic en "Editar" para añadir los datos de crecimiento.
+        </div>`}
+      </div>
+      <div class="card">
+        <div class="card-t"><i class="ti ti-link"></i>Perfil de redes sociales</div>
+        <div class="fg2">
+          <div class="f"><label>Instagram</label><input type="text" value="${c.igUrl||''}" placeholder="https://instagram.com/..." onchange="updateClientField('${c.id}','igUrl',this.value)"></div>
+          <div class="f"><label>TikTok</label><input type="text" value="${c.tiktokUrl||''}" placeholder="https://tiktok.com/@..." onchange="updateClientField('${c.id}','tiktokUrl',this.value)"></div>
+        </div>
+        <div class="fg2">
+          <div class="f"><label>YouTube</label><input type="text" value="${c.ytUrl||''}" placeholder="https://youtube.com/..." onchange="updateClientField('${c.id}','ytUrl',this.value)"></div>
+          <div class="f"><label>LinkedIn</label><input type="text" value="${c.liUrl||''}" placeholder="https://linkedin.com/..." onchange="updateClientField('${c.id}','liUrl',this.value)"></div>
+        </div>
+        <button class="btn btn-s btn-p" style="margin-top:8px" onclick="saveClients();showToast('Links guardados ✓','ok')"><i class="ti ti-check"></i>Guardar links</button>
       </div>
     </div>`:''}`;
 }
@@ -1852,13 +1985,29 @@ function openModal(type,extra='',extra2=null){
     c.innerHTML=`<div class="modal-t">Añadir pago — ${extra}</div>
       <div class="f"><label>Concepto</label><select id="np-conc"><option>Edición de reels</option><option>Storytellings</option><option>Extra grabación</option><option>Community Manager</option><option>Otros</option></select></div>
       <div class="fg2">
-        <div class="f"><label>Importe (€)</label><input id="np-imp" type="number" placeholder="0" min="0"></div>
-        <div class="f"><label>Precio por reel (€)</label><input id="np-ppr" type="number" placeholder="ej. 25" oninput="calcPay()"></div>
+        <div class="f"><label>Importe</label><input id="np-imp" type="number" placeholder="0" min="0"></div>
+        <div class="f"><label>Divisa</label><select id="np-cur"><option value="EUR">€ Euro</option><option value="USD">$ Dólar</option><option value="GBP">£ Libra</option></select></div>
       </div>
-      <div class="f"><label>Nº de reels</label><input id="np-nr" type="number" placeholder="0" oninput="calcPay()"></div>
+      <div class="fg2">
+        <div class="f"><label>Precio por reel</label><input id="np-ppr" type="number" placeholder="ej. 25" oninput="calcPay()"></div>
+        <div class="f"><label>Nº de reels</label><input id="np-nr" type="number" placeholder="0" oninput="calcPay()"></div>
+      </div>
       <div id="np-calc" style="font-size:12px;color:var(--c);padding:2px 0"></div>
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="savePay('${extra}')">Añadir</button></div>`;
-  }else if(type==='cobro'){
+  }else if(type==='growth'){
+    const cl=clients.find(c=>c.id===extra);if(!cl)return;
+    const g=cl.growth||{};
+    c.innerHTML=`<div class="modal-t">📊 Estadísticas — ${cl.name}</div>
+      <div class="fg2">
+        <div class="f"><label>Seguidores al inicio</label><input id="g-start" type="number" value="${g.igStart||0}" min="0"></div>
+        <div class="f"><label>Seguidores ahora</label><input id="g-now" type="number" value="${g.igNow||0}" min="0"></div>
+      </div>
+      <div class="fg2">
+        <div class="f"><label>Media visitas/reel</label><input id="g-views" type="number" value="${g.avgViews||0}" min="0"></div>
+        <div class="f"><label>Alcance total</label><input id="g-reach" type="number" value="${g.totalReach||0}" min="0"></div>
+      </div>
+      <div class="f"><label>Mejor reel (descripción)</label><input id="g-best" value="${g.bestReel||''}" placeholder="ej. Reel viral de mayo 2025"></div>
+      <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveGrowth('${extra}')">Guardar</button></div>`;
     c.innerHTML=`<div class="modal-t">Añadir cobro</div>
       <div class="f"><label>Cliente</label><select id="nc-cl"><option value="">— Selecciona —</option>${clients.map(cl=>`<option>${cl.name}</option>`).join('')}</select></div>
       <div class="fg2">
@@ -1911,6 +2060,21 @@ function saveClient(){
   clients.push({id,name,type:type||'Sin clasificar',phase,services:[],editors:[],cm:'',delivery:'',msgs:[],contract:null,contractStart:'',contractEnd:'',contractType:'Mensual',price,numReels,reels:mkMonths(numReels),fase0:mkFase0(),produccion:{},driveMain:'',drive:{},driveDocs:[],credentials:[{platform:'Instagram',user:'',pass:'',notes:''}]});
   closeModal();saveClients();render();showToast('Cliente añadido ✓','ok');
 }
+function saveGrowth(id){
+  const c=clients.find(c=>c.id===id);if(!c)return;
+  c.growth={
+    igStart:parseInt(document.getElementById('g-start')?.value)||0,
+    igNow:parseInt(document.getElementById('g-now')?.value)||0,
+    avgViews:parseInt(document.getElementById('g-views')?.value)||0,
+    totalReach:parseInt(document.getElementById('g-reach')?.value)||0,
+    bestReel:document.getElementById('g-best')?.value||'',
+  };
+  closeModal();saveClients();renderProfile(c);showToast('Estadísticas guardadas ✓','ok');
+}
+function updateClientField(id,field,val){
+  const c=clients.find(c=>c.id===id);if(!c)return;
+  c[field]=val;saveClients();
+}
 function saveEditClient(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
   c.name=document.getElementById('ec-name').value.trim()||c.name;
@@ -1949,10 +2113,12 @@ function calcPay(){
 function savePay(editor){
   const importe=parseFloat(document.getElementById('np-imp')?.value)||0;
   const concepto=document.getElementById('np-conc')?.value||'Edición de reels';
+  const currency=document.getElementById('np-cur')?.value||'EUR';
   if(!importe)return showToast('Añade un importe','err');
-  paymentsList.push({editor,month:monthKey(),importe,concepto,paid:false});
+  paymentsList.push({editor,month:monthKey(),importe,concepto,currency,paid:false});
   closeModal();savePayments();renderPayments();showToast('Pago añadido ✓','ok');
 }
+function currSymbol(cur){return cur==='USD'?'$':cur==='GBP'?'£':'€';}
 function saveCobro(){
   const cliente=document.getElementById('nc-cl').value;
   const importe=parseFloat(document.getElementById('nc-imp').value)||0;
