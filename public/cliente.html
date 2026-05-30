@@ -206,19 +206,20 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
   </div>
 
   <div class="nav">
-    <div class="nav-tab on" onclick="showTab('inicio')" id="nt-inicio"><i class="ti ti-home"></i><span data-t="inicio">Inicio</span></div>
-    <div class="nav-tab" onclick="showTab('calendario')" id="nt-calendario"><i class="ti ti-calendar"></i><span>Calendario</span></div>
-    <div class="nav-tab" onclick="showTab('reels')" id="nt-reels"><i class="ti ti-video"></i><span data-t="reels">Reels</span></div>
-    <div class="nav-tab" onclick="showTab('contrato')" id="nt-contrato"><i class="ti ti-file-text"></i><span data-t="contrato">Contrato</span></div>
-    <div class="nav-tab" onclick="showTab('modif')" id="nt-modif"><i class="ti ti-edit"></i><span data-t="modif">Modificaciones</span></div>
-    <div class="nav-tab" onclick="showTab('crecimiento')" id="nt-crecimiento"><i class="ti ti-trending-up"></i><span data-t="crecimiento">Crecimiento</span></div>
-    <div class="nav-tab" onclick="showTab('chat')" id="nt-chat"><i class="ti ti-message-2"></i><span data-t="chat">Chat</span></div>
-    <div class="nav-tab" onclick="showTab('ajustes')" id="nt-ajustes"><i class="ti ti-settings"></i><span data-t="ajustes">Ajustes</span></div>
+    <div class="nav-tab on" onclick="showTab('inicio')" id="nt-inicio"><i class="ti ti-home"></i><span id="tx-inicio">Inicio</span></div>
+    <div class="nav-tab" onclick="showTab('calendario')" id="nt-calendario"><i class="ti ti-calendar"></i><span id="tx-calendario">Calendario</span></div>
+    <div class="nav-tab" onclick="showTab('reels')" id="nt-reels"><i class="ti ti-video"></i><span id="tx-reels">Reels</span></div>
+    <div class="nav-tab" onclick="showTab('contrato')" id="nt-contrato"><i class="ti ti-file-text"></i><span id="tx-contrato">Contrato</span></div>
+    <div class="nav-tab" onclick="showTab('modif')" id="nt-modif"><i class="ti ti-edit"></i><span id="tx-modif">Modificaciones</span></div>
+    <div class="nav-tab" onclick="showTab('crecimiento')" id="nt-crecimiento"><i class="ti ti-trending-up"></i><span id="tx-crecimiento">Crecimiento</span></div>
+    <div class="nav-tab" onclick="showTab('chat')" id="nt-chat"><i class="ti ti-message-2"></i><span id="tx-chat">Chat</span></div>
+    <div class="nav-tab" onclick="showTab('ideas')" id="nt-ideas"><i class="ti ti-bulb"></i><span id="tx-ideas">Ideas</span></div>
+    <div class="nav-tab" onclick="showTab('ajustes')" id="nt-ajustes"><i class="ti ti-settings"></i><span id="tx-ajustes">Ajustes</span></div>
   </div>
 
   <div class="cnt">
-    <!-- INICIO -->
-    <div class="view on" id="view-inicio"></div>
+  explicaCambio:['Explica qué quieres cambiar...','Explain what you want to change...'],
+  enviarSolicitud:['Enviar solicitud','Send request'],
     <div class="view" id="view-calendario"></div>
     <!-- REELS -->
     <div class="view" id="view-reels"></div>
@@ -229,6 +230,8 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
     <div class="view" id="view-crecimiento"></div>
     <!-- CHAT -->
     <div class="view" id="view-chat"></div>
+    <!-- IDEAS -->
+    <div class="view" id="view-ideas"></div>
     <!-- AJUSTES -->
     <div class="view" id="view-ajustes"></div>
   </div>
@@ -378,12 +381,150 @@ function toggleLang(){
   const btn=document.getElementById('lang-btn');
   if(btn)btn.textContent=lang==='es'?'🇪🇸 ES':'🇬🇧 EN';
   localStorage.setItem('ml',lang);
+  // Update nav labels
+  Object.keys(TX).forEach(k=>{
+    const el=document.getElementById('tx-'+k);
+    if(el)el.textContent=tx(k);
+  });
   // Re-render current tab
   const activeTab=document.querySelector('.nav-tab.on')?.id?.replace('nt-','');
   if(activeTab)renderTab(activeTab);
 }
 
 function t(esText,enText){return lang==='en'?enText:esText;}
+
+const TX={
+  // Nav
+  inicio:['Inicio','Home'],
+  calendario:['Calendario','Calendar'],
+  reels:['Reels','Reels'],
+  contrato:['Contrato','Contract'],
+  modif:['Modificaciones','Changes'],
+  crecimiento:['Crecimiento','Growth'],
+  chat:['Chat','Chat'],
+  ajustes:['Ajustes','Settings'],
+  // Dashboard
+  hola:['Hola','Hello'],
+  estadoContenido:['Aquí tienes el estado de tu contenido','Here\'s your content status'],
+  publicados:['publicados','published'],
+  enEdicion:['En edición','In editing'],
+  grabados:['Grabados','Recorded'],
+  pendientes:['Pendientes','Pending'],
+  proximaGrab:['Próxima grabación','Next recording'],
+  proximaEntrega:['Próxima entrega','Next delivery'],
+  tusLogros:['Tus logros con Mentedoras','Your achievements with Mentedoras'],
+  reelsPublicados:['Reels publicados','Reels published'],
+  mesesJuntos:['Meses juntos','Months together'],
+  accionesRapidas:['Acciones rápidas','Quick actions'],
+  verMisReels:['Ver mis reels','View my reels'],
+  agendarReunion:['Agendar reunión','Schedule meeting'],
+  hablarEquipo:['Hablar con equipo','Talk to team'],
+  miContrato:['Mi contrato','My contract'],
+  // Calendario
+  proximasFechas:['Próximas fechas','Upcoming dates'],
+  sinFechas:['Sin fechas próximas programadas','No upcoming dates scheduled'],
+  grabacion:['Grabación','Recording'],
+  entrega:['Entrega','Delivery'],
+  // Reels
+  misCarpetas:['Mis carpetas','My folders'],
+  reelsEditados:['Reels editados','Edited reels'],
+  misGuiones:['Mis guiones','My scripts'],
+  fotosRefs:['Fotos / referencias','Photos / references'],
+  carpetaPrincipal:['Carpeta principal','Main folder'],
+  sinReelsMes:['Sin reels este mes','No reels this month'],
+  enRevision:['En revisión','In review'],
+  editandose:['Editándose','Being edited'],
+  publicado:['✅ Publicado','✅ Published'],
+  estadoProceso:['Estado del proceso','Process status'],
+  analisisEstrategia:['Análisis y estrategia','Analysis & strategy'],
+  guionizacion:['Guionización','Scripting'],
+  edicion:['Edición','Editing'],
+  publicacion:['Publicación','Publishing'],
+  enProcesoAhora:['En proceso ahora ✨','In progress now ✨'],
+  // Contrato
+  detallesContrato:['Detalles del contrato','Contract details'],
+  inicioContrato:['Fecha de inicio','Start date'],
+  finContrato:['Fecha de fin','End date'],
+  tipoAcuerdo:['Tipo de acuerdo','Agreement type'],
+  precioMensual:['Precio mensual','Monthly price'],
+  reelsMes:['Reels al mes','Reels per month'],
+  tuEditor:['Tu editor','Your editor'],
+  tuCM:['Tu CM','Your CM'],
+  serviciosContratados:['Servicios contratados','Contracted services'],
+  resumenEconomico:['Resumen económico','Financial summary'],
+  mensualidad:['Mensualidad','Monthly fee'],
+  mesesRestantes:['Meses restantes','Months remaining'],
+  totalRestante:['Total restante','Total remaining'],
+  contratoActivo:['Contrato activo','Active contract'],
+  contratoVencido:['Contrato vencido','Contract expired'],
+  quedanMeses:['Te quedan','You have'],
+  mes:['mes','month'],
+  meses:['meses','months'],
+  contactarRenovar:['Contacta con el equipo para renovar','Contact the team to renew'],
+  // Modificaciones
+  solicitarMod:['Solicitar modificación','Request modification'],
+  queReel:['¿Qué reel?','Which reel?'],
+  selecciona:['— Selecciona —','— Select —'],
+  generalNoReel:['General / No es un reel específico','General / Not a specific reel'],
+  descripcionCambio:['Descripción del cambio','Description of change'],
+  explicaCambio:['Explica qué quieres cambiar...','Explain what you want to change...'],
+  enviarSolicitud:['Enviar solicitud','Send request'],
+  historialMod:['Historial de modificaciones','Modification history'],
+  resuelto:['Resuelto','Resolved'],
+  pendiente:['Pendiente','Pending'],
+  // Crecimiento
+  crecimientoRedes:['Tu crecimiento en redes','Your social media growth'],
+  seguidoresInicio:['Inicio','Start'],
+  seguidoresAhora:['Ahora','Now'],
+  mediaVisitas:['👁 Media de visitas por reel','👁 Avg views per reel'],
+  mejorReel:['🔥 Mejor reel','🔥 Best reel'],
+  alcanceTotal:['📡 Alcance total','📡 Total reach'],
+  sinEstadisticas:['El equipo irá añadiendo tus estadísticas aquí. ¡Pronto verás tus resultados!','The team will add your stats here soon. You\'ll see your results shortly!'],
+  historicoPublicaciones:['Histórico de publicaciones','Publication history'],
+  valoraMes:['Valora este mes','Rate this month'],
+  comoValoras:['¿Cómo valorarías el contenido de','How would you rate the content of'],
+  graciasValoracion:['Gracias por tu valoración 🙏','Thanks for your rating 🙏'],
+  hazClicValorar:['Haz clic para valorar','Click to rate'],
+  enviarValoracion:['Enviar valoración','Send rating'],
+  // Chat
+  asistenteTitle:['Asistente Mentedoras','Mentedoras Assistant'],
+  respondInstante:['Responde al instante 24/7 ⚡','Responds instantly 24/7 ⚡'],
+  escribePreg:['Escribe tu pregunta...','Type your question...'],
+  contactoDirecto:['Contacto directo','Direct contact'],
+  paraTemas:['Para temas urgentes, contacta directamente:','For urgent matters, contact us directly:'],
+  // Ajustes
+  misCredenciales:['Mis credenciales','My credentials'],
+  dejaTusAccesos:['Deja aquí tus accesos para que el equipo pueda gestionar tus redes.','Leave your access credentials here so the team can manage your accounts.'],
+  guardarCredenciales:['Guardar credenciales','Save credentials'],
+  misDatos:['Mis datos','My details'],
+  nombre:['Nombre','Name'],
+  tipoNegocio:['Tipo de negocio','Business type'],
+  guardarCambios:['Guardar cambios','Save changes'],
+  apariencia:['Apariencia','Appearance'],
+  eligeTema:['Elige tu tema de color','Choose your color theme'],
+  // Meeting modal
+  solicitarReunion:['solicitarReunion','📅 Request meeting'],
+  motivo:['Motivo','Reason'],
+  fechaPreferida:['Fecha preferida','Preferred date'],
+  horaPreferida:['Hora preferida','Preferred time'],
+  notasOpcional:['Notas (opcional)','Notes (optional)'],
+  cancelar:['Cancelar','Cancel'],
+  solicitar:['Solicitar','Request'],
+  // Alerts
+  grabProxima:['¡Grabación próxima!','Recording coming up!'],
+  reelProxListo:['¡Tu reel estará listo pronto!','Your reel will be ready soon!'],
+  // General
+  guardar:['Guardar','Save'],
+  anadir:['Añadir','Add'],
+  eliminar:['Eliminar','Delete'],
+  usuario:['Usuario','Username'],
+  contrasena:['Contraseña','Password'],
+  notas:['Notas','Notes'],
+  plataforma:['Plataforma','Platform'],
+  sinCliente:['— Sin cliente —','— No client —'],
+};
+
+function tx(key){const v=TX[key];if(!v)return key;return lang==='en'?v[1]:v[0];}
 
 function showTab(name){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
@@ -400,7 +541,63 @@ function renderTab(name){
   if(name==='modif')renderModif();
   if(name==='crecimiento')renderCrecimiento();
   if(name==='chat')renderChat();
+  if(name==='ideas')renderIdeas();
   if(name==='ajustes')renderAjustes();
+}
+
+function renderIdeas(){
+  const ideas=client.ideas||[];
+  const nowD=new Date();
+  const nextM=new Date(nowD.getFullYear(),nowD.getMonth()+1,1);
+  const nextMLabel=(lang==='en'?['January','February','March','April','May','June','July','August','September','October','November','December']:['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'])[nextM.getMonth()];
+  document.getElementById('view-ideas').innerHTML=`
+    <div style="margin-bottom:16px">
+      <div style="font-size:18px;font-weight:600;margin-bottom:4px">💡 ${t('Ideas para','Ideas for')} ${nextMLabel}</div>
+      <div style="font-size:13px;color:var(--tx3)">${t('Cuéntanos qué quieres grabar el próximo mes y tu disponibilidad.','Tell us what you want to record next month and your availability.')}</div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-t"><i class="ti ti-bulb"></i>${t('Tus ideas de contenido','Your content ideas')}</div>
+      <div class="f"><label>${t('¿Qué temas o contenido te gustaría hacer?','What topics or content would you like to create?')}</label>
+        <textarea id="idea-text" rows="4" placeholder="${t('ej. Un video sobre mis servicios, detrás de las cámaras, responder preguntas frecuentes...','e.g. A video about my services, behind the scenes, answering FAQs...')}" style="font-size:13px"></textarea>
+      </div>
+      <div class="f"><label>${t('¿Qué días tienes disponibles para grabar?','What days are you available to record?')}</label>
+        <input id="idea-days" type="text" placeholder="${t('ej. Lunes 3, martes 4 por la mañana, jueves 6...','e.g. Monday 3rd, Tuesday 4th in the morning, Thursday 6th...')}">
+      </div>
+      <div class="f"><label>${t('¿Alguna referencia o inspiración?','Any reference or inspiration?')}</label>
+        <input id="idea-ref" type="text" placeholder="${t('Link o descripción (opcional)','Link or description (optional)')}">
+      </div>
+      <button class="btn btn-p btn-block" onclick="sendIdeas()">${t('Enviar ideas al equipo 🚀','Send ideas to the team 🚀')}</button>
+    </div>
+    ${ideas.length?`<div class="card">
+      <div class="card-t"><i class="ti ti-history"></i>${t('Ideas anteriores','Previous ideas')}</div>
+      ${ideas.slice().reverse().map(idea=>`<div class="pf" style="flex-direction:column;align-items:flex-start;gap:4px">
+        <div style="font-size:12px;color:var(--tx3)">${idea.date} · ${idea.month}</div>
+        <div style="font-size:13px">${idea.text}</div>
+        ${idea.days?`<div style="font-size:12px;color:var(--c)">📅 ${idea.days}</div>`:''}
+      </div>`).join('')}
+    </div>`:''}`;
+  document.getElementById('view-ideas').innerHTML=html;
+}
+
+async function sendIdeas(){
+  const text=document.getElementById('idea-text')?.value.trim();
+  const days=document.getElementById('idea-days')?.value.trim();
+  const ref=document.getElementById('idea-ref')?.value.trim();
+  if(!text&&!days)return showToast(t('Escribe alguna idea o disponibilidad','Write an idea or availability'),'ok');
+  const nowD=new Date();
+  const nextM=new Date(nowD.getFullYear(),nowD.getMonth()+1,1);
+  const nextMLabel=(['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'])[nextM.getMonth()];
+  if(!client.ideas)client.ideas=[];
+  client.ideas.push({text:text||'',days:days||'',ref:ref||'',month:nextMLabel,date:new Date().toLocaleDateString('es-ES')});
+  await saveClientData();
+  // Notify team
+  let notif=`💡 ${client.name} tiene ideas para ${nextMLabel}`;
+  if(text)notif+=`\n📝 "${text}"`;
+  if(days)notif+=`\n📅 Días disponibles: ${days}`;
+  if(ref)notif+=`\n🔗 Referencia: ${ref}`;
+  await notifyTeam(notif);
+  renderIdeas();
+  showToast(t('¡Ideas enviadas al equipo! 🚀','Ideas sent to the team! 🚀'),'ok');
 }
 
 // ============================================================
@@ -421,27 +618,27 @@ function renderInicio(){
 
   let html=`
     <div style="margin-bottom:20px">
-      <div style="font-size:22px;font-weight:600">Hola, ${client.name} 👋</div>
+      <div style="font-size:22px;font-weight:600">'+tx('hola')+', ${client.name} 👋</div>
       <div style="font-size:14px;color:var(--tx3);margin-top:4px">${monthLabel(mk)}</div>
     </div>`;
 
   // Alertas
   if(nextGrab){
     const diff=Math.ceil((new Date(nextGrab.fechaGrab+'T12:00:00')-new Date())/864e5);
-    if(diff<=3&&diff>=0)html+=`<div class="alert alert-warn"><i class="ti ti-calendar-event" style="font-size:18px"></i><div><div style="font-weight:600">¡Grabación próxima!</div><div style="font-size:12px">${nextGrab.label} — ${fmtDate(nextGrab.fechaGrab)}</div></div></div>`;
+    if(diff<=3&&diff>=0)html+=`<div class="alert alert-warn"><i class="ti ti-calendar-event" style="font-size:18px"></i><div><div style="font-weight:600">'+tx('grabProxima')+'</div><div style="font-size:12px">${nextGrab.label} — ${fmtDate(nextGrab.fechaGrab)}</div></div></div>`;
   }
   if(nextEdit){
     const diff=Math.ceil((new Date(nextEdit.fechaEdit+'T12:00:00')-new Date())/864e5);
-    if(diff<=2&&diff>=0)html+=`<div class="alert alert-info"><i class="ti ti-video" style="font-size:18px"></i><div><div style="font-weight:600">¡Tu reel estará listo pronto!</div><div style="font-size:12px">${nextEdit.label} — ${fmtDate(nextEdit.fechaEdit)}</div></div></div>`;
+    if(diff<=2&&diff>=0)html+=`<div class="alert alert-info"><i class="ti ti-video" style="font-size:18px"></i><div><div style="font-weight:600">'+tx('reelProxListo')+'</div><div style="font-size:12px">${nextEdit.label} — ${fmtDate(nextEdit.fechaEdit)}</div></div></div>`;
   }
   if(sub>0)html+=`<div class="alert alert-ok"><i class="ti ti-check-circle" style="font-size:18px"></i><div><div style="font-weight:600">${sub} reel${sub>1?'s':''} publicado${sub>1?'s':''}  este mes</div><div style="font-size:12px">${sub}/${reels.length} en total</div></div></div>`;
 
   // Stats
   html+=`<div class="stat-grid">
-    <div class="stat"><div class="stat-v" style="color:#4ADE80">${sub}/${reels.length}</div><div class="stat-l">✅ Publicados</div></div>
-    <div class="stat"><div class="stat-v" style="color:#C084FC">${ed}</div><div class="stat-l">✂️ En edición</div></div>
-    <div class="stat"><div class="stat-v" style="color:var(--warn)">${gr}</div><div class="stat-l">🎬 Grabados</div></div>
-    <div class="stat"><div class="stat-v" style="color:var(--tx3)">${pe}</div><div class="stat-l">⏳ Pendientes</div></div>
+    <div class="stat"><div class="stat-v" style="color:#4ADE80">${sub}/${reels.length}</div><div class="stat-l">✅ '+tx('publicados')+'</div></div>
+    <div class="stat"><div class="stat-v" style="color:#C084FC">${ed}</div><div class="stat-l">✂️ ${tx('enEdicion')}</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--warn)">${gr}</div><div class="stat-l">🎬 '+tx('grabados')+'</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--tx3)">${pe}</div><div class="stat-l">⏳ ${tx('pendientes')}</div></div>
   </div>`;
 
   // Próximas fechas
@@ -454,91 +651,119 @@ function renderInicio(){
 
   // Logros
   html+=`<div class="card" style="background:linear-gradient(135deg,var(--bg2),var(--bg3))">
-    <div class="card-t"><i class="ti ti-trophy"></i>Tus logros con Mentedoras</div>
+    <div class="card-t"><i class="ti ti-trophy"></i>'+tx('tusLogros')+'</div>
     <div class="stat-grid" style="margin-bottom:0">
-      <div class="stat"><div class="stat-v" style="color:#4ADE80">${totalPub}</div><div class="stat-l">📹 Reels publicados</div></div>
-      <div class="stat"><div class="stat-v" style="color:var(--c)">${months}</div><div class="stat-l">📅 Meses juntos</div></div>
+      <div class="stat"><div class="stat-v" style="color:#4ADE80">${totalPub}</div><div class="stat-l">📹 '+tx('reelsPublicados')+'</div></div>
+      <div class="stat"><div class="stat-v" style="color:var(--c)">${months}</div><div class="stat-l">📅 '+tx('mesesJuntos')+'</div></div>
     </div>
   </div>`;
 
   // Acciones rápidas
   html+=`<div class="card">
-    <div class="card-t"><i class="ti ti-bolt"></i>Acciones rápidas</div>
+    <div class="card-t"><i class="ti ti-bolt"></i>'+tx('accionesRapidas')+'</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button class="btn btn-block" onclick="showTab('reels')"><i class="ti ti-video"></i>Ver mis reels</button>
-      <button class="btn btn-block" onclick="openMeetingModal()"><i class="ti ti-calendar-plus"></i>Agendar reunión</button>
-      <button class="btn btn-block" onclick="showTab('chat')"><i class="ti ti-message-2"></i>Hablar con equipo</button>
-      <button class="btn btn-block" onclick="showTab('contrato')"><i class="ti ti-file-text"></i>Mi contrato</button>
+      <button class="btn btn-block" onclick="showTab('reels')"><i class="ti ti-video"></i>'+tx('verMisReels')+'</button>
+      <button class="btn btn-block" onclick="openMeetingModal()"><i class="ti ti-calendar-plus"></i>'+tx('agendarReunion')+'</button>
+      <button class="btn btn-block" onclick="showTab('chat')"><i class="ti ti-message-2"></i>'+tx('hablarEquipo')+'</button>
+      <button class="btn btn-block" onclick="showTab('contrato')"><i class="ti ti-file-text"></i>'+tx('miContrato')+'</button>
     </div>
   </div>`;
 
   document.getElementById('view-inicio').innerHTML=html;
+
+  // Show ideas notification in last 5 days of month
+  const nowD=new Date();
+  const lastDay=new Date(nowD.getFullYear(),nowD.getMonth()+1,0).getDate();
+  const daysLeft=lastDay-nowD.getDate();
+  if(daysLeft<=5){
+    const nextM=new Date(nowD.getFullYear(),nowD.getMonth()+1,1);
+    const nextMLabel=(lang==='en'?['January','February','March','April','May','June','July','August','September','October','November','December']:MONTHS)[nextM.getMonth()];
+    const el=document.getElementById('view-inicio');
+    el.innerHTML=`<div class="alert alert-info" style="cursor:pointer;margin-bottom:16px" onclick="showTab('ideas')">
+      <i class="ti ti-bulb" style="font-size:20px"></i>
+      <div>
+        <div style="font-weight:600">💡 ${t('¡Nuevo mes en camino!','New month coming up!')} ${nextMLabel}</div>
+        <div style="font-size:12px">${t('¿Qué ideas tienes para el contenido del mes que viene? Haz clic para contárnoslo →','What ideas do you have for next month\'s content? Click to tell us →')}</div>
+      </div>
+    </div>`+el.innerHTML;
+  }
 }
 
 // ============================================================
 // CALENDARIO
 // ============================================================
 function renderCalendario(){
-  const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const now=new Date();
-  const year=now.getFullYear();
-  const month=now.getMonth();
-
-  // Gather all events from reels across all months
+  const MONTHS_ES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const MONTHS_EN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const MONTHS_L=lang==='en'?MONTHS_EN:MONTHS_ES;
+  const now=new Date();const year=now.getFullYear();const month=now.getMonth();
   const events=[];
   Object.entries(client.reels||{}).forEach(([mk,reels])=>{
     (reels||[]).forEach(r=>{
-      if(r.fechaGrab)events.push({date:r.fechaGrab,type:'grab',label:`📅 Grabación: ${r.label}`,color:'var(--warn)'});
-      if(r.fechaEdit)events.push({date:r.fechaEdit,type:'edit',label:`✂️ Entrega: ${r.label}`,color:'#C084FC'});
-      if(r.subido&&r.fechaEdit)events.push({date:r.fechaEdit,type:'pub',label:`✅ Publicado: ${r.label}`,color:'#4ADE80'});
+      if(r.fechaGrab)events.push({date:r.fechaGrab,type:'grab',label:t('Grabación: ','Recording: ')+r.label,color:'var(--warn)'});
+      if(r.fechaEdit&&!r.subido)events.push({date:r.fechaEdit,type:'edit',label:t('Entrega: ','Delivery: ')+r.label,color:'#C084FC'});
+      if(r.subido&&r.fechaEdit)events.push({date:r.fechaEdit,type:'pub',label:t('Publicado: ','Published: ')+r.label,color:'#4ADE80'});
     });
   });
-  // Also add calendar events from CRM if available
-  (client.calEvents||[]).forEach(e=>{
-    if(e.client===client.name||!e.client)events.push({date:e.date,type:e.type,label:e.title,color:'var(--c)'});
-  });
-
-  // Build month calendar
-  const first=new Date(year,month,1);
-  const last=new Date(year,month+1,0);
+  const first=new Date(year,month,1);const last=new Date(year,month+1,0);
   const startDay=first.getDay()||7;
-  const days=['L','M','X','J','V','S','D'];
-  const today=new Date().toISOString().split('T')[0];
-
-  let html=`
-    <div class="card" style="margin-bottom:14px">
-      <div class="card-t"><i class="ti ti-calendar"></i>${MONTHS[month]} ${year}</div>
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:8px">
-        ${days.map(d=>`<div style="text-align:center;font-size:10px;font-weight:600;color:var(--tx3);padding:4px 0">${d}</div>`).join('')}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">`;
-
-  for(let i=1;i<startDay;i++)html+=`<div style="min-height:44px"></div>`;
+  const days=lang==='en'?['M','T','W','T','F','S','S']:['L','M','X','J','V','S','D'];
+  const todayStr=new Date().toISOString().split('T')[0];
+  let html=`<div class="card" style="margin-bottom:14px">
+    <div class="card-t"><i class="ti ti-calendar"></i>${MONTHS_L[month]} ${year}</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:8px">
+      ${days.map(d=>`<div style="text-align:center;font-size:10px;font-weight:600;color:var(--tx3);padding:4px 0">${d}</div>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px" id="cal-grid">`;
+  for(let i=1;i<startDay;i++)html+=`<div style="min-height:36px"></div>`;
   for(let d=1;d<=last.getDate();d++){
     const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const isToday=ds===today;
+    const isToday=ds===todayStr;
     const dayEvs=events.filter(e=>e.date===ds);
-    html+=`<div style="min-height:44px;background:${isToday?'var(--cdim)':'var(--bg3)'};border:1px solid ${isToday?'var(--c)':'var(--bd)'};border-radius:6px;padding:4px;font-size:10px">
-      <div style="font-weight:600;color:${isToday?'var(--c)':'var(--tx3)'};margin-bottom:2px">${d}</div>
-      ${dayEvs.map(e=>`<div style="font-size:9px;padding:1px 3px;border-radius:3px;background:${e.color}22;color:${e.color};margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.label}">${e.label.split(':')[0]}</div>`).join('')}
+    const dots=dayEvs.slice(0,3).map(e=>`<div style="width:5px;height:5px;border-radius:50%;background:${e.color};flex-shrink:0"></div>`).join('');
+    html+=`<div onclick="showDayEvents('${ds}')" style="min-height:36px;background:${isToday?'var(--cdim)':'var(--bg3)'};border:1px solid ${isToday?'var(--c)':'var(--bd)'};border-radius:6px;padding:4px;cursor:${dayEvs.length?'pointer':'default'};transition:all .15s${dayEvs.length?';hover:background:var(--bg4)':''}">
+      <div style="font-weight:600;font-size:11px;color:${isToday?'var(--c)':'var(--tx3)'};margin-bottom:3px">${d}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:2px">${dots}</div>
     </div>`;
   }
-  html+=`</div></div>`;
-
-  // Upcoming events list
-  const upcoming=events.filter(e=>e.date>=today).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,8);
+  html+=`</div></div>
+  <div id="day-detail"></div>`;
+  const upcoming=events.filter(e=>e.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6);
   html+=`<div class="card">
-    <div class="card-t"><i class="ti ti-clock"></i>Próximas fechas</div>
+    <div class="card-t"><i class="ti ti-clock"></i>${tx('proximasFechas')}</div>
     ${upcoming.length?upcoming.map(e=>`<div class="pf">
       <div style="display:flex;align-items:center;gap:8px">
         <div style="width:8px;height:8px;border-radius:50%;background:${e.color};flex-shrink:0"></div>
         <span style="font-size:13px">${e.label}</span>
       </div>
       <span style="font-size:12px;color:var(--tx3);white-space:nowrap">${fmtDate(e.date)}</span>
-    </div>`).join(''):`<div style="text-align:center;padding:20px;color:var(--tx3);font-size:13px">Sin fechas próximas programadas</div>`}
+    </div>`).join(''):`<div style="text-align:center;padding:20px;color:var(--tx3);font-size:13px">${tx('sinFechas')}</div>`}
   </div>`;
-
   document.getElementById('view-calendario').innerHTML=html;
+}
+
+function showDayEvents(dateStr){
+  const MONTHS_ES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const events=[];
+  Object.entries(client.reels||{}).forEach(([mk,reels])=>{
+    (reels||[]).forEach(r=>{
+      if(r.fechaGrab===dateStr)events.push({label:t('Grabación: ','Recording: ')+r.label,color:'var(--warn)',icon:'ti-camera'});
+      if(r.fechaEdit===dateStr&&!r.subido)events.push({label:t('Entrega: ','Delivery: ')+r.label,color:'#C084FC',icon:'ti-video'});
+      if(r.subido&&r.fechaEdit===dateStr)events.push({label:t('Publicado: ','Published: ')+r.label,color:'#4ADE80',icon:'ti-check'});
+    });
+  });
+  const el=document.getElementById('day-detail');
+  if(!events.length){if(el)el.innerHTML='';return;}
+  const[y,m,d]=dateStr.split('-');
+  const label=parseInt(d)+' de '+(MONTHS_ES[parseInt(m)-1]);
+  if(el)el.innerHTML=`<div class="card" style="border-left:3px solid var(--c);margin-bottom:14px">
+    <div class="card-t"><i class="ti ti-calendar-event"></i>${label}</div>
+    ${events.map(e=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)">
+      <i class="ti ${e.icon}" style="color:${e.color};font-size:16px;flex-shrink:0"></i>
+      <span style="font-size:13px;font-weight:500;color:${e.color}">${e.label}</span>
+    </div>`).join('')}
+  </div>`;
+  el.scrollIntoView({behavior:'smooth'});
 }
 
 // ============================================================
@@ -567,7 +792,7 @@ function renderReels(){
 
   if(drive.reelsEdit||drive.scripts||client.driveMain){
     html+=`<div class="card" style="margin-bottom:14px">
-      <div class="card-t"><i class="ti ti-folder"></i>Mis carpetas</div>
+      <div class="card-t"><i class="ti ti-folder"></i>'+tx('misCarpetas')+'</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         ${drive.reelsEdit?`<a href="${drive.reelsEdit}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-video" style="color:var(--c)"></i>Reels editados</a>`:''}
         ${drive.scripts?`<a href="${drive.scripts}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-pencil" style="color:var(--c)"></i>Mis guiones</a>`:''}
@@ -595,7 +820,7 @@ function renderReels(){
         </div>
         <span style="font-size:11px;font-weight:600;color:${color};white-space:nowrap">${estado}</span>
       </div>`;
-    }).join(''):`<div style="text-align:center;padding:20px;color:var(--tx3)">Sin reels este mes</div>`}
+    }).join(''):`<div style="text-align:center;padding:20px;color:var(--tx3)">'+tx('sinReelsMes')+'</div>`}
   </div>`;
 
   if(hasTiktok){
@@ -607,7 +832,7 @@ function renderReels(){
         if(r.subido){estado='✅ Publicado';color='#4ADE80';}
         else if(r.editado){estado='✂️ En edición';color='var(--warn)';}
         return`<div class="reel-row"><div><div style="font-size:13px;font-weight:500">${r.label}</div></div><span style="font-size:11px;font-weight:600;color:${color}">${estado}</span></div>`;
-      }).join(''):`<div style="text-align:center;padding:16px;color:var(--tx3);font-size:13px">El equipo añadirá el contenido de TikTok aquí pronto 🎵</div>`}
+      }).join(''):`<div style="text-align:center;padding:16px;color:var(--tx3);font-size:13px">${t('El equipo añadirá el contenido de TikTok aquí pronto 🎵','The team will add your TikTok content here soon 🎵')}</div>`}
     </div>`;
   }
 
@@ -615,12 +840,12 @@ function renderReels(){
     const stories=(client.stories||{})[activeMonth]||[];
     html+=`<div class="card" style="margin-bottom:14px">
       <div class="card-t"><i class="ti ti-circle-plus"></i>Historias — ${monthLabel(activeMonth)}</div>
-      ${stories.length?stories.map(s=>`<div class="reel-row"><div><div style="font-size:13px">${s.label}</div></div><span style="font-size:11px;font-weight:600;color:${s.done?'#4ADE80':'var(--tx3)'}">${s.done?'✅ Publicada':'⏳ Pendiente'}</span></div>`).join(''):`<div style="text-align:center;padding:16px;color:var(--tx3);font-size:13px">El equipo añadirá las historias aquí</div>`}
+      ${stories.length?stories.map(s=>`<div class="reel-row"><div><div style="font-size:13px">${s.label}</div></div><span style="font-size:11px;font-weight:600;color:${s.done?'#4ADE80':'var(--tx3)'}">${s.done?'✅ Publicada':'⏳ Pendiente'}</span></div>`).join(''):`<div style="text-align:center;padding:16px;color:var(--tx3);font-size:13px">${t('El equipo añadirá las historias aquí','The team will add your stories here')}</div>`}
     </div>`;
   }
 
   html+=`<div class="card">
-    <div class="card-t"><i class="ti ti-timeline"></i>Estado del proceso</div>
+    <div class="card-t"><i class="ti ti-timeline"></i>'+tx('estadoProceso')+'</div>
     <div class="timeline">`;
   const steps=[
     {label:'Análisis y estrategia',done:true},
@@ -635,7 +860,7 @@ function renderReels(){
     html+=`<div class="tl-item">
       <div class="tl-dot ${s.done?'done':isActive?'active':''}"></div>
       <div class="tl-title" style="color:${s.done?'var(--tx3)':isActive?'var(--c)':'var(--tx2)'}">${s.label}</div>
-      ${isActive?'<div class="tl-date" style="color:var(--c)">En proceso ahora ✨</div>':''}
+      ${isActive?'<div class="tl-date" style="color:var(--c)">'+tx('enProcesoAhora')+'</div>':''}
     </div>`;
   });
   html+=`</div></div>`;
@@ -656,36 +881,55 @@ function renderContrato(){
     const vencido=diff<0;
     html+=`<div class="alert ${vencido?'alert-warn':'alert-info'}">
       <i class="ti ti-${vencido?'alert-triangle':'clock'}" style="font-size:18px"></i>
-      <div><div style="font-weight:600">${vencido?'Contrato vencido':'Contrato activo'}</div>
-      <div style="font-size:12px">${vencido?'Contacta con el equipo para renovar':'Te quedan '+diff+' mes'+(diff!==1?'es':'')}</div></div>
+      <div><div style="font-weight:600">${vencido?tx('contratoVencido'):tx('contratoActivo')}</div>
+      <div style="font-size:12px">${vencido?tx('contactarRenovar'):tx('quedanMeses')+' '+Math.abs(diff)+' '+tx(Math.abs(diff)===1?'mes':'meses')}</div></div>
     </div>`;
   }
 
   html+=`<div class="card">
-    <div class="card-t"><i class="ti ti-file-text"></i>Detalles del contrato</div>
-    ${client.contractStart?`<div class="pf"><span class="pf-l">Fecha de inicio</span><span class="pf-v">${fmtDate(client.contractStart)}</span></div>`:''}
-    ${client.contractEnd?`<div class="pf"><span class="pf-l">Fecha de fin</span><span class="pf-v">${fmtDate(client.contractEnd)}</span></div>`:''}
-    ${client.contractType?`<div class="pf"><span class="pf-l">Tipo de acuerdo</span><span class="pf-v">${client.contractType}</span></div>`:''}
-    ${client.price?`<div class="pf"><span class="pf-l">Precio mensual</span><span class="pf-v" style="color:var(--c);font-weight:600">${client.price}€</span></div>`:''}
-    ${client.numReels?`<div class="pf"><span class="pf-l">Reels al mes</span><span class="pf-v">${client.numReels}</span></div>`:''}
-    ${client.editors?.length?`<div class="pf"><span class="pf-l">Tu editor</span><span class="pf-v">${client.editors.join(' y ')}</span></div>`:''}
-    ${client.cm?`<div class="pf"><span class="pf-l">Tu CM</span><span class="pf-v">${client.cm}</span></div>`:''}
+    <div class="card-t"><i class="ti ti-file-text"></i>${tx('detallesContrato')}</div>
+    ${client.contractStart?`<div class="pf"><span class="pf-l">${tx('inicioContrato')}</span><span class="pf-v">${fmtDate(client.contractStart)}</span></div>`:''}
+    ${client.contractEnd?`<div class="pf"><span class="pf-l">${tx('finContrato')}</span><span class="pf-v">${fmtDate(client.contractEnd)}</span></div>`:''}
+    ${client.contractType?`<div class="pf"><span class="pf-l">${tx('tipoAcuerdo')}</span><span class="pf-v">${client.contractType}</span></div>`:''}
+    ${client.price?`<div class="pf"><span class="pf-l">${tx('precioMensual')}</span><span class="pf-v" style="color:var(--c);font-weight:600">${client.price}€</span></div>`:''}
+    ${client.numReels?`<div class="pf"><span class="pf-l">${tx('reelsMes')}</span><span class="pf-v">${client.numReels}</span></div>`:''}
+    ${client.editors?.length?`<div class="pf"><span class="pf-l">${tx('tuEditor')}</span><span class="pf-v">${client.editors.join(' y ')}</span></div>`:''}
+    ${client.showCM&&client.cm?`<div class="pf"><span class="pf-l">${tx('tuCM')}</span><span class="pf-v">${client.cm}</span></div>`:''}
   </div>`;
 
   if(svcs.length){
     html+=`<div class="card">
-      <div class="card-t"><i class="ti ti-checklist"></i>Servicios contratados</div>
+      <div class="card-t"><i class="ti ti-checklist"></i>${tx('serviciosContratados')}</div>
       ${svcs.map(s=>`<div class="pf"><span style="font-size:13px">✅ ${s}</span></div>`).join('')}
+      ${client.customServiceDetail?`<div class="pf"><span style="font-size:13px;color:var(--tx2)">📝 ${client.customServiceDetail}</span></div>`:''}
     </div>`;
   }
 
-  if(client.contractEnd&&client.price){
-    const diff=Math.max(0,Math.ceil((new Date(client.contractEnd+'T12:00:00')-new Date())/864e5/30));
+  if(client.contractEnd&&client.price&&client.contractStart){
+    const now=new Date();
+    const start=new Date(client.contractStart+'T12:00:00');
+    const end=new Date(client.contractEnd+'T12:00:00');
+    const totalMonths=Math.round((end-start)/864e5/30);
+    const doneMonths=Math.max(0,Math.round((now-start)/864e5/30));
+    const leftMonths=Math.max(0,Math.round((end-now)/864e5/30));
+    const paidTotal=doneMonths*client.price;
+    const leftTotal=leftMonths*client.price;
     html+=`<div class="card">
-      <div class="card-t"><i class="ti ti-coin"></i>Resumen económico</div>
-      <div class="pf"><span class="pf-l">Mensualidad</span><span class="pf-v" style="color:var(--c);font-weight:600">${client.price}€/mes</span></div>
-      <div class="pf"><span class="pf-l">Meses restantes</span><span class="pf-v">${diff} meses</span></div>
-      <div class="pf"><span class="pf-l">Total restante</span><span class="pf-v" style="font-weight:600">${(client.price*diff).toLocaleString('es')}€</span></div>
+      <div class="card-t"><i class="ti ti-coin"></i>${tx('resumenEconomico')}</div>
+      <div class="pf"><span class="pf-l">${t('Mensualidad','Monthly fee')}</span><span class="pf-v" style="color:var(--c);font-weight:600">${client.price}€/mes</span></div>
+      <div class="pf"><span class="pf-l">${t('Tiempo con nosotros','Time with us')}</span><span class="pf-v">${doneMonths} ${t('meses','months')}</span></div>
+      <div class="pf"><span class="pf-l">${t('Pagos realizados','Payments made')}</span><span class="pf-v" style="color:#4ADE80;font-weight:600">${doneMonths} <small style="color:var(--tx3)">(${paidTotal.toLocaleString('es')}€)</small></span></div>
+      <div class="pf"><span class="pf-l">${tx('mesesRestantes')}</span><span class="pf-v">${leftMonths} ${t('meses','months')}</span></div>
+      <div class="pf"><span class="pf-l">${tx('totalRestante')}</span><span class="pf-v" style="font-weight:600">${leftTotal.toLocaleString('es')}€</span></div>
+      <div style="margin-top:10px">
+        <div style="font-size:11px;color:var(--tx3);margin-bottom:4px">${t('Progreso del contrato','Contract progress')}</div>
+        <div style="height:6px;background:var(--bd);border-radius:4px;overflow:hidden">
+          <div style="height:100%;background:var(--c);width:${Math.min(100,Math.round(doneMonths/totalMonths*100))}%;border-radius:4px;transition:width .3s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--tx3);margin-top:3px">
+          <span>${fmtDate(client.contractStart)}</span><span>${fmtDate(client.contractEnd)}</span>
+        </div>
+      </div>
     </div>`;
   }
 
@@ -717,50 +961,79 @@ function toggleFAQ(i){
 // ============================================================
 function renderCrecimiento(){
   const g=client.growth||{};
-  let html=`<div class="card">
-    <div class="card-t"><i class="ti ti-trending-up"></i>Tu crecimiento en redes</div>`;
+  const allReels=Object.values(client.reels||{}).flat();
+  const totalPub=allReels.filter(r=>r.subido).length;
+  let html='';
 
-  if(g.igStart||g.igNow){
-    const pct=g.igStart&&g.igNow?Math.round(((g.igNow-g.igStart)/g.igStart)*100):0;
-    html+=`<div style="margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-        <span style="font-size:12px;color:var(--tx3)">📸 Instagram — Seguidores</span>
-        ${pct>0?`<span class="chip" style="background:rgba(34,197,94,.12);color:#4ADE80">+${pct}%</span>`:''}
+  // Before vs After comparison
+  const hasData=g.igStart||g.igNow||g.viewsBefore||g.viewsNow||g.monthlyBefore||g.monthlyNow;
+  if(hasData){
+    html+=`<div class="card" style="margin-bottom:14px">
+      <div class="card-t"><i class="ti ti-trending-up"></i>${tx('crecimientoRedes')}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:12px;text-align:center">
+          <div style="font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">${t('Antes','Before')}</div>
+          ${g.igStart?`<div style="margin-bottom:6px"><div style="font-size:18px;font-weight:600">${g.igStart.toLocaleString('es')}</div><div style="font-size:10px;color:var(--tx3)">👥 ${t('seguidores','followers')}</div></div>`:''}
+          ${g.viewsBefore?`<div style="margin-bottom:6px"><div style="font-size:16px;font-weight:600">${g.viewsBefore.toLocaleString('es')}</div><div style="font-size:10px;color:var(--tx3)">👁 ${t('visitas/reel','views/reel')}</div></div>`:''}
+          ${g.monthlyBefore?`<div><div style="font-size:16px;font-weight:600">${g.monthlyBefore.toLocaleString('es')}</div><div style="font-size:10px;color:var(--tx3)">📅 ${t('visitas/mes','views/month')}</div></div>`:''}
+        </div>
+        <div style="background:var(--cdim);border:1px solid rgba(0,229,229,.25);border-radius:var(--r);padding:12px;text-align:center">
+          <div style="font-size:10px;color:var(--c);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">${t('Con Mentedoras','With Mentedoras')}</div>
+          ${g.igNow?`<div style="margin-bottom:6px">
+            <div style="font-size:18px;font-weight:600;color:var(--c)">${g.igNow.toLocaleString('es')}</div>
+            <div style="font-size:10px;color:var(--tx3)">👥 ${t('seguidores','followers')}</div>
+            ${g.igStart?`<div style="font-size:11px;color:#4ADE80;font-weight:600">+${Math.round(((g.igNow-g.igStart)/g.igStart)*100)}%</div>`:''}
+          </div>`:''}
+          ${g.viewsNow?`<div style="margin-bottom:6px">
+            <div style="font-size:16px;font-weight:600;color:var(--c)">${g.viewsNow.toLocaleString('es')}</div>
+            <div style="font-size:10px;color:var(--tx3)">👁 ${t('visitas/reel','views/reel')}</div>
+            ${g.viewsBefore?`<div style="font-size:11px;color:#4ADE80;font-weight:600">+${Math.round(((g.viewsNow-g.viewsBefore)/g.viewsBefore)*100)}%</div>`:''}
+          </div>`:''}
+          ${g.monthlyNow?`<div>
+            <div style="font-size:16px;font-weight:600;color:var(--c)">${g.monthlyNow.toLocaleString('es')}</div>
+            <div style="font-size:10px;color:var(--tx3)">📅 ${t('visitas/mes','views/month')}</div>
+            ${g.monthlyBefore?`<div style="font-size:11px;color:#4ADE80;font-weight:600">+${Math.round(((g.monthlyNow-g.monthlyBefore)/g.monthlyBefore)*100)}%</div>`:''}
+          </div>`:''}
+        </div>
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
-        <span>Inicio: <strong>${(g.igStart||0).toLocaleString('es')}</strong></span>
-        <span>Ahora: <strong style="color:var(--c)">${(g.igNow||0).toLocaleString('es')}</strong></span>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:13px">📹 ${t('Reels producidos con nosotros','Reels produced with us')}</span>
+        <span style="font-size:18px;font-weight:600;color:var(--c)">${totalPub}</span>
       </div>
-      <div class="growth-bar"><div class="growth-fill" style="width:${Math.min(100,Math.max(5,pct))}%"></div></div>
+      ${g.bestReel?`<div class="pf" style="margin-top:8px"><span class="pf-l">🔥 ${tx('mejorReel')}</span><span class="pf-v">${g.bestReel}</span></div>`:''}
+    </div>`;
+
+    // Seguidores growth bar
+    if(g.igStart&&g.igNow){
+      const pct=Math.min(100,Math.max(5,Math.round(((g.igNow-g.igStart)/g.igStart)*100)));
+      html+=`<div class="card" style="margin-bottom:14px">
+        <div class="card-t"><i class="ti ti-chart-bar"></i>${t('Crecimiento de seguidores','Follower growth')}</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx3);margin-bottom:6px">
+          <span>${t('Inicio','Start')}: ${g.igStart.toLocaleString('es')}</span>
+          <span style="color:#4ADE80;font-weight:600">+${pct}%</span>
+          <span>${t('Ahora','Now')}: ${g.igNow.toLocaleString('es')}</span>
+        </div>
+        <div class="growth-bar"><div class="growth-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }
+  }else{
+    html+=`<div class="card" style="margin-bottom:14px">
+      <div class="card-t"><i class="ti ti-trending-up"></i>${tx('crecimientoRedes')}</div>
+      <div style="text-align:center;padding:20px;color:var(--tx3);font-size:13px">
+        <div style="font-size:32px;margin-bottom:8px">📊</div>
+        ${tx('sinEstadisticas')}
+      </div>
     </div>`;
   }
-  if(g.avgViews){
-    html+=`<div class="pf"><span class="pf-l">👁 Media de visitas por reel</span><span class="pf-v" style="color:var(--c);font-weight:600">${g.avgViews.toLocaleString('es')}</span></div>`;
-  }
-  if(g.bestReel){
-    html+=`<div class="pf"><span class="pf-l">🔥 Mejor reel</span><span class="pf-v">${g.bestReel}</span></div>`;
-  }
-  if(g.totalReach){
-    html+=`<div class="pf"><span class="pf-l">📡 Alcance total</span><span class="pf-v" style="font-weight:600">${g.totalReach.toLocaleString('es')}</span></div>`;
-  }
-  if(!g.igStart&&!g.igNow&&!g.avgViews){
-    html+=`<div style="text-align:center;padding:20px;color:var(--tx3);font-size:13px">
-      <div style="font-size:32px;margin-bottom:8px">📊</div>
-      El equipo irá añadiendo tus estadísticas de crecimiento aquí. ¡Pronto verás tus resultados!
-    </div>`;
-  }
-  html+=`</div>`;
 
-  // Historial de reels publicados
+  // Publicaciones historial
   const allMonths=Object.keys(client.reels||{}).sort();
   if(allMonths.length){
-    html+=`<div class="card">
-      <div class="card-t"><i class="ti ti-history"></i>Histórico de publicaciones</div>
+    html+=`<div class="card" style="margin-bottom:14px">
+      <div class="card-t"><i class="ti ti-history"></i>${tx('historicoPublicaciones')}</div>
       ${allMonths.map(mk=>{
-        const r=client.reels[mk]||[];
-        const s=r.filter(r=>r.subido).length;
-        return`<div class="pf">
-          <span class="pf-l">${monthLabel(mk)}</span>
+        const r=client.reels[mk]||[];const s=r.filter(r=>r.subido).length;
+        return`<div class="pf"><span class="pf-l">${monthLabel(mk)}</span>
           <div style="display:flex;align-items:center;gap:8px">
             <div style="width:80px;height:6px;background:var(--bd);border-radius:3px;overflow:hidden">
               <div style="height:100%;background:var(--c);width:${r.length?Math.round(s/r.length*100):0}%;border-radius:3px"></div>
@@ -772,20 +1045,19 @@ function renderCrecimiento(){
     </div>`;
   }
 
-  // Valoración del mes
-  const mk=monthKey();
-  const rating=client.ratings?.[mk];
+  // Rating
+  const mk=monthKey();const rating=client.ratings?.[mk];
   html+=`<div class="card">
-    <div class="card-t"><i class="ti ti-star"></i>Valora este mes</div>
+    <div class="card-t"><i class="ti ti-star"></i>${tx('valoraMes')}</div>
     <div style="text-align:center;padding:10px 0">
-      <div style="font-size:13px;color:var(--tx3);margin-bottom:12px">¿Cómo valorarías el contenido de ${monthLabel(mk)}?</div>
+      <div style="font-size:13px;color:var(--tx3);margin-bottom:12px">${t('¿Cómo valorarías el contenido de ','How would you rate the content of ')}${monthLabel(mk)}?</div>
       <div class="stars" style="justify-content:center">
         ${[1,2,3,4,5].map(n=>`<span class="star${rating?.stars>=n?' on':''}" onclick="setRating(${n})" id="star-${n}">⭐</span>`).join('')}
       </div>
-      ${rating?`<div style="font-size:12px;color:var(--tx3);margin-top:8px">Gracias por tu valoración 🙏</div>`:`<div style="font-size:11px;color:var(--tx3);margin-top:8px">Haz clic para valorar</div>`}
+      ${rating?`<div style="font-size:12px;color:var(--tx3);margin-top:8px">${tx('graciasValoracion')}</div>`:`<div style="font-size:11px;color:var(--tx3);margin-top:8px">${tx('hazClicValorar')}</div>`}
       ${!rating?`<div style="margin-top:12px">
-        <textarea id="rating-comment" rows="2" placeholder="Comentario opcional..." style="font-size:12px"></textarea>
-        <button class="btn btn-p btn-block" style="margin-top:8px" onclick="submitRating()">Enviar valoración</button>
+        <textarea id="rating-comment" rows="2" placeholder="${t('Comentario opcional...','Optional comment...')}" style="font-size:12px"></textarea>
+        <button class="btn btn-p btn-block" style="margin-top:8px" onclick="submitRating()">${tx('enviarValoracion')}</button>
       </div>`:''}
     </div>
   </div>`;
@@ -827,7 +1099,7 @@ function renderModif(){
       <div class="f"><label>${t('Descripción del cambio','Description of change')}</label>
         <textarea id="mod-desc" rows="4" placeholder="${t('Explica qué quieres cambiar...','Explain what you want to change...')}"></textarea>
       </div>
-      <button class="btn btn-p btn-block" onclick="sendModif()">${t('Enviar solicitud','Send request')}</button>
+      <button class="btn btn-p btn-block" onclick="sendModif()">'+tx('enviarSolicitud')+'</button>
     </div>
     ${mods.length?`<div class="card">
       <div class="card-t"><i class="ti ti-history"></i>${t('Historial de modificaciones','Modification history')}</div>
@@ -865,7 +1137,7 @@ function renderChat(){
       <div class="chat-online"></div>
       <div>
         <div style="font-size:14px;font-weight:600">${t('Asistente Mentedoras','Mentedoras Assistant')}</div>
-        <div style="font-size:11px;color:var(--tx3)">${t('Responde al instante 24/7 ⚡','Responds instantly 24/7 ⚡')}</div>
+        <div style="font-size:11px;color:var(--tx3)">${t(tx('respondInstante'),'Responds instantly 24/7 ⚡')}</div>
       </div>
     </div>
     <div class="chat-msgs" id="chat-msgs" style="display:flex;flex-direction:column"></div>
@@ -877,7 +1149,7 @@ function renderChat(){
   </div>
   <div class="card">
     <div class="card-t"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>${t('Contacto directo','Direct contact')}</div>
-    <div style="font-size:13px;color:var(--tx2);margin-bottom:12px">${t('Para temas urgentes, contacta directamente:','For urgent matters, contact us directly:')}</div>
+    <div style="font-size:13px;color:var(--tx2);margin-bottom:12px">${t(tx('paraTemas'),'For urgent matters, contact us directly:')}</div>
     <a href="https://wa.me/${wa1}" target="_blank" class="btn btn-block" style="text-decoration:none;margin-bottom:8px;justify-content:center"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>WhatsApp ${l1}</a>
     <a href="https://wa.me/${wa2}" target="_blank" class="btn btn-block" style="text-decoration:none;justify-content:center"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>WhatsApp ${l2}</a>
   </div>`;
@@ -890,7 +1162,7 @@ function renderChatMsgs(){
   if(!chatMsgs.length){
     el.innerHTML=`<div style="text-align:center;color:var(--tx3);font-size:13px;padding:30px">
       <div style="font-size:28px;margin-bottom:8px">👋</div>
-      ¡Hola! Soy tu asistente de Mentedoras.<br>Pregúntame lo que necesites.
+      ${t('¡Hola! Soy tu asistente de Mentedoras.','Hi! I\'m your Mentedoras assistant.')}<br>${t('Pregúntame lo que necesites.','Ask me anything.')}
     </div>`;
     return;
   }
@@ -1186,7 +1458,7 @@ function renderAjustes(){
     <div class="card-t"><i class="ti ti-lock"></i>Mis credenciales
       <button class="btn btn-s" style="margin-left:auto" onclick="addCredential()"><i class="ti ti-plus"></i>Añadir</button>
     </div>
-    <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">Deja aquí tus accesos para que el equipo pueda gestionar tus redes.</div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">'+tx('dejaTusAccesos')+'</div>
     <div id="creds-list">
       ${creds.map((cr,i)=>`<div class="cred-field">
         <div style="font-size:13px;font-weight:600;margin-bottom:10px;display:flex;justify-content:space-between">
@@ -1207,23 +1479,23 @@ function renderAjustes(){
         <input type="text" value="${cr.notes||''}" placeholder="Notas (ej. cuenta principal)" style="font-size:12px;padding:6px 9px" onchange="updateCred(${i},'notes',this.value)">
       </div>`).join('')}
     </div>
-    <button class="btn btn-p btn-block" onclick="saveCredentials()" style="margin-top:8px"><i class="ti ti-check"></i>Guardar credenciales</button>
+    <button class="btn btn-p btn-block" onclick="saveCredentials()" style="margin-top:8px"><i class="ti ti-check"></i>'+tx('guardarCredenciales')+'</button>
   </div>
 
   <div class="card">
-    <div class="card-t"><i class="ti ti-user"></i>Mis datos</div>
-    <div class="f"><label>Nombre</label><input id="u-name" value="${client.name||''}" placeholder="Tu nombre"></div>
-    <div class="f"><label>Tipo de negocio</label><input id="u-type" value="${client.type||''}" placeholder="ej. Restaurante"></div>
-    <button class="btn btn-p btn-block" onclick="saveMyData()"><i class="ti ti-check"></i>Guardar cambios</button>
+    <div class="card-t"><i class="ti ti-user"></i>'+tx('misDatos')+'</div>
+    <div class="f"><label>'+tx('nombre')+'</label><input id="u-name" value="${client.name||''}" placeholder="Tu nombre"></div>
+    <div class="f"><label>'+tx('tipoNegocio')+'</label><input id="u-type" value="${client.type||''}" placeholder="ej. Restaurante"></div>
+    <button class="btn btn-p btn-block" onclick="saveMyData()"><i class="ti ti-check"></i>'+tx('guardarCambios')+'</button>
   </div>
 
   <div class="card">
-    <div class="card-t"><i class="ti ti-palette"></i>Apariencia</div>
+    <div class="card-t"><i class="ti ti-palette"></i>'+tx('apariencia')+'</div>
     <div style="display:flex;gap:10px;align-items:center">
       <div class="th-btn th-dark${document.body.className===''?' on':''}" onclick="setTheme('dark')" style="width:30px;height:30px" title="Oscuro"></div>
       <div class="th-btn th-light${document.body.className==='light'?' on':''}" onclick="setTheme('light')" style="width:30px;height:30px" title="Claro"></div>
       <div class="th-btn th-blue${document.body.className==='blue'?' on':''}" onclick="setTheme('blue')" style="width:30px;height:30px" title="Azul"></div>
-      <span style="font-size:12px;color:var(--tx3)">Elige tu tema de color</span>
+      <span style="font-size:12px;color:var(--tx3)">'+tx('eligeTema')+'</span>
     </div>
   </div>`;
 
@@ -1258,12 +1530,12 @@ async function saveMyData(){
 // ============================================================
 function openMeetingModal(){
   const mc=document.getElementById('modal-c');
-  mc.innerHTML=`<div class="modal-t">📅 Solicitar reunión</div>
-    <div class="f"><label>Motivo</label><input id="mt-m" placeholder="ej. Revisión de contenido"></div>
-    <div class="f"><label>Fecha preferida</label><input id="mt-f" type="date" value="${today()}"></div>
-    <div class="f"><label>Hora preferida</label><input id="mt-h" type="time" value="10:00"></div>
-    <div class="f"><label>Notas (opcional)</label><textarea id="mt-n" rows="2" placeholder="Cualquier detalle..."></textarea></div>
-    <div class="modal-acts"><button class="btn btn-s" onclick="closeMo()">Cancelar</button><button class="btn btn-s btn-p" onclick="sendMeeting()">Solicitar</button></div>`;
+  mc.innerHTML=`<div class="modal-t">'+tx('solicitarReunion')+'</div>
+    <div class="f"><label>${tx('motivo')}</label><input id="mt-m" placeholder="ej. Revisión de contenido"></div>
+    <div class="f"><label>'+tx('fechaPreferida')+'</label><input id="mt-f" type="date" value="${today()}"></div>
+    <div class="f"><label>${tx('horaPreferida')}</label><input id="mt-h" type="time" value="10:00"></div>
+    <div class="f"><label>'+tx('notasOpcional')+'</label><textarea id="mt-n" rows="2" placeholder="Cualquier detalle..."></textarea></div>
+    <div class="modal-acts"><button class="btn btn-s" onclick="closeMo()">'+tx('cancelar')+'</button><button class="btn btn-s btn-p" onclick="sendMeeting()">'+tx('solicitar')+'</button></div>`;
   document.getElementById('mo').classList.add('open');
 }
 async function sendMeeting(){

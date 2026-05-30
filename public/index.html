@@ -1564,6 +1564,12 @@ function renderProfile(c){
             <div class="pf"><span class="pf-l">Editores</span><span class="pf-v">${(c.editors||[]).join(', ')||'—'}</span></div>
             <div class="pf"><span class="pf-l">CM</span><span class="pf-v">${c.cm||'No incluye CM'}</span></div>
             <div class="pf"><span class="pf-l">Reels/mes</span><span class="pf-v">${c.numReels}</span></div>
+            <div class="pf" style="align-items:center">
+              <span class="pf-l">Mostrar CM al cliente</span>
+              <div onclick="toggleClientCM('${c.id}')" style="width:40px;height:22px;border-radius:20px;background:${c.showCM?'var(--c)':'var(--bg4)'};cursor:pointer;position:relative;transition:background .2s;flex-shrink:0">
+                <div style="width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:3px;${c.showCM?'right:3px':'left:3px'};transition:all .2s"></div>
+              </div>
+            </div>
             <div class="pf" style="flex-direction:column;align-items:flex-start;gap:6px">
               <span class="pf-l">📋 Detalle del contrato</span>
               <textarea style="width:100%;font-size:12px;padding:7px 10px;resize:vertical;min-height:70px" placeholder="Escribe aquí qué incluye exactamente este contrato..." onchange="updateClientField('${c.id}','contractNotes',this.value)">${c.contractNotes||''}</textarea>
@@ -1742,13 +1748,22 @@ function renderProfile(c){
         <div class="card-t"><i class="ti ti-trending-up"></i>Estadísticas de crecimiento
           <button class="btn btn-s btn-p" style="margin-left:auto" onclick="openModal('growth','${c.id}')"><i class="ti ti-pencil"></i>Editar</button>
         </div>
-        ${c.growth?.igStart||c.growth?.igNow?`
-          <div class="pf"><span class="pf-l">📸 Seguidores al inicio</span><span class="pf-v">${(c.growth.igStart||0).toLocaleString('es')}</span></div>
-          <div class="pf"><span class="pf-l">📈 Seguidores ahora</span><span class="pf-v" style="color:var(--c);font-weight:600">${(c.growth.igNow||0).toLocaleString('es')}</span></div>
-          ${c.growth.igNow&&c.growth.igStart?`<div class="pf"><span class="pf-l">🚀 Crecimiento</span><span class="pf-v" style="color:#4ADE80;font-weight:600">+${Math.round(((c.growth.igNow-c.growth.igStart)/c.growth.igStart)*100)}%</span></div>`:''}
-          ${c.growth.avgViews?`<div class="pf"><span class="pf-l">👁 Media de visitas/reel</span><span class="pf-v">${c.growth.avgViews.toLocaleString('es')}</span></div>`:''}
+        ${c.growth?.igStart||c.growth?.igNow||c.growth?.viewsBefore||c.growth?.viewsNow?`
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div style="background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:12px">
+              <div style="font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">ANTES</div>
+              ${c.growth.igStart?`<div class="pf"><span class="pf-l" style="font-size:11px">Seguidores</span><span style="font-weight:600;font-size:13px">${c.growth.igStart.toLocaleString('es')}</span></div>`:''}
+              ${c.growth.viewsBefore?`<div class="pf"><span class="pf-l" style="font-size:11px">Visitas/reel</span><span style="font-weight:600;font-size:13px">${c.growth.viewsBefore.toLocaleString('es')}</span></div>`:''}
+              ${c.growth.monthlyBefore?`<div class="pf"><span class="pf-l" style="font-size:11px">Visitas/mes</span><span style="font-weight:600;font-size:13px">${c.growth.monthlyBefore.toLocaleString('es')}</span></div>`:''}
+            </div>
+            <div style="background:var(--cdim);border:1px solid rgba(0,229,229,.2);border-radius:var(--r);padding:12px">
+              <div style="font-size:10px;color:var(--c);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">CON MENTEDORAS</div>
+              ${c.growth.igNow?`<div class="pf"><span class="pf-l" style="font-size:11px">Seguidores</span><span style="font-weight:600;font-size:13px;color:var(--c)">${c.growth.igNow.toLocaleString('es')}${c.growth.igStart?` <small style="color:#4ADE80">(+${Math.round(((c.growth.igNow-c.growth.igStart)/c.growth.igStart)*100)}%)</small>`:''}</span></div>`:''}
+              ${c.growth.viewsNow?`<div class="pf"><span class="pf-l" style="font-size:11px">Visitas/reel</span><span style="font-weight:600;font-size:13px;color:var(--c)">${c.growth.viewsNow.toLocaleString('es')}${c.growth.viewsBefore?` <small style="color:#4ADE80">(+${Math.round(((c.growth.viewsNow-c.growth.viewsBefore)/c.growth.viewsBefore)*100)}%)</small>`:''}</span></div>`:''}
+              ${c.growth.monthlyNow?`<div class="pf"><span class="pf-l" style="font-size:11px">Visitas/mes</span><span style="font-weight:600;font-size:13px;color:var(--c)">${c.growth.monthlyNow.toLocaleString('es')}${c.growth.monthlyBefore?` <small style="color:#4ADE80">(+${Math.round(((c.growth.monthlyNow-c.growth.monthlyBefore)/c.growth.monthlyBefore)*100)}%)</small>`:''}</span></div>`:''}
+            </div>
+          </div>
           ${c.growth.bestReel?`<div class="pf"><span class="pf-l">🔥 Mejor reel</span><span class="pf-v">${c.growth.bestReel}</span></div>`:''}
-          ${c.growth.totalReach?`<div class="pf"><span class="pf-l">📡 Alcance total</span><span class="pf-v">${c.growth.totalReach.toLocaleString('es')}</span></div>`:''}
         `:`<div style="text-align:center;padding:20px;color:var(--tx3);font-size:13px">
           <div style="font-size:28px;margin-bottom:8px">📊</div>
           Sin estadísticas aún. Haz clic en "Editar" para añadir los datos de crecimiento.
@@ -1890,6 +1905,11 @@ function toggleEditor(cid,ed){
   else c.editors.push(ed);
   saveClients();renderProfile(c);renderSB();showToast('Editores actualizados ✓','ok');
 }
+function toggleClientCM(id){
+  const c=clients.find(c=>c.id===id);if(!c)return;
+  c.showCM=!c.showCM;
+  saveClients();renderProfile(c);showToast('CM '+(c.showCM?'visible':'oculto')+' para el cliente ✓','ok');
+}
 function toggleCM(cid,cm){const c=clients.find(c=>c.id===cid);if(!c)return;c.cm=c.cm===cm?'':cm;saveClients();renderProfile(c);showToast('CM actualizado ✓','ok');}
 function toggleService(cid,svcId){
   const c=clients.find(c=>c.id===cid);if(!c)return;
@@ -2005,19 +2025,25 @@ function openModal(type,extra='',extra2=null){
     const allReels=Object.values(cl.reels||{}).flat();
     const totalPub=allReels.filter(r=>r.subido).length;
     c.innerHTML=`<div class="modal-t">📊 Estadísticas — ${cl.name}</div>
+      <div style="font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">ANTES DE MENTEDORAS</div>
       <div class="fg2">
-        <div class="f"><label>Seguidores al inicio</label><input id="g-start" type="number" value="${g.igStart||0}" min="0"></div>
-        <div class="f"><label>Seguidores ahora</label><input id="g-now" type="number" value="${g.igNow||0}" min="0"></div>
+        <div class="f"><label>Seguidores al inicio</label><input id="g-ig-start" type="number" value="${g.igStart||0}" min="0"></div>
+        <div class="f"><label>Visitas medias/reel antes</label><input id="g-views-before" type="number" value="${g.viewsBefore||0}" min="0"></div>
       </div>
-      <div style="font-size:12px;color:var(--c);padding:4px 0 8px" id="g-calc">
-        ${g.igStart&&g.igNow?`📈 Crecimiento: +${Math.round(((g.igNow-g.igStart)/g.igStart)*100)}% (${(g.igNow-g.igStart).toLocaleString('es')} seguidores)`:''}
+      <div class="f"><label>Visitas totales al mes antes</label><input id="g-monthly-before" type="number" value="${g.monthlyBefore||0}" min="0"></div>
+      <div style="height:1px;background:var(--bd);margin:12px 0"></div>
+      <div style="font-size:11px;font-weight:600;color:var(--c);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">CON MENTEDORAS</div>
+      <div class="fg2">
+        <div class="f"><label>Seguidores ahora</label><input id="g-ig-now" type="number" value="${g.igNow||0}" min="0"></div>
+        <div class="f"><label>Visitas medias/reel ahora</label><input id="g-views-now" type="number" value="${g.viewsNow||0}" min="0"></div>
       </div>
       <div class="fg2">
-        <div class="f"><label>Media visitas/reel</label><input id="g-views" type="number" value="${g.avgViews||0}" min="0"></div>
-        <div class="f"><label>Alcance total</label><input id="g-reach" type="number" value="${g.totalReach||0}" min="0"></div>
+        <div class="f"><label>Visitas totales al mes ahora</label><input id="g-monthly-now" type="number" value="${g.monthlyNow||0}" min="0"></div>
+        <div class="f"><label>Mejor reel</label><input id="g-best" value="${g.bestReel||''}" placeholder="ej. Reel viral de mayo"></div>
       </div>
-      <div class="f"><label>Mejor reel</label><input id="g-best" value="${g.bestReel||''}" placeholder="ej. Reel viral de mayo 2025"></div>
-      <div class="pf" style="margin-top:8px"><span class="pf-l">Reels producidos en total</span><span style="font-weight:600;color:var(--c)">${totalPub}</span></div>
+      <div style="background:var(--cdim);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--c);margin-top:4px">
+        📹 Reels producidos en total: <strong>${totalPub}</strong>
+      </div>
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveGrowth('${extra}')">Guardar</button></div>`;
   }else if(type==='cobro'){
     c.innerHTML=`<div class="modal-t">Añadir cobro</div>
@@ -2075,10 +2101,12 @@ function saveClient(){
 function saveGrowth(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
   c.growth={
-    igStart:parseInt(document.getElementById('g-start')?.value)||0,
-    igNow:parseInt(document.getElementById('g-now')?.value)||0,
-    avgViews:parseInt(document.getElementById('g-views')?.value)||0,
-    totalReach:parseInt(document.getElementById('g-reach')?.value)||0,
+    igStart:parseInt(document.getElementById('g-ig-start')?.value)||0,
+    igNow:parseInt(document.getElementById('g-ig-now')?.value)||0,
+    viewsBefore:parseInt(document.getElementById('g-views-before')?.value)||0,
+    viewsNow:parseInt(document.getElementById('g-views-now')?.value)||0,
+    monthlyBefore:parseInt(document.getElementById('g-monthly-before')?.value)||0,
+    monthlyNow:parseInt(document.getElementById('g-monthly-now')?.value)||0,
     bestReel:document.getElementById('g-best')?.value||'',
   };
   closeModal();saveClients();renderProfile(c);showToast('Estadísticas guardadas ✓','ok');
