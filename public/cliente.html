@@ -587,26 +587,26 @@ function renderInicio(){
 
   let html=`
     <div style="margin-bottom:20px">
-      <div style="font-size:22px;font-weight:600">'+tx('hola')+', ${client.name} 👋</div>
+      <div style="font-size:22px;font-weight:600">${tx('hola')}, ${client.name} 👋</div>
       <div style="font-size:14px;color:var(--tx3);margin-top:4px">${monthLabel(mk)}</div>
     </div>`;
 
   // Alertas
   if(nextGrab){
     const diff=Math.ceil((new Date(nextGrab.fechaGrab+'T12:00:00')-new Date())/864e5);
-    if(diff<=3&&diff>=0)html+=`<div class="alert alert-warn"><i class="ti ti-calendar-event" style="font-size:18px"></i><div><div style="font-weight:600">'+tx('grabProxima')+'</div><div style="font-size:12px">${nextGrab.label} — ${fmtDate(nextGrab.fechaGrab)}</div></div></div>`;
+    if(diff<=3&&diff>=0)html+=`<div class="alert alert-warn"><i class="ti ti-calendar-event" style="font-size:18px"></i><div><div style="font-weight:600">${tx('grabProxima')}</div><div style="font-size:12px">${nextGrab.label} — ${fmtDate(nextGrab.fechaGrab)}</div></div></div>`;
   }
   if(nextEdit){
     const diff=Math.ceil((new Date(nextEdit.fechaEdit+'T12:00:00')-new Date())/864e5);
-    if(diff<=2&&diff>=0)html+=`<div class="alert alert-info"><i class="ti ti-video" style="font-size:18px"></i><div><div style="font-weight:600">'+tx('reelProxListo')+'</div><div style="font-size:12px">${nextEdit.label} — ${fmtDate(nextEdit.fechaEdit)}</div></div></div>`;
+    if(diff<=2&&diff>=0)html+=`<div class="alert alert-info"><i class="ti ti-video" style="font-size:18px"></i><div><div style="font-weight:600">${tx('reelProxListo')}</div><div style="font-size:12px">${nextEdit.label} — ${fmtDate(nextEdit.fechaEdit)}</div></div></div>`;
   }
   if(sub>0)html+=`<div class="alert alert-ok"><i class="ti ti-check-circle" style="font-size:18px"></i><div><div style="font-weight:600">${sub} reel${sub>1?'s':''} publicado${sub>1?'s':''}  este mes</div><div style="font-size:12px">${sub}/${reels.length} en total</div></div></div>`;
 
   // Stats
   html+=`<div class="stat-grid">
-    <div class="stat"><div class="stat-v" style="color:#4ADE80">${sub}/${reels.length}</div><div class="stat-l">✅ '+tx('publicados')+'</div></div>
+    <div class="stat"><div class="stat-v" style="color:#4ADE80">${sub}/${reels.length}</div><div class="stat-l">✅ ${tx('publicados')}</div></div>
     <div class="stat"><div class="stat-v" style="color:#C084FC">${ed}</div><div class="stat-l">✂️ ${tx('enEdicion')}</div></div>
-    <div class="stat"><div class="stat-v" style="color:var(--warn)">${gr}</div><div class="stat-l">🎬 '+tx('grabados')+'</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--warn)">${gr}</div><div class="stat-l">🎬 ${tx('grabados')}</div></div>
     <div class="stat"><div class="stat-v" style="color:var(--tx3)">${pe}</div><div class="stat-l">⏳ ${tx('pendientes')}</div></div>
   </div>`;
 
@@ -620,21 +620,21 @@ function renderInicio(){
 
   // Logros
   html+=`<div class="card" style="background:linear-gradient(135deg,var(--bg2),var(--bg3))">
-    <div class="card-t"><i class="ti ti-trophy"></i>'+tx('tusLogros')+'</div>
+    <div class="card-t"><i class="ti ti-trophy"></i>${tx('tusLogros')}</div>
     <div class="stat-grid" style="margin-bottom:0">
-      <div class="stat"><div class="stat-v" style="color:#4ADE80">${totalPub}</div><div class="stat-l">📹 '+tx('reelsPublicados')+'</div></div>
-      <div class="stat"><div class="stat-v" style="color:var(--c)">${months}</div><div class="stat-l">📅 '+tx('mesesJuntos')+'</div></div>
+      <div class="stat"><div class="stat-v" style="color:#4ADE80">${totalPub}</div><div class="stat-l">📹 ${tx('reelsPublicados')}</div></div>
+      <div class="stat"><div class="stat-v" style="color:var(--c)">${months}</div><div class="stat-l">📅 ${tx('mesesJuntos')}</div></div>
     </div>
   </div>`;
 
   // Acciones rápidas
   html+=`<div class="card">
-    <div class="card-t"><i class="ti ti-bolt"></i>'+tx('accionesRapidas')+'</div>
+    <div class="card-t"><i class="ti ti-bolt"></i>${tx('accionesRapidas')}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button class="btn btn-block" onclick="showTab('reels')"><i class="ti ti-video"></i>'+tx('verMisReels')+'</button>
-      <button class="btn btn-block" onclick="openMeetingModal()"><i class="ti ti-calendar-plus"></i>'+tx('agendarReunion')+'</button>
-      <button class="btn btn-block" onclick="showTab('chat')"><i class="ti ti-message-2"></i>'+tx('hablarEquipo')+'</button>
-      <button class="btn btn-block" onclick="showTab('contrato')"><i class="ti ti-file-text"></i>'+tx('miContrato')+'</button>
+      <button class="btn btn-block" onclick="showTab('reels')"><i class="ti ti-video"></i>${tx('verMisReels')}</button>
+      <button class="btn btn-block" onclick="openMeetingModal()"><i class="ti ti-calendar-plus"></i>${tx('agendarReunion')}</button>
+      <button class="btn btn-block" onclick="showTab('chat')"><i class="ti ti-message-2"></i>${tx('hablarEquipo')}</button>
+      <button class="btn btn-block" onclick="showTab('contrato')"><i class="ti ti-file-text"></i>${tx('miContrato')}</button>
     </div>
   </div>`;
 
@@ -761,7 +761,7 @@ function renderReels(){
 
   if(drive.reelsEdit||drive.scripts||client.driveMain){
     html+=`<div class="card" style="margin-bottom:14px">
-      <div class="card-t"><i class="ti ti-folder"></i>'+tx('misCarpetas')+'</div>
+      <div class="card-t"><i class="ti ti-folder"></i>${tx('misCarpetas')}</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         ${drive.reelsEdit?`<a href="${drive.reelsEdit}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-video" style="color:var(--c)"></i>Reels editados</a>`:''}
         ${drive.scripts?`<a href="${drive.scripts}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-pencil" style="color:var(--c)"></i>Mis guiones</a>`:''}
@@ -789,7 +789,7 @@ function renderReels(){
         </div>
         <span style="font-size:11px;font-weight:600;color:${color};white-space:nowrap">${estado}</span>
       </div>`;
-    }).join(''):`<div style="text-align:center;padding:20px;color:var(--tx3)">'+tx('sinReelsMes')+'</div>`}
+    }).join(''):`<div style="text-align:center;padding:20px;color:var(--tx3)">${tx('sinReelsMes')}</div>`}
   </div>`;
 
   if(hasTiktok){
@@ -814,7 +814,7 @@ function renderReels(){
   }
 
   html+=`<div class="card">
-    <div class="card-t"><i class="ti ti-timeline"></i>'+tx('estadoProceso')+'</div>
+    <div class="card-t"><i class="ti ti-timeline"></i>${tx('estadoProceso')}</div>
     <div class="timeline">`;
   const steps=[
     {label:'Análisis y estrategia',done:true},
@@ -1068,7 +1068,7 @@ function renderModif(){
       <div class="f"><label>${t('Descripción del cambio','Description of change')}</label>
         <textarea id="mod-desc" rows="4" placeholder="${t('Explica qué quieres cambiar...','Explain what you want to change...')}"></textarea>
       </div>
-      <button class="btn btn-p btn-block" onclick="sendModif()">'+tx('enviarSolicitud')+'</button>
+      <button class="btn btn-p btn-block" onclick="sendModif()">${tx('enviarSolicitud')}</button>
     </div>
     ${mods.length?`<div class="card">
       <div class="card-t"><i class="ti ti-history"></i>${t('Historial de modificaciones','Modification history')}</div>
@@ -1427,7 +1427,7 @@ function renderAjustes(){
     <div class="card-t"><i class="ti ti-lock"></i>Mis credenciales
       <button class="btn btn-s" style="margin-left:auto" onclick="addCredential()"><i class="ti ti-plus"></i>Añadir</button>
     </div>
-    <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">'+tx('dejaTusAccesos')+'</div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">${tx('dejaTusAccesos')}</div>
     <div id="creds-list">
       ${creds.map((cr,i)=>`<div class="cred-field">
         <div style="font-size:13px;font-weight:600;margin-bottom:10px;display:flex;justify-content:space-between">
@@ -1448,23 +1448,23 @@ function renderAjustes(){
         <input type="text" value="${cr.notes||''}" placeholder="Notas (ej. cuenta principal)" style="font-size:12px;padding:6px 9px" onchange="updateCred(${i},'notes',this.value)">
       </div>`).join('')}
     </div>
-    <button class="btn btn-p btn-block" onclick="saveCredentials()" style="margin-top:8px"><i class="ti ti-check"></i>'+tx('guardarCredenciales')+'</button>
+    <button class="btn btn-p btn-block" onclick="saveCredentials()" style="margin-top:8px"><i class="ti ti-check"></i>${tx('guardarCredenciales')}</button>
   </div>
 
   <div class="card">
-    <div class="card-t"><i class="ti ti-user"></i>'+tx('misDatos')+'</div>
-    <div class="f"><label>'+tx('nombre')+'</label><input id="u-name" value="${client.name||''}" placeholder="Tu nombre"></div>
-    <div class="f"><label>'+tx('tipoNegocio')+'</label><input id="u-type" value="${client.type||''}" placeholder="ej. Restaurante"></div>
-    <button class="btn btn-p btn-block" onclick="saveMyData()"><i class="ti ti-check"></i>'+tx('guardarCambios')+'</button>
+    <div class="card-t"><i class="ti ti-user"></i>${tx('misDatos')}</div>
+    <div class="f"><label>${tx('nombre')}</label><input id="u-name" value="${client.name||''}" placeholder="Tu nombre"></div>
+    <div class="f"><label>${tx('tipoNegocio')}</label><input id="u-type" value="${client.type||''}" placeholder="ej. Restaurante"></div>
+    <button class="btn btn-p btn-block" onclick="saveMyData()"><i class="ti ti-check"></i>${tx('guardarCambios')}</button>
   </div>
 
   <div class="card">
-    <div class="card-t"><i class="ti ti-palette"></i>'+tx('apariencia')+'</div>
+    <div class="card-t"><i class="ti ti-palette"></i>${tx('apariencia')}</div>
     <div style="display:flex;gap:10px;align-items:center">
       <div class="th-btn th-dark${document.body.className===''?' on':''}" onclick="setTheme('dark')" style="width:30px;height:30px" title="Oscuro"></div>
       <div class="th-btn th-light${document.body.className==='light'?' on':''}" onclick="setTheme('light')" style="width:30px;height:30px" title="Claro"></div>
       <div class="th-btn th-blue${document.body.className==='blue'?' on':''}" onclick="setTheme('blue')" style="width:30px;height:30px" title="Azul"></div>
-      <span style="font-size:12px;color:var(--tx3)">'+tx('eligeTema')+'</span>
+      <span style="font-size:12px;color:var(--tx3)">${tx('eligeTema')}</span>
     </div>
   </div>`;
 
@@ -1499,12 +1499,12 @@ async function saveMyData(){
 // ============================================================
 function openMeetingModal(){
   const mc=document.getElementById('modal-c');
-  mc.innerHTML=`<div class="modal-t">'+tx('solicitarReunion')+'</div>
+  mc.innerHTML=`<div class="modal-t">${tx('solicitarReunion')}</div>
     <div class="f"><label>${tx('motivo')}</label><input id="mt-m" placeholder="ej. Revisión de contenido"></div>
-    <div class="f"><label>'+tx('fechaPreferida')+'</label><input id="mt-f" type="date" value="${today()}"></div>
+    <div class="f"><label>${tx('fechaPreferida')}</label><input id="mt-f" type="date" value="${today()}"></div>
     <div class="f"><label>${tx('horaPreferida')}</label><input id="mt-h" type="time" value="10:00"></div>
-    <div class="f"><label>'+tx('notasOpcional')+'</label><textarea id="mt-n" rows="2" placeholder="Cualquier detalle..."></textarea></div>
-    <div class="modal-acts"><button class="btn btn-s" onclick="closeMo()">'+tx('cancelar')+'</button><button class="btn btn-s btn-p" onclick="sendMeeting()">'+tx('solicitar')+'</button></div>`;
+    <div class="f"><label>${tx('notasOpcional')}</label><textarea id="mt-n" rows="2" placeholder="Cualquier detalle..."></textarea></div>
+    <div class="modal-acts"><button class="btn btn-s" onclick="closeMo()">${tx('cancelar')}</button><button class="btn btn-s btn-p" onclick="sendMeeting()">${tx('solicitar')}</button></div>`;
   document.getElementById('mo').classList.add('open');
 }
 async function sendMeeting(){
