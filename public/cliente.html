@@ -627,7 +627,7 @@ function renderInicio(){
     <div class="card-t"><i class="ti ti-trophy"></i>${tx('tusLogros')}</div>
     <div class="stat-grid" style="margin-bottom:0">
       <div class="stat"><div class="stat-v" style="color:#4ADE80">${totalPub}</div><div class="stat-l">📹 ${tx('reelsPublicados')}</div></div>
-      <div class="stat"><div class="stat-v" style="color:var(--c)">${months}</div><div class="stat-l">📅 ${tx('mesesJuntos')}</div></div>
+      <div class="stat"><div class="stat-v" style="color:var(--c)">${client.contractStart?Math.max(0,Math.round((new Date()-new Date(client.contractStart+'T12:00:00'))/864e5/30)):0}</div><div class="stat-l">📅 ${tx('mesesJuntos')}</div></div>
     </div>
   </div>`;
 
@@ -744,7 +744,11 @@ function showDayEvents(dateStr){
 // ============================================================
 function renderReels(){
   const months=Object.keys(client.reels||{}).sort();
-  if(!activeMonth||!months.includes(activeMonth))activeMonth=months[months.length-1]||monthKey();
+  // Default to current month if available, otherwise latest
+  const mk2=monthKey();
+  if(!activeMonth||!months.includes(activeMonth)){
+    activeMonth=months.includes(mk2)?mk2:(months[months.length-1]||mk2);
+  }
   const reels=client.reels[activeMonth]||[];
   const sub=reels.filter(r=>r.subido).length;
   const ed=reels.filter(r=>r.editado&&!r.subido).length;
@@ -787,9 +791,8 @@ function renderReels(){
         <div>
           <div style="font-size:13px;font-weight:500">${r.label}</div>
           <div style="font-size:11px;color:var(--tx3);margin-top:2px">
-            ${r.editor?'Editor: '+r.editor:''}
-            ${r.fechaGrab&&!r.grabado?' · Grabación: '+fmtDate(r.fechaGrab):''}
-            ${r.fechaEdit&&!r.subido?' · Entrega: '+fmtDate(r.fechaEdit):''}
+            ${r.fechaGrab&&!r.grabado?'📅 '+t('Grabación','Recording')+': '+fmtDate(r.fechaGrab):''}
+            ${r.fechaEdit&&!r.subido?'🎯 '+t('Entrega prevista','Expected delivery')+': '+fmtDate(r.fechaEdit):''}
           </div>
         </div>
         <span style="font-size:11px;font-weight:600;color:${color};white-space:nowrap">${estado}</span>
@@ -1109,10 +1112,11 @@ function renderChat(){
   el.innerHTML=`<div class="chat-wrap">
     <div class="chat-hdr">
       <div class="chat-online"></div>
-      <div>
+      <div style="flex:1">
         <div style="font-size:14px;font-weight:600">${t('Asistente Mentedoras','Mentedoras Assistant')}</div>
-        <div style="font-size:11px;color:var(--tx3)">${t(tx('respondInstante'),'Responds instantly 24/7 ⚡')}</div>
+        <div style="font-size:11px;color:var(--tx3)">${t('Responde al instante 24/7 ⚡','Responds instantly 24/7 ⚡')}</div>
       </div>
+      ${chatMsgs.length?`<button onclick="clearChat()" style="background:none;border:none;color:var(--tx3);font-size:11px;cursor:pointer;padding:4px 8px;border-radius:var(--r);font-family:'DM Sans',sans-serif" title="${t('Borrar chat','Clear chat')}"><i class="ti ti-trash" style="font-size:14px"></i> ${t('Borrar','Clear')}</button>`:''}
     </div>
     <div class="chat-msgs" id="chat-msgs" style="display:flex;flex-direction:column"></div>
     <div class="chat-sugg" id="chat-sugg"></div>
@@ -1123,7 +1127,7 @@ function renderChat(){
   </div>
   <div class="card">
     <div class="card-t"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>${t('Contacto directo','Direct contact')}</div>
-    <div style="font-size:13px;color:var(--tx2);margin-bottom:12px">${t(tx('paraTemas'),'For urgent matters, contact us directly:')}</div>
+    <div style="font-size:13px;color:var(--tx2);margin-bottom:12px">${t('Para temas urgentes, contacta directamente:','For urgent matters, contact us directly:')}</div>
     <a href="https://wa.me/${wa1}" target="_blank" class="btn btn-block" style="text-decoration:none;margin-bottom:8px;justify-content:center"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>WhatsApp ${l1}</a>
     <a href="https://wa.me/${wa2}" target="_blank" class="btn btn-block" style="text-decoration:none;justify-content:center"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>WhatsApp ${l2}</a>
   </div>`;
@@ -1131,21 +1135,41 @@ function renderChat(){
   showSuggestions();
 }
 
+function clearChat(){
+  if(!confirm(t('¿Borrar toda la conversación?','Clear all conversation?')))return;
+  chatMsgs=[];client.msgs=[];
+  saveClientData();renderChat();showToast(t('Chat borrado ✓','Chat cleared ✓'),'ok');
+}
+
 function renderChatMsgs(){
   const el=document.getElementById('chat-msgs');if(!el)return;
   if(!chatMsgs.length){
-    el.innerHTML=`<div style="text-align:center;color:var(--tx3);font-size:13px;padding:30px">
-      <div style="font-size:28px;margin-bottom:8px">👋</div>
-      ${t('¡Hola! Soy tu asistente de Mentedoras.','Hi! I\'m your Mentedoras assistant.')}<br>${t('Pregúntame lo que necesites.','Ask me anything.')}
-    </div>`;
+    const mk=monthKey();
+    const reels=client.reels?.[mk]||[];
+    const nextGrab=reels.filter(r=>!r.grabado&&r.fechaGrab).sort((a,b)=>a.fechaGrab.localeCompare(b.fechaGrab))[0];
+    const sub=reels.filter(r=>r.subido).length;
+    const h=new Date().getHours();
+    const g=h<13?t('¡Buenos días','Good morning'):h<20?t('¡Buenas tardes','Good afternoon'):t('¡Buenas noches','Good evening');
+    let proactive=`${g}, ${client.name}! 👋 ${t('Soy tu asistente de Mentedoras.','I am your Mentedoras assistant.')}`;
+    if(nextGrab){
+      const diff=Math.ceil((new Date(nextGrab.fechaGrab+'T12:00:00')-new Date())/864e5);
+      if(diff<=3&&diff>=0)proactive+=` 📅 ${t('Tienes grabación','Recording')} ${diff<=0?t('¡hoy!','today!'):diff===1?t('¡mañana!','tomorrow!'):t('en ','in ')+diff+t(' días',' days')}: ${nextGrab.label}.`;
+    } else if(sub===reels.length&&reels.length>0){
+      proactive+=` 🎉 ${t('¡Todos tus reels de este mes están publicados!','All your reels this month are published!')}`;
+    } else if(reels.length>0){
+      proactive+=` ${t('Llevas','You have')} ${sub}/${reels.length} ${t('reels publicados este mes.','reels published this month.')}`;
+    }
+    proactive+=` ${t('¿En qué puedo ayudarte?','How can I help you?')}`;
+    el.innerHTML=`<div class="msg bot"><div class="msg-bub">${proactive}</div><div class="msg-time">${new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}</div></div>`;
     return;
   }
+  let lastDate='';
   el.innerHTML=chatMsgs.map(m=>{
-    const txt=(m.text||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>').replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g,'<a href="$2" target="_blank" style="color:var(--c);text-decoration:underline">$1</a>');
-    return`<div class="msg ${m.from==='client'?'me':'bot'}">
-      <div class="msg-bub">${txt}</div>
-      <div class="msg-time">${m.time||''}</div>
-    </div>`;
+    const msgDate=m.date||'';
+    let dateSep='';
+    if(msgDate&&msgDate!==lastDate){lastDate=msgDate;dateSep=`<div style="text-align:center;font-size:11px;color:var(--tx3);padding:6px 0;margin:4px 0">${msgDate}</div>`;}
+    const txt=(m.text||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>').replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g,'<a href="$2" target="_blank" style="color:var(--c);text-decoration:underline">$1 ↗</a>');
+    return dateSep+`<div class="msg ${m.from==='client'?'me':'bot'}"><div class="msg-bub">${txt}</div><div class="msg-time">${m.time||''}</div></div>`;
   }).join('');
   el.scrollTop=el.scrollHeight;
 }
@@ -1168,7 +1192,7 @@ async function sendMsg(){
   const txt=inp.value.trim();if(!txt)return;
   inp.value='';
   const sugg=document.getElementById('chat-sugg');if(sugg)sugg.innerHTML='';
-  chatMsgs.push({from:'client',text:txt,time:new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})});
+  chatMsgs.push({from:'client',text:txt,time:new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),date:new Date().toLocaleDateString('es-ES',{day:'numeric',month:'short'})});
   client.msgs=chatMsgs;
   renderChatMsgs();
   // Typing
@@ -1177,7 +1201,7 @@ async function sendMsg(){
   setTimeout(async()=>{
     const t=document.getElementById('typing');if(t)t.remove();
     const resp=getBotResponse(txt);
-    chatMsgs.push({from:'team',text:resp,time:new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}),who:'Mentedoras'});
+    chatMsgs.push({from:'team',text:resp,time:new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),date:new Date().toLocaleDateString('es-ES',{day:'numeric',month:'short'}),who:'Mentedoras'});
     client.msgs=chatMsgs;
     renderChatMsgs();
     await saveClientData();
@@ -1191,6 +1215,26 @@ function getBotResponse(txt){
   const reels=client.reels?.[mk]||[];
   const drive=client.drive||{};
   const allMonthKeys=Object.keys(client.reels||{}).sort();
+
+  // Smart month detection - understand "este mes", "el pasado", month names
+  const monthNames=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  let contextMonth=mk;
+  if(tl.includes('este mes'))contextMonth=mk;
+  else if(tl.includes('mes pasado')||tl.includes('el anterior')){
+    const d=new Date();d.setMonth(d.getMonth()-1);
+    contextMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  } else if(tl.includes('próximo mes')||tl.includes('el siguiente')){
+    const d=new Date();d.setMonth(d.getMonth()+1);
+    contextMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  } else {
+    const foundMonth=monthNames.findIndex(m=>tl.includes(m));
+    if(foundMonth>=0){
+      const year=new Date().getFullYear();
+      const mk2=year+'-'+String(foundMonth+1).padStart(2,'0');
+      if(allMonthKeys.includes(mk2))contextMonth=mk2;
+    }
+  }
+  const contextReels=client.reels?.[contextMonth]||reels;
 
   // IDENTIDAD
   if(tl.includes('quién eres')||tl.includes('quien eres')||tl.includes('qué eres')||tl.includes('como te llamas')||tl.includes('cómo te llamas')){
