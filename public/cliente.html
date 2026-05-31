@@ -763,10 +763,11 @@ function renderReels(){
     html+=`<div class="card" style="margin-bottom:14px">
       <div class="card-t"><i class="ti ti-folder"></i>${tx('misCarpetas')}</div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        ${drive.reelsEdit?`<a href="${drive.reelsEdit}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-video" style="color:var(--c)"></i>Reels editados</a>`:''}
-        ${drive.scripts?`<a href="${drive.scripts}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-pencil" style="color:var(--c)"></i>Mis guiones</a>`:''}
-        ${drive.pictures?`<a href="${drive.pictures}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-photo" style="color:var(--c)"></i>Fotos / referencias</a>`:''}
-        ${client.driveMain?`<a href="${client.driveMain}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-folder" style="color:var(--c)"></i>Carpeta principal</a>`:''}
+        ${drive.reelsEdit?`<a href="${drive.reelsEdit}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-video" style="color:var(--c)"></i>${t('Reels editados','Edited reels')}</a>`:''}
+        ${drive.scripts?`<a href="${drive.scripts}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-pencil" style="color:var(--c)"></i>${t('Mis guiones','My scripts')}</a>`:''}
+        ${drive.pictures?`<a href="${drive.pictures}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-photo" style="color:var(--c)"></i>${t('Fotos / referencias','Photos / references')}</a>`:''}
+        ${drive.historias?`<a href="${drive.historias}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-circle-plus" style="color:var(--c)"></i>${t('Mis historias','My stories')}</a>`:''}
+        ${client.driveMain?`<a href="${client.driveMain}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-folder" style="color:var(--c)"></i>${t('Carpeta principal','Main folder')}</a>`:''}
       </div>
     </div>`;
   }
@@ -1061,7 +1062,7 @@ function renderModif(){
       <div class="f"><label>${t('¿Qué reel?','Which reel?')}</label>
         <select id="mod-reel">
           <option value="">${t('— Selecciona —','— Select —')}</option>
-          ${Object.values(client.reels||{}).flat().map(r=>`<option value="${r.label}">${r.label}</option>`).join('')}
+          ${Object.entries(client.reels||{}).sort().flatMap(([mk,reels])=>reels.map(r=>`<option value="${r.label} (${monthLabel(mk)})">${r.label} — ${monthLabel(mk)}</option>`)).join('')}
           <option value="general">${t('General / No es un reel específico','General / Not a specific reel')}</option>
         </select>
       </div>

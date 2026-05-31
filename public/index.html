@@ -1337,28 +1337,32 @@ function calChangeView(v){calView=v;renderCal();}
 // ============================================================
 function renderPayments(){
   const mk=monthKey();
-  const editors=['Dani','Darwin','Dante','Oscar'];
+  const payees=[
+    {name:'Dani',role:'Editor'},{name:'Darwin',role:'Editor'},
+    {name:'Dante',role:'Editor'},{name:'Oscar',role:'Editor'},
+    {name:'Laura',role:'CM'},{name:'Yumara',role:'PM'},
+  ];
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
     <div class="st">Pagos equipo — ${monthLabel(mk)}</div>
   </div>`;
-  editors.forEach(ed=>{
-    const r=clients.filter(c=>(c.editors||[]).includes(ed)).reduce((s,c)=>{return s+(c.reels[mk]||[]).filter(r=>r.editado).length;},0);
-    const edP=paymentsList.filter(p=>p.editor===ed&&p.month===mk);
+  payees.forEach(({name,role})=>{
+    const edP=paymentsList.filter(p=>p.editor===name&&p.month===mk);
     html+=`<div class="card" style="margin-bottom:14px">
-      <div class="card-t" style="display:flex;align-items:center"><i class="ti ti-user"></i>${ed} · Editor
-        <button class="btn btn-s" style="margin-left:auto" onclick="openModal('payment','${ed}')"><i class="ti ti-plus"></i>Añadir</button>
+      <div class="card-t" style="display:flex;align-items:center"><i class="ti ti-user"></i>${name} · ${role}
+        <button class="btn btn-s" style="margin-left:auto" onclick="openModal('payment','${name}')"><i class="ti ti-plus"></i>Añadir</button>
       </div>
       <table class="pay-table" style="width:100%">
-        <tr><th>Concepto</th><th>Importe</th><th>Estado</th><th></th></tr>
+        <tr><th>Concepto</th><th>Importe</th><th>Fecha</th><th>Estado</th><th></th></tr>
         ${edP.length?edP.map((p,i)=>`<tr>
           <td>${p.concepto}</td>
           <td style="color:var(--c);font-weight:600">${currSymbol(p.currency||"EUR")+p.importe}</td>
-          <td><span class="badge ${p.paid?'badge-ok':'badge-warn'}" style="cursor:pointer" onclick="togglePay('${ed}','${mk}',${i})">${p.paid?'✓ Pagado':'Pendiente'}</span></td>
+          <td style="font-size:11px;color:var(--tx3)">${p.date?fmtDate(p.date):'—'}</td>
+          <td><span class="badge ${p.paid?'badge-ok':'badge-warn'}" style="cursor:pointer" onclick="togglePay('${name}','${mk}',${i})">${p.paid?'✓ Pagado':'Pendiente'}</span></td>
           <td style="display:flex;gap:4px">
-            <button class="btn btn-s" onclick="editPay('${ed}','${mk}',${i})"><i class="ti ti-pencil"></i></button>
-            <button class="btn btn-s btn-danger" onclick="delPay('${ed}','${mk}',${i})"><i class="ti ti-trash"></i></button>
+            <button class="btn btn-s" onclick="editPay('${name}','${mk}',${i})"><i class="ti ti-pencil"></i></button>
+            <button class="btn btn-s btn-danger" onclick="delPay('${name}','${mk}',${i})"><i class="ti ti-trash"></i></button>
           </td>
-        </tr>`).join(''):`<tr><td colspan="4" style="text-align:center;color:var(--tx3);padding:16px;font-size:12px">${r} reels editados · Sin pagos registrados</td></tr>`}
+        </tr>`).join(''):`<tr><td colspan="5" style="text-align:center;color:var(--tx3);padding:16px;font-size:12px">Sin pagos registrados este mes</td></tr>`}
       </table>
     </div>`;
   });
@@ -1666,7 +1670,7 @@ function renderProfile(c){
           ${c.driveMain?`<a href="${c.driveMain}" target="_blank" class="btn btn-s btn-p"><i class="ti ti-external-link"></i></a>`:''}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          ${[{k:'meetings',l:'Meetings',ic:'ti-calendar-event'},{k:'pictures',l:'Pictures',ic:'ti-photo'},{k:'reelsEdit',l:'Reels Edit',ic:'ti-video'},{k:'scripts',l:'Scripts',ic:'ti-pencil'}].map(f=>`<div style="background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:10px">
+          ${[{k:'meetings',l:'Meetings',ic:'ti-calendar-event'},{k:'pictures',l:'Pictures',ic:'ti-photo'},{k:'reelsEdit',l:'Reels Edit',ic:'ti-video'},{k:'scripts',l:'Scripts',ic:'ti-pencil'},{k:'historias',l:'Historias',ic:'ti-circle-plus'}].map(f=>`<div style="background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:10px">
             <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
               <i class="ti ${f.ic}" style="color:var(--c);font-size:14px"></i>
               <span style="font-size:12px;font-weight:600">${f.l}</span>
@@ -1787,7 +1791,7 @@ function renderReelTable(c,mk){
   if(!reels.length)return`<div style="text-align:center;padding:30px;color:var(--tx3)">Sin reels para este mes</div>`;
   return`<div class="card">
     <table class="rtable" style="width:100%">
-      <tr><th>Reel</th><th>Grabado</th><th>F.Grab.</th><th>Editado</th><th>F.Entrega</th><th>Subido</th><th>Editor</th><th>Notas</th></tr>
+      <tr><th>Reel</th><th>Grabado</th><th>F.Grab.</th><th>Editado</th><th>F.Entrega</th><th>Subido</th><th>Editor</th><th>Notas</th><th></th></tr>
       ${reels.map((r,i)=>`<tr>
         <td style="font-weight:600;color:var(--tx)">${r.label}</td>
         <td><div class="chk${r.grabado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'grabado')">${r.grabado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
@@ -1799,6 +1803,7 @@ function renderReelTable(c,mk){
           <option value="">—</option>${['Dani','Darwin','Dante','Oscar'].map(e=>`<option${r.editor===e?' selected':''}>${e}</option>`).join('')}
         </select></td>
         <td><input type="text" value="${r.notas||''}" placeholder="Notas..." style="font-size:11px;padding:3px 6px" onchange="updateReel('${c.id}','${mk}',${i},'notas',this.value)"></td>
+        <td><button class="btn btn-s" style="color:var(--err);padding:3px 7px" onclick="deleteReel('${c.id}','${mk}',${i})"><i class="ti ti-trash" style="font-size:11px"></i></button></td>
       </tr>`).join('')}
     </table>
     <button class="badd" style="margin-top:8px" onclick="addReel('${c.id}','${mk}')"><i class="ti ti-plus" style="font-size:11px"></i>Añadir reel</button>
@@ -1868,6 +1873,14 @@ function switchReelMonth(cid,mk){
     <div class="month-sel">${reelMonths.map(m=>`<button class="mbtn${m===mk?' on':''}" onclick="switchReelMonth('${c.id}','${m}')">${monthLabel(m)}</button>`).join('')}<button class="mbtn" onclick="addReelMonth('${c.id}')"><i class="ti ti-plus" style="font-size:11px"></i>Mes</button></div>
   </div>${renderReelTable(c,mk)}`;
 }
+function deleteReel(cid,mk,i){
+  const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
+  if(!confirm('¿Eliminar '+c.reels[mk][i]?.label+'?'))return;
+  c.reels[mk].splice(i,1);
+  // Renumber
+  c.reels[mk].forEach((r,idx)=>{r.id=idx+1;r.label='Reel '+(idx+1);});
+  switchReelMonth(cid,mk);saveClients();showToast('Reel eliminado ✓','ok');
+}
 function addReelMonth(cid){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   const existing=Object.keys(c.reels).sort();
@@ -1875,7 +1888,9 @@ function addReelMonth(cid){
   const[y,m]=last.split('-').map(Number);
   const next=m===12?`${y+1}-01`:`${y}-${String(m+1).padStart(2,'0')}`;
   if(c.reels[next]){showToast('Ese mes ya existe','err');return;}
-  c.reels[next]=mkReels(c.numReels,next);
+  // Use numReels from contract
+  const n=c.numReels||5;
+  c.reels[next]=Array.from({length:n},(_,i)=>({id:i+1,label:'Reel '+(i+1),month:next,grabado:false,fechaGrab:'',editado:false,fechaEdit:'',subido:false,editor:'',notas:''}));
   switchReelMonth(cid,next);saveClients();showToast('Mes añadido: '+monthLabel(next),'ok');
 }
 function addReel(cid,mk){
@@ -2121,11 +2136,28 @@ function saveEditClient(id){
 }
 function saveContract(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
+  const oldNum=c.numReels;
   c.numReels=parseInt(document.getElementById('co-reels').value)||5;
   c.price=parseInt(document.getElementById('co-price').value)||0;
   c.contractStart=document.getElementById('co-start').value;
   c.contractEnd=document.getElementById('co-end').value;
   c.contractType=document.getElementById('co-type').value;
+  // If numReels changed, update future months
+  if(oldNum!==c.numReels){
+    const mk=monthKey();
+    Object.keys(c.reels).forEach(m=>{
+      if(m>=mk){
+        const current=c.reels[m].length;
+        if(current<c.numReels){
+          for(let i=current;i<c.numReels;i++){
+            c.reels[m].push({id:i+1,label:'Reel '+(i+1),month:m,grabado:false,fechaGrab:'',editado:false,fechaEdit:'',subido:false,editor:'',notas:''});
+          }
+        }else if(current>c.numReels){
+          c.reels[m]=c.reels[m].slice(0,c.numReels);
+        }
+      }
+    });
+  }
   closeModal();renderProfile(c);saveClients();showToast('Contrato actualizado ✓','ok');
 }
 function saveTask(){
@@ -2153,7 +2185,7 @@ function savePay(editor){
   const concepto=document.getElementById('np-conc')?.value||'Edición de reels';
   const currency=document.getElementById('np-cur')?.value||'EUR';
   if(!importe)return showToast('Añade un importe','err');
-  paymentsList.push({editor,month:monthKey(),importe,concepto,currency,paid:false});
+  paymentsList.push({editor,month:monthKey(),importe,concepto,currency,paid:false,date:today()});
   closeModal();savePayments();renderPayments();showToast('Pago añadido ✓','ok');
 }
 function currSymbol(cur){return cur==='USD'?'$':cur==='GBP'?'£':'€';}
