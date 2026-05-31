@@ -189,11 +189,16 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
     <div class="nav-tab" onclick="showTab('ajustes')" id="nt-ajustes"><i class="ti ti-settings"></i><span id="tx-ajustes">Ajustes</span></div>
   </div>
 
+  <div class="cnt" id="cnt">
+    <!-- INICIO -->
+    <div class="view on" id="view-inicio"></div>
+    <!-- CALENDARIO -->
     <div class="view" id="view-calendario"></div>
     <!-- REELS -->
     <div class="view" id="view-reels"></div>
     <!-- CONTRATO -->
     <div class="view" id="view-contrato"></div>
+    <!-- MODIFICACIONES -->
     <div class="view" id="view-modif"></div>
     <!-- CRECIMIENTO -->
     <div class="view" id="view-crecimiento"></div>
@@ -545,7 +550,6 @@ function renderIdeas(){
         ${idea.days?`<div style="font-size:12px;color:var(--c)">📅 ${idea.days}</div>`:''}
       </div>`).join('')}
     </div>`:''}`;
-  document.getElementById('view-ideas').innerHTML=html;
 }
 
 async function sendIdeas(){
