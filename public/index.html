@@ -1632,16 +1632,6 @@ function renderProfile(c){
             </div>`:`<div style="font-size:12px;color:var(--tx3)">Sin CM asignado</div>`}
           </div>
         </div>
-        <div>
-          <div class="card">
-            <div class="card-t"><i class="ti ti-list-check"></i>Fase del contenido</div>
-            ${PHASES.map((ph,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--r);cursor:pointer;background:${i===c.phase?'var(--cdim)':'transparent'}" onclick="setPhase('${c.id}',${i})">
-              <div style="width:22px;height:22px;border-radius:50%;border:1px solid ${i<=c.phase?'var(--c)':'var(--bd2)'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:${i<c.phase?'var(--bg)':i===c.phase?'var(--c)':'var(--tx3)'};background:${i<c.phase?'var(--c)':i===c.phase?'var(--cdim)':'transparent'}">
-                ${i<c.phase?'<i class="ti ti-check" style="font-size:10px"></i>':i+1}
-              </div>
-              <div style="font-size:12px;color:${i<c.phase?'var(--tx3)':i===c.phase?'var(--c)':'var(--tx2)'};font-weight:${i===c.phase?600:400}">${ph}</div>
-            </div>`).join('')}
-          </div>
           <div class="card" style="margin-top:14px">
             <div class="card-t"><i class="ti ti-settings"></i>Servicios contratados</div>
             <div class="svc-grid">
@@ -1799,6 +1789,8 @@ function renderProfile(c){
       </div>`:''}
     </div>
     ${isCMup()?`<div class="tc${activeTab==='crecimiento'?' on':''}" id="tc-crecimiento">
+      <div class="card">
+        <div class="card-t"><i class="ti ti-trending-up"></i>Estadísticas de crecimiento
           <button class="btn btn-s btn-p" style="margin-left:auto" onclick="openModal('growth','${c.id}')"><i class="ti ti-pencil"></i>Editar</button>
         </div>
         ${c.growth?.igStart||c.growth?.igNow||c.growth?.viewsBefore||c.growth?.viewsNow?`
@@ -1834,7 +1826,24 @@ function renderProfile(c){
         </div>
         <button class="btn btn-s btn-p" style="margin-top:8px" onclick="saveClients();showToast('Links guardados ✓','ok')"><i class="ti ti-check"></i>Guardar links</button>
       </div>
-    </div>`:''}`;
+    </div>`:''}
+    <div class="tc${activeTab==='notas'?' on':''}" id="tc-notas">
+      <div class="card">
+        <div class="card-t"><i class="ti ti-notes"></i>Notas internas
+          <span style="font-size:10px;color:var(--tx3);margin-left:auto;font-weight:400">Solo visible para el equipo</span>
+        </div>
+        <textarea id="client-notes" rows="8" placeholder="Escribe aquí notas internas sobre este cliente..." style="font-size:13px;resize:vertical;min-height:150px">${c.internalNotes||''}</textarea>
+        <button class="btn btn-s btn-p" style="margin-top:10px" onclick="saveInternalNotes('${c.id}')"><i class="ti ti-check"></i>Guardar notas</button>
+      </div>
+      ${(c.notesHistory||[]).length?`<div class="card">
+        <div class="card-t"><i class="ti ti-history"></i>Historial de notas</div>
+        ${(c.notesHistory||[]).slice().reverse().map(n=>`<div class="pf" style="flex-direction:column;align-items:flex-start;gap:3px">
+          <span style="font-size:10px;color:var(--tx3)">${n.date} · ${n.by}</span>
+          <span style="font-size:12px">${n.text}</span>
+        </div>`).join('')}
+      </div>`:''}
+    </div>
+  </div>`;
 }
 
 function renderReelTable(c,mk){
@@ -1914,7 +1923,12 @@ function switchProdMonth(cid,mk){
   </div>${renderProdTab(c,mk)}`;
 }
 
-function switchTab(tab){activeTab=tab;if(activeClient)renderProfile(activeClient);}
+function switchTab(tab){
+  const scrollY=window.scrollY;
+  activeTab=tab;
+  if(activeClient)renderProfile(activeClient);
+  window.scrollTo(0,scrollY);
+}
 function switchReelMonth(cid,mk){
   activeReelMonth=mk;
   const c=clients.find(c=>c.id===cid);if(!c)return;
