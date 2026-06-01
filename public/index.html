@@ -1372,50 +1372,72 @@ function calChangeView(v){calView=v;renderCal();}
 // PAYMENTS
 // ============================================================
 function renderPayments(){
-  const mk=monthKey();
   const payees=[
     {name:'Dani',role:'Editor'},{name:'Darwin',role:'Editor'},
     {name:'Dante',role:'Editor'},{name:'Oscar',role:'Editor'},
     {name:'Laura',role:'CM'},{name:'Yumara',role:'PM'},
   ];
-  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-    <div class="st">Pagos equipo — ${monthLabel(mk)}</div>
+  const totalPend=paymentsList.filter(p=>!p.paid).reduce((s,p)=>s+p.importe,0);
+  const totalPaid=paymentsList.filter(p=>p.paid).reduce((s,p)=>s+p.importe,0);
+  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div class="st">Pagos equipo</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span style="font-size:12px;background:rgba(34,197,94,.12);color:#4ADE80;padding:4px 10px;border-radius:20px;font-weight:600">✓ Pagado: ${totalPaid.toLocaleString('es')}€</span>
+      <span style="font-size:12px;background:rgba(245,158,11,.12);color:var(--warn);padding:4px 10px;border-radius:20px;font-weight:600">⏳ Pendiente: ${totalPend.toLocaleString('es')}€</span>
+    </div>
   </div>`;
   payees.forEach(({name,role})=>{
-    const edP=paymentsList.filter(p=>p.editor===name&&p.month===mk);
+    const all=paymentsList.filter(p=>p.editor===name).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const pend=all.filter(p=>!p.paid).reduce((s,p)=>s+p.importe,0);
     html+=`<div class="card" style="margin-bottom:14px">
-      <div class="card-t" style="display:flex;align-items:center"><i class="ti ti-user"></i>${name} · ${role}
+      <div class="card-t" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
+        <i class="ti ti-user"></i>${name} · ${role}
+        ${pend>0?`<span style="font-size:11px;background:rgba(245,158,11,.12);color:var(--warn);padding:2px 8px;border-radius:20px">${pend.toLocaleString('es')}€ pendiente</span>`:''}
         <button class="btn btn-s" style="margin-left:auto" onclick="openModal('payment','${name}')"><i class="ti ti-plus"></i>Añadir</button>
       </div>
-      <table class="pay-table" style="width:100%">
-        <tr><th>Concepto</th><th>Importe</th><th>Fecha</th><th>Estado</th><th></th></tr>
-        ${edP.length?edP.map((p,i)=>`<tr>
-          <td>${p.concepto}</td>
-          <td style="color:var(--c);font-weight:600">${currSymbol(p.currency||"EUR")+p.importe}</td>
-          <td style="font-size:11px;color:var(--tx3)">${p.date?fmtDate(p.date):'—'}</td>
-          <td><span class="badge ${p.paid?'badge-ok':'badge-warn'}" style="cursor:pointer" onclick="togglePay('${name}','${mk}',${i})">${p.paid?'✓ Pagado':'Pendiente'}</span></td>
-          <td style="display:flex;gap:4px">
-            <button class="btn btn-s" onclick="editPay('${name}','${mk}',${i})"><i class="ti ti-pencil"></i></button>
-            <button class="btn btn-s btn-danger" onclick="delPay('${name}','${mk}',${i})"><i class="ti ti-trash"></i></button>
-          </td>
-        </tr>`).join(''):`<tr><td colspan="5" style="text-align:center;color:var(--tx3);padding:16px;font-size:12px">Sin pagos registrados este mes</td></tr>`}
-      </table>
+      ${all.length?`<table class="pay-table" style="width:100%">
+        <tr><th>Concepto</th><th>Importe</th><th>Fecha</th><th>Mes</th><th>Estado</th><th></th></tr>
+        ${all.map((p,i)=>{
+          const globalIdx=paymentsList.indexOf(p);
+          return`<tr>
+            <td>${p.concepto}</td>
+            <td style="color:var(--c);font-weight:600">${currSymbol(p.currency||'EUR')+p.importe}</td>
+            <td style="font-size:11px;color:var(--tx3)">${p.date?fmtDate(p.date):'—'}</td>
+            <td style="font-size:11px;color:var(--tx3)">${monthLabel(p.month)||p.month}</td>
+            <td><span class="badge ${p.paid?'badge-ok':'badge-warn'}" style="cursor:pointer" onclick="togglePayGlobal(${globalIdx})">${p.paid?'✓ Pagado':'Pendiente'}</span></td>
+            <td style="display:flex;gap:4px">
+              <button class="btn btn-s" onclick="editPayGlobal(${globalIdx})"><i class="ti ti-pencil"></i></button>
+              <button class="btn btn-s btn-danger" onclick="delPayGlobal(${globalIdx})"><i class="ti ti-trash"></i></button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </table>`:`<div style="text-align:center;padding:16px;color:var(--tx3);font-size:12px">Sin pagos registrados</div>`}
     </div>`;
   });
   document.getElementById('view-payments').innerHTML=html;
 }
-function togglePay(ed,mk,i){const l=paymentsList.filter(p=>p.editor===ed&&p.month===mk);if(l[i]){l[i].paid=!l[i].paid;savePayments();renderPayments();}}
-function delPay(ed,mk,i){if(!confirm('¿Eliminar?'))return;const l=paymentsList.filter(p=>p.editor===ed&&p.month===mk);paymentsList=paymentsList.filter(p=>p!==l[i]);savePayments();renderPayments();showToast('Eliminado','ok');}
-function editPay(ed,mk,i){
-  const l=paymentsList.filter(p=>p.editor===ed&&p.month===mk);const p=l[i];if(!p)return;
+
+function togglePayGlobal(i){if(paymentsList[i]){paymentsList[i].paid=!paymentsList[i].paid;savePayments();renderPayments();}}
+function delPayGlobal(i){if(!confirm('¿Eliminar?'))return;paymentsList.splice(i,1);savePayments();renderPayments();showToast('Eliminado','ok');}
+function editPayGlobal(i){
+  const p=paymentsList[i];if(!p)return;
   const mc=document.getElementById('modal-c');
-  mc.innerHTML=`<div class="modal-t">Editar pago — ${ed}</div>
+  mc.innerHTML=`<div class="modal-t">Editar pago — ${p.editor}</div>
     <div class="f"><label>Concepto</label><input id="ep-c" value="${p.concepto}"></div>
-    <div class="f"><label>Importe (€)</label><input id="ep-i" type="number" value="${p.importe}"></div>
-    <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveEditPay('${ed}','${mk}',${i})">Guardar</button></div>`;
+    <div class="fg2">
+      <div class="f"><label>Importe (€)</label><input id="ep-i" type="number" value="${p.importe}"></div>
+      <div class="f"><label>Fecha</label><input id="ep-d" type="date" value="${p.date||today()}"></div>
+    </div>
+    <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveEditPayGlobal(${i})">Guardar</button></div>`;
   document.getElementById('mo').classList.add('open');
 }
-function saveEditPay(ed,mk,i){const l=paymentsList.filter(p=>p.editor===ed&&p.month===mk);const p=l[i];if(!p)return;p.concepto=document.getElementById('ep-c').value;p.importe=parseFloat(document.getElementById('ep-i').value)||0;closeModal();savePayments();renderPayments();showToast('Actualizado ✓','ok');}
+function saveEditPayGlobal(i){
+  const p=paymentsList[i];if(!p)return;
+  p.concepto=document.getElementById('ep-c').value;
+  p.importe=parseFloat(document.getElementById('ep-i').value)||0;
+  p.date=document.getElementById('ep-d').value;
+  closeModal();savePayments();renderPayments();showToast('Actualizado ✓','ok');
+}
 function showMyPayments(){
   const mk=monthKey();
   const myP=paymentsList.filter(p=>p.editor===CU?.name&&p.month===mk);
