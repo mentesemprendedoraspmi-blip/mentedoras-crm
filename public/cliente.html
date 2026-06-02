@@ -1219,253 +1219,260 @@ async function sendMsg(){
   },700+Math.random()*500);
 }
 
+// Bot conversation context memory (within session)
+let botContext={lastMonth:null,messageCount:0,lastTopic:null,urgencyCount:0};
+
+// Bot session context - remember last month mentioned
+
 function getBotResponse(txt){
-  const tl=txt.toLowerCase();
+  const tl=txt.toLowerCase().trim();
   const mk=monthKey();
   const reels=client.reels?.[mk]||[];
   const drive=client.drive||{};
   const allMonthKeys=Object.keys(client.reels||{}).sort();
+  const g=client.growth||{};
+  const now=new Date();
+  const h=now.getHours();
+  const isUrgent=/(urgente|urgent|importante|emergency|ya|ahora mismo|hoy mismo|necesito ya)/i.test(txt);
+  const isFrustrated=/(no funciona|mal|fatal|horrible|enfadad|molest|decepcion|pésimo|pesimo|no me gusta|qué es esto|que es esto)/i.test(txt);
 
-  // Smart month detection - understand "este mes", "el pasado", month names
-  const monthNames=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  // Smart month detection
+  const monthNamesES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   let contextMonth=mk;
   if(tl.includes('este mes'))contextMonth=mk;
-  else if(tl.includes('mes pasado')||tl.includes('el anterior')){
-    const d=new Date();d.setMonth(d.getMonth()-1);
-    contextMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-  } else if(tl.includes('próximo mes')||tl.includes('el siguiente')){
-    const d=new Date();d.setMonth(d.getMonth()+1);
-    contextMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-  } else {
-    const foundMonth=monthNames.findIndex(m=>tl.includes(m));
-    if(foundMonth>=0){
-      const year=new Date().getFullYear();
-      const mk2=year+'-'+String(foundMonth+1).padStart(2,'0');
-      if(allMonthKeys.includes(mk2))contextMonth=mk2;
-    }
-  }
+  else if(tl.includes('mes pasado')||tl.includes('el anterior')||tl.includes('mes anterior')){const d=new Date();d.setMonth(d.getMonth()-1);contextMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+  else if(tl.includes('próximo mes')||tl.includes('proximo mes')||tl.includes('el siguiente')||tl.includes('mes que viene')){const d=new Date();d.setMonth(d.getMonth()+1);contextMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+  else{const fi=monthNamesES.findIndex(m=>tl.includes(m));if(fi>=0){const mk2=now.getFullYear()+'-'+String(fi+1).padStart(2,'0');contextMonth=allMonthKeys.includes(mk2)?mk2:mk;}}
   const contextReels=client.reels?.[contextMonth]||reels;
+  const contextLabel=monthLabel(contextMonth);
 
-  // IDENTIDAD
-  if(tl.includes('quién eres')||tl.includes('quien eres')||tl.includes('qué eres')||tl.includes('como te llamas')||tl.includes('cómo te llamas')){
-    return`Soy el asistente virtual de **Mentedoras** 🤖✨ Creado con la inteligencia de Adri y Alan para ayudarte con todo lo relacionado con tu contenido. ¿En qué puedo ayudarte?`;
-  }
-  // CONFIDENCIAL
-  if(tl.includes('cuántos clientes')||tl.includes('otros clientes')||tl.includes('cuánto cobráis')||tl.includes('el equipo tiene')||tl.includes('cuántas personas')||tl.includes('herramienta')||tl.includes('qué sistema')){
-    return`Eso es información interna que no puedo compartir 😊 Pero si tienes alguna duda sobre tu proyecto, estoy aquí para ayudarte.`;
-  }
-  // EJEMPLOS DE TRABAJO
-  if(tl.includes('ejemplo')||tl.includes('portafolio')||tl.includes('portfolio')||tl.includes('otros trabajos')||tl.includes('casos')||tl.includes('resultados de otros')){
-    return`Puedes ver los casos de éxito y ejemplos de trabajo del equipo en nuestro Instagram 👉 **[@mentedoras.marketing](https://www.instagram.com/mentedoras.marketing/)** 🚀 Ahí encontrarás contenido real creado por el equipo.`;
-  }
-  // SALUDOS
-  if(tl.includes('hola')||tl.includes('buenos')||tl.includes('buenas')||tl==='hi'||tl==='hey'||txt.length<6){
-    const h=new Date().getHours();
-    return`${h<13?'¡Buenos días':'¡Buenas'}, ${client.name}! 👋 Soy tu asistente de Mentedoras. ¿En qué puedo ayudarte hoy?`;
-  }
-  if(tl.includes('cómo estás')||tl.includes('como estas')||tl.includes('qué tal')||tl.includes('que tal')){
-    return`¡Muy bien, gracias! 😄 Aquí trabajando para que tu contenido sea increíble. ¿Y tú? ¿En qué puedo ayudarte?`;
-  }
-  if(tl.includes('gracias')||tl.includes('perfecto')||tl.includes('genial')||tl.includes('ok gracias')||tl.includes('entendido')){
-    return`¡De nada, ${client.name}! 😊 Para eso estamos. ¿Necesitas algo más?`;
-  }
-  if(tl.includes('adiós')||tl.includes('adios')||tl.includes('hasta luego')||tl.includes('bye')||tl.includes('chao')){
-    return`¡Hasta pronto, ${client.name}! 👋 Fue un placer. ¡Seguimos creando contenido increíble! ✨`;
-  }
-  // HABLAR CON EL EQUIPO
-  if(tl.includes('hablar con')||tl.includes('hablar contigo')||tl.includes('hablar con adri')||tl.includes('hablar con alan')||tl.includes('necesito hablar')||tl.includes('quiero hablar')){
-    return`Claro, puedes contactar directamente con el equipo por WhatsApp usando los botones que tienes aquí abajo en el Chat 👇 O si prefieres, solicita una reunión con el botón **"Agendar reunión"** desde la sección Inicio y te confirmarán la cita lo antes posible. 📅`;
-  }
-  // AGENDAR REUNIÓN
-  if(tl.includes('reunión')||tl.includes('reunion')||tl.includes('meeting')||tl.includes('llamada')||tl.includes('agendar')||tl.includes('quedar')){
-    return`¡Claro! Puedes solicitar una reunión directamente desde el botón **"Agendar reunión"** en la sección Inicio 📅 O dime la fecha y hora que te va mejor y le avisaré al equipo ahora mismo.`;
-  }
-  // GRABACIÓN - preguntar mes si hay varios
-  if(tl.includes('grab')||tl.includes('cuando grabo')||tl.includes('cuándo grabo')||tl.includes('sesión')||tl.includes('sesion')){
-    if(allMonthKeys.length>1&&!allMonthKeys.some(mk=>txt.toLowerCase().includes(monthLabel(mk).toLowerCase().split(' ')[0].toLowerCase()))){
-      return`📅 ¿De qué mes me hablas? Tengo datos de: **${allMonthKeys.map(m=>monthLabel(m)).join(', ')}**. Dime el mes y te digo la fecha exacta.`;
-    }
-    const next=reels.filter(r=>!r.grabado&&r.fechaGrab).sort((a,b)=>a.fechaGrab.localeCompare(b.fechaGrab))[0];
-    if(next){
-      const diff=Math.ceil((new Date(next.fechaGrab+'T12:00:00')-new Date())/864e5);
-      return`📅 Tu próxima grabación es el **${fmtDate(next.fechaGrab)}** (${next.label}) — ${diff<=0?'¡muy pronto!':diff===1?'¡mañana!':diff+' días'} 🎬${drive.pictures?`
+  // Meses con Mentedoras
+  const mesesJuntos=client.contractStart?Math.max(0,Math.round((now-new Date(client.contractStart+'T12:00:00'))/864e5/30)):0;
+  const totalPub=Object.values(client.reels||{}).flat().filter(r=>r.subido).length;
 
-📸 ¿Necesitas referencias o looks? [Ver carpeta de fotos](${drive.pictures})`:''}`;
-    }
-    const yaGrabados=reels.filter(r=>r.grabado).length;
-    if(yaGrabados===reels.length&&reels.length>0)return`✅ ¡Todos tus reels de este mes ya están grabados! Ahora están siendo editados. ✂️`;
-    return`No hay fecha de grabación confirmada aún. El equipo te lo confirmará en breve. También puedes solicitarla aquí mismo. 📅`;
+  // ── IDENTIDAD ──
+  if(/(quién eres|quien eres|qué eres|que eres|cómo te llamas|como te llamas|eres un robot|eres ia)/i.test(txt)){
+    return`Soy el asistente virtual de Mentedoras 🤖 Estoy aquí para resolver tus dudas sobre el contenido, fechas y contrato al instante. Para temas más personales, Adri y Alan están a un WhatsApp 😊`;
   }
-  // ENTREGA
-  if(tl.includes('entrega')||tl.includes('cuando me')||tl.includes('cuándo me')||tl.includes('listo')||tl.includes('lista')||tl.includes('terminado')||tl.includes('termina')){
-    const next=reels.filter(r=>r.grabado&&!r.subido&&r.fechaEdit).sort((a,b)=>a.fechaEdit.localeCompare(b.fechaEdit))[0];
-    if(next){
-      const diff=Math.ceil((new Date(next.fechaEdit+'T12:00:00')-new Date())/864e5);
-      return`🎬 La entrega del **${next.label}** está prevista para el **${fmtDate(next.fechaEdit)}** — ${diff<=0?'¡muy pronto!':diff===1?'mañana':diff+' días'}${drive.reelsEdit?`
 
-👀 Cuando esté listo lo verás aquí: [Ver reels editados](${drive.reelsEdit})`:''}`;
-    }
+  // ── CONFIDENCIAL ──
+  if(/(otros clientes|cuántos clientes|cuanto cobráis|precio de otros|herramienta|qué sistema|cuánto gana|cuantas personas trabajan)/i.test(txt)){
+    return`Eso es información interna que no puedo compartir 😊 ¿Puedo ayudarte con algo sobre tu proyecto?`;
+  }
+
+  // ── EJEMPLOS / PORTAFOLIO ──
+  if(/(ejemplo|portafolio|portfolio|trabajos|casos de éxito|casos de exito|resultados de otros)/i.test(txt)){
+    return`Puedes ver casos de éxito reales en nuestro Instagram 👉 **[@mentedoras.marketing](https://www.instagram.com/mentedoras.marketing/)** 🚀`;
+  }
+
+  // ── SALUDOS ──
+  if(/^(hola|buenas|buenos días|buenos dias|good morning|hi|hey|hello|ey|qué tal|que tal|cómo estás|como estas)[\s!?]*$/.test(tl)){
+    const greet=h<13?t('¡Buenos días','Good morning'):h<20?t('¡Buenas tardes','Good afternoon'):t('¡Buenas noches','Good evening');
     const sub=reels.filter(r=>r.subido).length;
-    if(sub===reels.length&&reels.length>0)return`🎉 ¡Todo tu contenido de este mes ya está entregado!${drive.reelsEdit?` [Ver reels](${drive.reelsEdit})`:''}`;
-    return`El equipo está trabajando en ello. Te avisaremos en cuanto esté listo.`;
+    const nextGrab=reels.filter(r=>!r.grabado&&r.fechaGrab).sort((a,b)=>a.fechaGrab.localeCompare(b.fechaGrab))[0];
+    let status='';
+    if(nextGrab){const diff=Math.ceil((new Date(nextGrab.fechaGrab+'T12:00:00')-now)/864e5);if(diff<=3&&diff>=0)status=` Tienes grabación ${diff===0?'hoy':diff===1?'mañana':'en '+diff+' días'} 📅`;}
+    else if(sub===reels.length&&reels.length>0)status=` ¡Todos los reels de este mes están publicados! 🎉`;
+    else if(reels.length>0)status=` Llevas ${sub}/${reels.length} reels publicados este mes.`;
+    return`${greet}! 👋${status} ¿En qué puedo ayudarte?`;
   }
-  // REELS / ESTADO - preguntar mes
-  if(tl.includes('reel')||tl.includes('vídeo')||tl.includes('video')||tl.includes('contenido')||tl.includes('cómo van')||tl.includes('como van')||tl.includes('estado')){
-    if(allMonthKeys.length>1&&!allMonthKeys.some(mk=>txt.toLowerCase().includes(monthLabel(mk).toLowerCase().split(' ')[0].toLowerCase()))){
-      return`🎬 ¿De qué mes quieres saber? Tengo datos de: **${allMonthKeys.map(m=>monthLabel(m)).join(', ')}**. Dime el mes y te doy todos los detalles.`;
-    }
-    const sub=reels.filter(r=>r.subido).length;
-    const ed=reels.filter(r=>r.editado&&!r.subido).length;
-    const gr=reels.filter(r=>r.grabado&&!r.editado).length;
-    const pe=reels.filter(r=>!r.grabado).length;
-    let resp=`📊 **Resumen de ${monthLabel(mk)}:**
-✅ ${sub}/${reels.length} publicados
-✂️ ${ed} en edición
-🎬 ${gr} grabados
-⏳ ${pe} pendientes`;
-    if(drive.reelsEdit)resp+=`
 
-👀 [Ver reels editados](${drive.reelsEdit})`;
+  // ── HITOS Y CELEBRACIONES ──
+  if(mesesJuntos>0&&(tl.includes('cuánto llevamos')||tl.includes('cuanto llevamos')||tl.includes('tiempo juntos'))){
+    let resp=`¡Llevamos **${mesesJuntos} ${mesesJuntos===1?'mes':'meses'}** juntos! 🎉`;
+    if(totalPub>0)resp+=` Y hemos publicado **${totalPub} reels** en total.`;
+    if(mesesJuntos===3||mesesJuntos===6||mesesJuntos===12)resp+=` ¡${mesesJuntos===12?'Un año':'Qué pasada'} trabajando juntos! 🚀`;
     return resp;
   }
-  // MES ESPECÍFICO
-  // Fuzzy month matching - find month by name alone, no year needed
-  const monthNamesES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-  const mentionedMonth=allMonthKeys.find(mk=>{
-    const[y,m]=mk.split('-');
-    const mName=monthNamesES[parseInt(m)-1];
-    return tl.includes(mName);
-  });
-  if(mentionedMonth){
-    const mr=client.reels[mentionedMonth]||[];
-    const sub=mr.filter(r=>r.subido).length;const ed=mr.filter(r=>r.editado&&!r.subido).length;const gr=mr.filter(r=>r.grabado&&!r.editado).length;const pe=mr.filter(r=>!r.grabado).length;
-    return`📊 **${monthLabel(mentionedMonth)}:**
-✅ ${sub}/${mr.length} publicados
-✂️ ${ed} en edición
-🎬 ${gr} grabados
-⏳ ${pe} pendientes${drive.reelsEdit?`
+  if(totalPub>=10&&(tl.includes('cuántos reels')||tl.includes('cuantos reels')||tl.includes('total de reels'))){
+    return`¡Llevamos **${totalPub} reels** publicados juntos desde que empezamos! 🎬🚀`;
+  }
 
-[Ver reels](${drive.reelsEdit})`:''}`;
+  // ── GRABACIÓN ──
+  if(/(cuándo grabo|cuando grabo|fecha.*grab|grab.*fecha|próxima.*grab|proxima.*grab|sesión|sesion|cuándo es|cuando es)/i.test(txt)){
+    const next=contextReels.filter(r=>!r.grabado&&r.fechaGrab).sort((a,b)=>a.fechaGrab.localeCompare(b.fechaGrab))[0];
+    if(next){
+      const diff=Math.ceil((new Date(next.fechaGrab+'T12:00:00')-now)/864e5);
+      const cuando=diff<0?t('fue hace ','was ')+Math.abs(diff)+t(' días',' days ago'):diff===0?t('¡es hoy!','is today!'):diff===1?t('¡es mañana!','is tomorrow!'):t('es en ','is in ')+diff+t(' días',' days');
+      return`📅 Tu próxima grabación ${cuando} — **${fmtDate(next.fechaGrab)}** (${next.label})${drive.pictures?`\n\n📸 [Ver fotos y referencias](${drive.pictures})`:''}`;
+    }
+    const yaGrab=contextReels.filter(r=>r.grabado).length;
+    if(yaGrab===contextReels.length&&contextReels.length>0)return`✅ ¡Todo el contenido de ${contextLabel} ya está grabado! Ahora en edición ✂️`;
+    return`No hay fecha de grabación confirmada aún para ${contextLabel}. El equipo te lo confirmará pronto 📅`;
   }
-  // VER / DRIVE
-  if(tl.includes('ver')||tl.includes('enlace')||tl.includes('link')||tl.includes('drive')||tl.includes('carpeta')){
-    if(tl.includes('guion')||tl.includes('script'))return drive.scripts?`📝 [Ver mis guiones](${drive.scripts})`:`Los guiones se comparten antes de cada grabación.`;
-    if(tl.includes('foto'))return drive.pictures?`📸 [Ver mis fotos](${drive.pictures})`:`No hay carpeta de fotos configurada aún.`;
-    if(drive.reelsEdit)return`✂️ [Ver reels editados](${drive.reelsEdit})${client.driveMain?`
-📁 [Ver carpeta completa](${client.driveMain})`:''}`;
-    if(client.driveMain)return`📁 [Ver mi carpeta completa](${client.driveMain})`;
-    return`No tenemos los links de Drive configurados aún. Escríbele al equipo y lo añaden.`;
+
+  // ── ENTREGA ──
+  if(/(entrega|cuándo.*listo|cuando.*listo|cuándo me|cuando me|terminado|termina|ready)/i.test(txt)){
+    const next=contextReels.filter(r=>r.grabado&&!r.subido&&r.fechaEdit).sort((a,b)=>a.fechaEdit.localeCompare(b.fechaEdit))[0];
+    if(next){
+      const diff=Math.ceil((new Date(next.fechaEdit+'T12:00:00')-now)/864e5);
+      const cuando=diff<0?'venció hace '+Math.abs(diff)+' días':diff===0?'¡hoy!':diff===1?'mañana':'en '+diff+' días';
+      return`🎬 **${next.label}** tiene entrega prevista para el **${fmtDate(next.fechaEdit)}** — ${cuando}${drive.reelsEdit?`\n\n👀 [Ver reels editados](${drive.reelsEdit})`:''}`;
+    }
+    const sub2=contextReels.filter(r=>r.subido).length;
+    if(sub2===contextReels.length&&contextReels.length>0)return`🎉 ¡Todo el contenido de ${contextLabel} está entregado y publicado!`;
+    return`El equipo está trabajando en ello. En cuanto esté listo te avisamos 📤`;
   }
-  // EDITOR
-  if(tl.includes('editor')||tl.includes('quién edita')||tl.includes('quien edita')){
-    if(client.editors?.length)return`✂️ Tu${client.editors.length>1?'s editors son':'editor es'} **${client.editors.join(' y ')}**. Son quienes dan vida a tu contenido 🎬`;
-    return`El editor será asignado próximamente.`;
+
+  // ── ESTADO REELS ──
+  if(/(cómo van|como van|estado|mis reels|qué tal van|que tal van|cuántos|cuantos.*reel|reel.*cuántos)/i.test(txt)){
+    const sub=contextReels.filter(r=>r.subido).length;
+    const ed=contextReels.filter(r=>r.editado&&!r.subido).length;
+    const gr=contextReels.filter(r=>r.grabado&&!r.editado).length;
+    const pe=contextReels.filter(r=>!r.grabado).length;
+    if(!contextReels.length)return`No tengo datos de reels para ${contextLabel} aún.`;
+    let resp=`📊 **${contextLabel}:** ${sub}/${contextReels.length} publicados`;
+    if(ed)resp+=` · ${ed} en edición`;
+    if(gr)resp+=` · ${gr} grabados`;
+    if(pe)resp+=` · ${pe} pendientes`;
+    if(sub===contextReels.length)resp+=` 🎉 ¡Todo publicado!`;
+    if(drive.reelsEdit)resp+=`\n\n👀 [Ver reels](${drive.reelsEdit})`;
+    return resp;
   }
-  // CONTRATO
-  if(tl.includes('contrato')||tl.includes('meses')||tl.includes('queda')||tl.includes('vence')||tl.includes('cuánto tiempo')||tl.includes('cuanto tiempo')){
+
+  // ── REEL ESPECÍFICO POR NÚMERO ──
+  const reelNumMatch=txt.match(/reel[^\d]*(\d+|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)/i);
+  if(reelNumMatch){
+    const nums={'uno':1,'dos':2,'tres':3,'cuatro':4,'cinco':5,'seis':6,'siete':7,'ocho':8,'nueve':9,'diez':10};
+    const n=parseInt(reelNumMatch[1])||nums[reelNumMatch[1].toLowerCase()]||1;
+    const r=contextReels.find(r=>r.id===n||r.label==='Reel '+n);
+    if(r){
+      let estado=r.subido?'✅ Publicado':r.editado?'👁 En revisión':r.grabado?'✂️ Editándose':'⏳ Pendiente';
+      return`**${r.label}** (${contextLabel}): ${estado}${r.fechaEdit&&!r.subido?'\n📅 Entrega: '+fmtDate(r.fechaEdit):''}`;
+    }
+    return`No encuentro el Reel ${n} en ${contextLabel}.`;
+  }
+
+  // ── DRIVE / VER CONTENIDO ──
+  if(/(ver|enlace|link|drive|carpeta|acceso)/i.test(txt)){
+    if(/(guion|script|guión)/i.test(txt))return drive.scripts?`📝 [Ver mis guiones](${drive.scripts})`:`Los guiones se comparten antes de cada grabación.`;
+    if(/(foto|referencia|look|imagen)/i.test(txt))return drive.pictures?`📸 [Ver fotos y referencias](${drive.pictures})`:`No hay carpeta de fotos configurada aún.`;
+    if(/(historia|stories)/i.test(txt))return drive.historias?`📱 [Ver mis historias](${drive.historias})`:`No hay carpeta de historias configurada aún.`;
+    if(drive.reelsEdit||client.driveMain){
+      let resp='';
+      if(drive.reelsEdit)resp+=`✂️ [Reels editados](${drive.reelsEdit})\n`;
+      if(drive.scripts)resp+=`📝 [Guiones](${drive.scripts})\n`;
+      if(client.driveMain)resp+=`📁 [Carpeta principal](${client.driveMain})`;
+      return resp.trim()||`No hay carpetas configuradas aún.`;
+    }
+    return`No hay carpetas de Drive configuradas aún. Escríbele al equipo para que lo añadan.`;
+  }
+
+  // ── MODIFICACIONES ──
+  if(/(cambio|modificar|modificación|modificacion|no me gusta|corregir|corrección|correccion|ajuste|retoque)/i.test(txt)){
+    if(isUrgent)notifyTeam(`⚡ URGENTE — ${client.name} necesita una modificación: "${txt}"`);
+    return`Claro, puedes solicitar cambios desde la sección **Modificaciones** del portal 📝 O dime aquí qué quieres cambiar y lo anoto para el equipo ahora mismo.`;
+  }
+
+  // ── CONTRATO ──
+  if(/(contrato|cuánto.*queda|cuanto.*queda|vence|vencimiento|cuándo termina|cuando termina|meses.*quedan|renovar)/i.test(txt)){
     if(client.contractEnd){
-      const diff=Math.max(0,Math.ceil((new Date(client.contractEnd+'T12:00:00')-new Date())/864e5/30));
-      const total=client.price?client.price*diff:0;
-      let resp=`📄 **Tu contrato:**
-`;
-      if(client.contractStart)resp+=`📅 Inicio: **${fmtDate(client.contractStart)}**
-`;
-      resp+=`📅 Fin: **${fmtDate(client.contractEnd)}**
-`;
-      resp+=`⏳ Te quedan **${diff} mes${diff!==1?'es':''}**
-`;
-      if(client.price)resp+=`💰 Mensualidad: **${client.price}€**
-`;
-      if(total)resp+=`💳 Total restante: **${total.toLocaleString('es')}€**`;
-      const svcs=(client.services||[]).map(id=>SERVICES.find(s=>s.id===id)?.label).filter(Boolean);
-      if(svcs.length)resp+='\n\n📋 Servicios:\n'+svcs.map(s=>'• '+s).join('\n');
-      if(svcs.length)resp+=(client.contractNotes?'\n\n📝 Detalle: '+client.contractNotes:'');
+      const diff=Math.max(0,Math.ceil((new Date(client.contractEnd+'T12:00:00')-now)/864e5/30));
+      const vencido=diff===0;
+      let resp=`📄 **Tu contrato:**`;
+      if(client.contractStart)resp+=`\n📅 Inicio: ${fmtDate(client.contractStart)}`;
+      resp+=`\n📅 Fin: ${fmtDate(client.contractEnd)}`;
+      if(vencido)resp+=`\n⚠️ Tu contrato ha vencido. Contacta con el equipo para renovar.`;
+      else resp+=`\n⏳ Te quedan **${diff} ${diff===1?'mes':'meses'}**`;
+      if(mesesJuntos>0)resp+=`\n🤝 Lleváis **${mesesJuntos} ${mesesJuntos===1?'mes':'meses'}** juntos`;
       return resp;
     }
     return`No tengo datos de tu contrato. Contacta con Adri o Alan para más info.`;
   }
-  // FACTURA / PAGO
-  if(tl.includes('factura')||tl.includes('pago')||tl.includes('pagado')||tl.includes('precio')||tl.includes('cuánto cuesta')||tl.includes('cuanto cuesta')){
-    if(client.price)return`💰 Tu mensualidad es **${client.price}€**. Para ver el estado exacto de tu pago, revisa la sección **Contrato** de tu portal.`;
+
+  // ── PAGO / FACTURA ──
+  if(/(factura|pago|pagado|precio|cuánto cuesta|cuanto cuesta|cobro|mensualidad)/i.test(txt)){
+    if(client.price)return`💰 Tu mensualidad es **${client.price}€**. Para el estado de tus pagos, revisa la sección **Contrato** de tu portal.`;
     return`Para información sobre pagos, contacta con Adri o Alan directamente.`;
   }
-  // MODIFICACIONES / CAMBIOS
-  if(tl.includes('cambio')||tl.includes('modificar')||tl.includes('no me gusta')||tl.includes('corregir')||tl.includes('corrección')||tl.includes('modificación')){
-    return`¡Sin problema! Puedes solicitar cambios desde la sección **Modificaciones** de tu portal 📝 Describe qué quieres cambiar y el equipo lo gestiona lo antes posible. También puedes escribirlo aquí y lo anoto para el equipo.`;
-  }
-  // PAUSAR / CANCELAR
-  if(tl.includes('pausar')||tl.includes('parar')||tl.includes('cancelar')||tl.includes('darme de baja')){
-    notifyTeam(`⚠️ ${client.name} pregunta sobre pausar/cancelar el servicio`);
-    return`Entiendo. Para gestionar cualquier cambio en tu contrato necesitas hablar directamente con Adri o Alan, ya que es una decisión importante 💼 Les acabo de avisar para que se pongan en contacto contigo lo antes posible.`;
-  }
-  // MÁS REELS / AMPLIAR
-  if(tl.includes('más reels')||tl.includes('mas reels')||tl.includes('ampliar')||tl.includes('añadir más')||tl.includes('aumentar')){
-    notifyTeam(`💡 ${client.name} pregunta por ampliar el número de reels`);
-    return`¡Qué buena noticia que quieras más contenido! 🚀 Le avisaré a Adri y Alan ahora mismo para que os contacten y valoréis las opciones. También puedes escribirles directamente por WhatsApp.`;
-  }
-  // EMPEZAR / NUEVO CLIENTE
-  if(tl.includes('cuándo empezamos')||tl.includes('cuando empezamos')||tl.includes('próximos pasos')||tl.includes('proximos pasos')){
-    if(client.contractStart){
-      return`📅 Empezasteis el **${fmtDate(client.contractStart)}**. Las primeras dos semanas las usamos para el análisis de competencia y estrategia, y a partir de ahí empieza la producción de contenido. ¿Tienes alguna duda sobre el proceso?`;
-    }
-    return`Los primeros pasos son: firma del contrato → 2 semanas de análisis y estrategia → primera sesión de grabación. El equipo te guiará en cada paso. ¿Tienes alguna pregunta específica?`;
-  }
-  // TIKTOK
-  if(tl.includes('tiktok')||tl.includes('tik tok')){
-    if(client.tiktokUrl)return`🎵 Tu perfil de TikTok: [${client.tiktokUrl}](${client.tiktokUrl})
 
-El estado de tu contenido de TikTok lo puedes ver en la sección **Reels** de tu portal.`;
-    return`Para gestionar TikTok como canal adicional, habla con Adri o Alan sobre incluirlo en tu contrato. 🎵`;
+  // ── HABLAR CON EL EQUIPO ──
+  if(/(hablar con|hablar contigo|necesito hablar|quiero hablar|hablar.*adri|hablar.*alan|llamar|reunión|reunion|meeting|agendar)/i.test(txt)){
+    return`Puedes contactar directamente por WhatsApp con los botones de abajo 👇 O solicita una reunión desde el botón **"Agendar reunión"** en Inicio y te confirman lo antes posible 📅`;
   }
-  // INSTAGRAM
-  if(tl.includes('instagram')||tl.includes('ig')||tl.includes('insta')){
-    if(client.igUrl)return`📸 Tu perfil de Instagram: [Ver perfil](${client.igUrl})
 
-El estado de tus reels lo puedes ver en la sección **Reels**.`;
-    return`Puedes ver el estado de tus reels de Instagram en la sección **Reels** de tu portal. ¿Necesitas algo más?`;
+  // ── PAUSAR / CANCELAR ──
+  if(/(pausar|parar|cancelar|darme de baja|baja del servicio)/i.test(txt)){
+    notifyTeam(`⚠️ ${client.name} está preguntando por pausar o cancelar el servicio`);
+    return`Para gestionar cambios en tu contrato necesitas hablar con Adri o Alan directamente 💼 Les acabo de avisar para que se pongan en contacto contigo.`;
   }
-  // ESTRATEGIA
-  if(tl.includes('estrategia')||tl.includes('cómo va')||tl.includes('como va')||tl.includes('resultados')||tl.includes('crecimiento')){
-    const g=client.growth||{};
+
+  // ── AMPLIAR / MÁS REELS ──
+  if(/(más reels|mas reels|ampliar|añadir más|aumentar|más contenido|mas contenido)/i.test(txt)){
+    notifyTeam(`💡 ${client.name} está interesado en ampliar el servicio`);
+    return`¡Qué buenas noticias que quieras más contenido! 🚀 He avisado a Adri y Alan para que os contacten con las opciones disponibles.`;
+  }
+
+  // ── PRIMEROS PASOS / NUEVO ──
+  if(/(cuándo empezamos|cuando empezamos|próximos pasos|proximos pasos|cómo funciona|como funciona|qué hacéis|que haceis)/i.test(txt)){
+    return`🎬 **El proceso con Mentedoras:**\n1️⃣ Análisis de tu nicho y competencia\n2️⃣ Guionización de tu contenido\n3️⃣ Tú apruebas los guiones\n4️⃣ Sesión de grabación\n5️⃣ Edición profesional\n6️⃣ Publicación en tus redes\n\nPuedes ver en qué paso estás en la sección **Reels** 👀`;
+  }
+
+  // ── INSTAGRAM / TIKTOK ──
+  if(/(instagram|ig|insta)\b/i.test(txt)){
+    if(client.igUrl)return`📸 Tu perfil: [Ver en Instagram](${client.igUrl})\n\nEstado de tus reels en la sección **Reels**.`;
+    return`Puedes ver el estado de tus reels en la sección **Reels** del portal.`;
+  }
+  if(/(tiktok|tik tok)\b/i.test(txt)){
+    if(client.tiktokUrl)return`🎵 Tu perfil: [Ver en TikTok](${client.tiktokUrl})`;
+    return`Para añadir TikTok a tu servicio, habla con Adri o Alan 🎵`;
+  }
+
+  // ── ESTRATEGIA / CRECIMIENTO ──
+  if(/(estrategia|crecimiento|resultado|seguidores|visitas|alcance|estadísticas|estadisticas)/i.test(txt)){
     if(g.igNow&&g.igStart){
       const pct=Math.round(((g.igNow-g.igStart)/g.igStart)*100);
-      return`📈 **Tu crecimiento con Mentedoras:**
-👥 Seguidores: ${g.igStart.toLocaleString('es')} → **${g.igNow.toLocaleString('es')}** (+${pct}%)
-${g.avgViews?`👁 Media visitas/reel: **${g.avgViews.toLocaleString('es')}**
-`:''}${g.bestReel?`🔥 Mejor reel: ${g.bestReel}
-`:''}
-Puedes ver todos los detalles en la sección **Crecimiento** de tu portal 📊`;
+      let resp=`📈 **Tu crecimiento con Mentedoras:**\n👥 ${g.igStart.toLocaleString('es')} → **${g.igNow.toLocaleString('es')}** seguidores (+${pct}%)`;
+      if(g.viewsNow&&g.viewsBefore)resp+=`\n👁 Visitas/reel: ${g.viewsBefore.toLocaleString('es')} → **${g.viewsNow.toLocaleString('es')}** (+${Math.round(((g.viewsNow-g.viewsBefore)/g.viewsBefore)*100)}%)`;
+      resp+=`\n\nVer todo en la sección **Crecimiento** 📊`;
+      return resp;
     }
-    return`Puedes ver tus estadísticas de crecimiento en la sección **Crecimiento** de tu portal 📊 El equipo las actualiza regularmente.`;
+    return`Las estadísticas de crecimiento las encontrarás en la sección **Crecimiento** del portal 📊 El equipo las actualiza regularmente.`;
   }
-  // GUIONES
-  if(tl.includes('guion')||tl.includes('guión')||tl.includes('script')){
-    return drive.scripts?`📝 Aquí tienes tus guiones: [Ver guiones](${drive.scripts})
 
-Si quieres hacer cambios antes de grabar, dímelo aquí o usa el apartado de Modificaciones.`:`Tus guiones se preparan antes de cada grabación y te los compartimos para revisión. ¿Tienes alguna duda sobre el contenido?`;
-  }
-  // SERVICIOS
-  if(tl.includes('servicio')||tl.includes('incluye')||tl.includes('qué hace')||tl.includes('que hace')||tl.includes('qué estáis')){
+  // ── SERVICIOS ──
+  if(/(servicio|incluye|qué tiene|que tiene|contratado)/i.test(txt)){
     const svcs=(client.services||[]).map(id=>SERVICES.find(s=>s.id===id)?.label).filter(Boolean);
-    if(svcs.length)return '📋 Tus servicios contratados:\n'+svcs.map(s=>'• '+s).join('\n')+(client.contractNotes?'\n\n📝 Además: '+client.contractNotes:'');
-    return`Para ver los detalles de tu contrato, revisa la sección **Contrato** de tu portal.`;
+    if(svcs.length)return`📋 **Tus servicios:**\n${svcs.map(s=>'• '+s).join('\n')}${client.contractNotes?'\n\n📝 '+client.contractNotes:''}`;
+    return`Para ver tus servicios contratados, revisa la sección **Contrato** del portal.`;
   }
-  // PROCESO
-  if(tl.includes('proceso')||tl.includes('cómo funciona')||tl.includes('como funciona')||tl.includes('cómo trabajáis')){
-    return`🎬 **Así funciona el proceso:**
-1️⃣ Análisis de tu competencia y nicho
-2️⃣ Guionización de tus reels
-3️⃣ Tú apruebas los guiones
-4️⃣ Sesión de grabación
-5️⃣ Edición del contenido
-6️⃣ Revisión y modificaciones si las hay
-7️⃣ Publicación en tus redes
 
-Puedes ver en qué paso está tu contenido en la sección **Reels** 👀`;
+  // ── IDEAS DEL MES ──
+  if(/(idea|contenido.*mes|mes.*contenido|qué grabar|que grabar|tema)/i.test(txt)){
+    return`¡Me encanta que tengas ideas! 💡 Puedes dejarlas en la sección **Ideas** del portal para que el equipo las vea y las tenga en cuenta para el próximo mes.`;
   }
-  // NO SABE → tarjeta automática
-  notifyTeam(`${client.name} pregunta: "${txt}"`);
-  return`Esa pregunta me la anoto para consultarla con el equipo 📝 Le avisaré a Adri y Alan ahora mismo y te responderán lo antes posible. También puedes contactarles por WhatsApp si es urgente. 👋`;
+
+  // ── FRUSTRACIÓN ──
+  if(isFrustrated){
+    notifyTeam(`⚠️ ${client.name} parece insatisfecho: "${txt}"`);
+    return`Entiendo tu frustración y lo siento 😔 He avisado al equipo ahora mismo para que se pongan en contacto contigo y lo resuelvan lo antes posible. También puedes escribirles por WhatsApp directamente.`;
+  }
+
+  // ── URGENTE ──
+  if(isUrgent){
+    notifyTeam(`⚡ URGENTE — ${client.name}: "${txt}"`);
+    return`He marcado tu mensaje como urgente y he avisado al equipo ahora mismo ⚡ Te contactarán lo antes posible. Para máxima urgencia, escríbeles directamente por WhatsApp 👇`;
+  }
+
+  // ── EMOJIS SOLOS ──
+  if(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}👍👎❤️😊😄🎉🙏✅]+$/u.test(txt.trim())){
+    if(/👍|✅|🙏|😊|❤️|🎉/.test(txt))return`¡Perfecto! 😊 ¿Hay algo más en lo que pueda ayudarte?`;
+    if(/👎|😔|😢|😠/.test(txt)){notifyTeam(`${client.name} dejó un emoji negativo en el chat`);return`Lo siento, veo que algo no está bien 😔 ¿Me cuentas qué ha pasado para que pueda ayudarte o avisar al equipo?`;}
+    return`¡Recibido! 👍 ¿En qué puedo ayudarte?`;
+  }
+
+  // ── GRACIAS / DESPEDIDA ──
+  if(/^(gracias|thank|perfecto|genial|ok gracias|entendido|de acuerdo|vale gracias|guay|chévere|chevere)[\s!.]*$/i.test(tl)){
+    return`¡De nada! 😊 ¿Necesitas algo más?`;
+  }
+  if(/^(adiós|adios|hasta luego|bye|chao|nos vemos|hasta pronto)[\s!.]*$/i.test(tl)){
+    return`¡Hasta pronto! 👋 Ha sido un placer. Aquí estaré cuando lo necesites.`;
+  }
+
+  // ── NO SABE → tarjeta al equipo con contexto ──
+  const lastMsgs=chatMsgs.slice(-3).map(m=>m.from==='client'?`Cliente: ${m.text}`:`Bot: ${m.text}`).join('\n');
+  notifyTeam(`❓ ${client.name} pregunta: "${txt}"\n\nContexto reciente:\n${lastMsgs}`);
+  return`No tengo esa información pero le acabo de avisar al equipo para que te respondan 📩 También puedes escribirles por WhatsApp si es urgente 👇`;
 }
 async function notifyTeam(title){
   if(!db)return;

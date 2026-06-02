@@ -559,7 +559,7 @@ const SERVICES=[
 
 const FASE0_ITEMS=['Contactado','Respuesta del cliente de querer comenzar','Pedir datos contrato','Enviar contrato','Firmar contrato','Crear grupo WhatsApp','Mensaje bienvenida + Forms','Enviar factura','Factura pagada','Forms rellenado','Preparar guiones 1er mes','Agendar onboarding','Asignar editor','Agendar 1ª grabación'];
 
-const PROD_STEPS=['Guionización de reels','Guiones enseñados al cliente','OK del cliente a los guiones','Grabación agendada','Grabación realizada','Edición completada','OK a modificaciones','Subida a redes'];
+const PROD_STEPS=['Guionización de reels','Guión aprobado por cliente','Grabación agendada','Grabación realizada','Edición completada','OK a modificaciones','Subida a redes'];
 
 const LABELS=[{n:'Urgente',c:'#EF4444',bg:'rgba(239,68,68,.15)'},{n:'Importante',c:'#F59E0B',bg:'rgba(245,158,11,.15)'},{n:'Reel',c:'#00E5E5',bg:'rgba(0,229,229,.15)'},{n:'Guion',c:'#C084FC',bg:'rgba(192,132,252,.15)'},{n:'Edición',c:'#4ADE80',bg:'rgba(74,222,128,.15)'}];
 
@@ -570,11 +570,11 @@ let USERS={
   adri:{pass:'mentedoras2024',name:'Adri',role:'CEO',level:'ceo'},
   alan:{pass:'mentedoras2024',name:'Alan',role:'CEO',level:'ceo'},
   yumara:{pass:'yumara2024',name:'Yumara',role:'PM',level:'pm'},
-  laura:{pass:'equipo2024',name:'Laura',role:'CM',level:'cm'},
+  laura:{pass:'laura2024',name:'Laura',role:'CM',level:'cm'},
   dani:{pass:'equipo2024',name:'Dani',role:'Editor',level:'editor'},
   darwin:{pass:'equipo2024',name:'Darwin',role:'Editor',level:'editor'},
-  dante:{pass:'equipo2024',name:'Dante',role:'Editor',level:'editor'},
-  oscar:{pass:'equipo2024',name:'Oscar',role:'Editor',level:'editor'},
+  dante:{pass:'dante2025',name:'Dante',role:'Editor',level:'editor'},
+  oscar:{pass:'oscar2025',name:'Oscar',role:'Editor',level:'editor'},
 };
 
 function mkReels(n,month){
@@ -886,7 +886,16 @@ function renderDash(){
   }
 
   html+=`<div class="sg">
-    <div class="scard"><div class="scard-ic"><i class="ti ti-users"></i></div><div class="scard-v">${mc.length}</div><div class="scard-l">Clientes activos</div></div>
+    <div class="scard" onclick="toggleClientBreakdown()" style="cursor:pointer">
+      <div class="scard-ic"><i class="ti ti-users"></i></div>
+      <div class="scard-v">${mc.length}</div>
+      <div class="scard-l">Clientes activos</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">
+        <span style="font-size:10px;padding:2px 6px;border-radius:20px;background:rgba(34,197,94,.15);color:#4ADE80">💰 ${mc.filter(c=>c.clientType==='pago'||!c.clientType).length}</span>
+        <span style="font-size:10px;padding:2px 6px;border-radius:20px;background:rgba(0,229,229,.12);color:var(--c)">🤝 ${mc.filter(c=>c.clientType==='intercambio').length}</span>
+        <span style="font-size:10px;padding:2px 6px;border-radius:20px;background:rgba(239,68,68,.12);color:var(--err)">📉 ${mc.filter(c=>c.clientType==='perdida').length}</span>
+      </div>
+    </div>
     <div class="scard"><div class="scard-ic"><i class="ti ti-alarm" style="color:var(--err)"></i></div><div class="scard-v" style="color:var(--err)">${overdue}</div><div class="scard-l">Entregas vencidas</div></div>
     <div class="scard"><div class="scard-ic"><i class="ti ti-cut"></i></div><div class="scard-v">${editing}</div><div class="scard-l">Reels en edición</div></div>
     <div class="scard"><div class="scard-ic"><i class="ti ti-video"></i></div><div class="scard-v">${totalGrab}/${totalReels}</div><div class="scard-l">Grabados este mes</div></div>
@@ -924,6 +933,25 @@ function renderClientCards(mc,mk){
     }).join('');
 }
 
+function toggleClientBreakdown(){
+  const existing=document.getElementById('client-breakdown');
+  if(existing){existing.remove();return;}
+  const mc=myClients();
+  const pago=mc.filter(c=>c.clientType==='pago'||!c.clientType);
+  const intercambio=mc.filter(c=>c.clientType==='intercambio');
+  const perdida=mc.filter(c=>c.clientType==='perdida');
+  const el=document.createElement('div');
+  el.id='client-breakdown';
+  el.style.cssText='background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--rl);padding:16px;margin-bottom:14px';
+  el.innerHTML=`<div style="font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Desglose de clientes</div>
+    ${[{label:'💰 Pago',list:pago,color:'#4ADE80'},{label:'🤝 Intercambio',list:intercambio,color:'var(--c)'},{label:'📉 Pérdida',list:perdida,color:'var(--err)'}].map(({label,list,color})=>`
+    <div style="margin-bottom:10px">
+      <div style="font-size:12px;font-weight:600;color:${color};margin-bottom:4px">${label} (${list.length})</div>
+      ${list.length?`<div style="display:flex;flex-wrap:wrap;gap:6px">${list.map(c=>`<span onclick="openProfile('${c.id}')" style="font-size:12px;padding:4px 10px;border-radius:20px;background:var(--bg3);border:1px solid var(--bd);cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='var(--bd)'">${c.name}</span>`).join('')}</div>`:`<span style="font-size:11px;color:var(--tx3)">Ninguno</span>`}
+    </div>`).join('')}`;
+  const sg=document.querySelector('.sg');
+  if(sg)sg.insertAdjacentElement('afterend',el);
+}
 function filterDashClients(q){
   const mk=monthKey();
   const mc=myClients().filter(c=>c.name.toLowerCase().includes(q.toLowerCase())||c.type.toLowerCase().includes(q.toLowerCase()));
@@ -1319,7 +1347,7 @@ function renderCal(){
   for(let d=1;d<=last.getDate();d++){
     const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isT=ds===today();
-    const evs=calEvents.filter(e=>e.date===ds);
+    const evs=[...calEvents.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.cards||[]).filter(card=>card.date===ds).map(card=>({title:"📋 "+card.title,type:"task",date:ds}))];
     grid+=`<div class="cal-day${isT?' today':''}" onclick="openModal('event','',null,'${ds}')">
       <div class="cal-dn">${d}</div>
       ${evs.map(e=>`<div class="cal-ev ${e.type}" title="${e.title}">${e.title}</div>`).join('')}
@@ -1628,6 +1656,14 @@ function renderProfile(c){
             <div class="pf"><span class="pf-l">CM</span><span class="pf-v">${c.cm||'No incluye CM'}</span></div>
             <div class="pf"><span class="pf-l">Reels/mes</span><span class="pf-v">${c.numReels}</span></div>
             <div class="pf" style="align-items:center">
+              <span class="pf-l">Tipo de cliente</span>
+              <select style="font-size:12px;padding:4px 8px;width:auto" onchange="updateClientField('${c.id}','clientType',this.value);saveClients();showToast('Tipo actualizado ✓','ok')">
+                <option value="pago" ${(c.clientType||'pago')==='pago'?'selected':''}>💰 Pago</option>
+                <option value="intercambio" ${c.clientType==='intercambio'?'selected':''}>🤝 Intercambio</option>
+                <option value="perdida" ${c.clientType==='perdida'?'selected':''}>📉 Pérdida (Mentedoras)</option>
+              </select>
+            </div>
+            <div class="pf" style="align-items:center">
               <span class="pf-l">Mostrar CM al cliente</span>
               <div onclick="toggleClientCM('${c.id}')" style="width:40px;height:22px;border-radius:20px;background:${c.showCM?'var(--c)':'var(--bg4)'};cursor:pointer;position:relative;transition:background .2s;flex-shrink:0">
                 <div style="width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:3px;${c.showCM?'right:3px':'left:3px'};transition:all .2s"></div>
@@ -1648,10 +1684,10 @@ function renderProfile(c){
                 ${editorNames.map(e=>`<div onclick="toggleEditor('${c.id}','${e}')" style="padding:5px 12px;border-radius:20px;border:1px solid ${(c.editors||[]).includes(e)?'var(--c)':'var(--bd2)'};background:${(c.editors||[]).includes(e)?'var(--cdim)':'transparent'};color:${(c.editors||[]).includes(e)?'var(--c)':'var(--tx3)'};font-size:12px;cursor:pointer;transition:all .15s">${e}</div>`).join('')}
               </div>
             </div>
-            ${(Array.isArray(c.services)?c.services:[]).includes('content_8_cm')||c.cm?`<div>
+            <div>
               <div style="font-size:11px;color:var(--tx3);margin-bottom:6px">CM</div>
-              <input type="text" value="${c.cm||''}" placeholder="Nombre del CM (dejar vacío si no tiene)" style="font-size:12px;padding:6px 10px" onchange="updateClientField('${c.id}','cm',this.value);saveClients();renderProfile(clients.find(c=>c.id==='${c.id}'))">
-            </div>`:`<div style="font-size:12px;color:var(--tx3)">Sin CM asignado</div>`}
+              <input type="text" value="${c.cm||''}" placeholder="Nombre del CM (dejar vacío si no tiene)" style="font-size:12px;padding:6px 10px" onchange="updateClientField('${c.id}','cm',this.value);saveClients();showToast('CM actualizado ✓','ok')">
+            </div>
           </div>
         </div>
           <div class="card" style="margin-top:14px">
@@ -1750,9 +1786,12 @@ function renderProfile(c){
         <div style="margin-bottom:10px;padding:8px 12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--r)">
           <div style="font-size:11px;color:var(--warn)"><i class="ti ti-alert-triangle"></i> Información confidencial</div>
         </div>
-        ${(c.credentials||[{platform:'Instagram',user:'',pass:'',notes:''}]).map((cr,i)=>`<div style="background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:12px;margin-bottom:10px">
+        ${(c.credentials||[]).length===0?`<div style="text-align:center;padding:20px;color:var(--tx3);font-size:13px">Sin credenciales. Haz clic en "Añadir" para añadir una.</div>`:''}
+        ${(c.credentials||[]).map((cr,i)=>`<div style="background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:12px;margin-bottom:10px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <span style="font-size:13px;font-weight:600">${cr.platform}</span>
+            <select style="font-size:13px;font-weight:600;background:transparent;border:none;color:var(--tx);padding:0;font-family:'DM Sans',sans-serif" onchange="updateCred('${c.id}',${i},'platform',this.value)">
+              ${['Instagram','TikTok','YouTube','LinkedIn','Twitter/X','Facebook','Email','Otros'].map(p=>`<option ${cr.platform===p?'selected':''}>${p}</option>`).join('')}
+            </select>
             <button class="btn btn-s btn-danger" onclick="delCred('${c.id}',${i})"><i class="ti ti-trash"></i></button>
           </div>
           <div class="fg2" style="margin-bottom:8px">
@@ -1815,6 +1854,9 @@ function renderProfile(c){
         <div class="card-t"><i class="ti ti-trending-up"></i>Estadísticas de crecimiento
           <button class="btn btn-s btn-p" style="margin-left:auto" onclick="openModal('growth','${c.id}')"><i class="ti ti-pencil"></i>Editar</button>
         </div>
+        <div style="margin-bottom:10px">
+          <button class="btn btn-s btn-p" onclick="addMetricSnapshot('${c.id}')"><i class="ti ti-plus"></i>Añadir métricas de hoy</button>
+        </div>
         ${c.growth?.igStart||c.growth?.igNow||c.growth?.viewsBefore||c.growth?.viewsNow?`
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
             <div style="background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:12px">
@@ -1836,6 +1878,21 @@ function renderProfile(c){
           Sin estadísticas aún. Haz clic en "Editar" para añadir los datos de crecimiento.
         </div>`}
       </div>
+      ${(c.metrics||[]).length?`<div class="card" style="margin-top:12px">
+        <div class="card-t"><i class="ti ti-chart-line"></i>Historial de métricas Instagram
+          <button class="btn btn-s" style="margin-left:auto" onclick="addMetricSnapshot('${c.id}')"><i class="ti ti-plus"></i>Añadir</button>
+        </div>
+        <table style="width:100%;font-size:12px;border-collapse:collapse">
+          <tr style="color:var(--tx3);font-size:11px"><th style="text-align:left;padding:4px 6px;font-weight:500">Fecha</th><th style="text-align:right;padding:4px 6px;font-weight:500">Visitas</th><th style="text-align:right;padding:4px 6px;font-weight:500">Interacc.</th><th style="text-align:right;padding:4px 6px;font-weight:500">+Seguid.</th><th style="text-align:right;padding:4px 6px;font-weight:500">Alcance</th></tr>
+          ${(c.metrics||[]).slice().reverse().map(m=>`<tr style="border-top:1px solid var(--bd)">
+            <td style="padding:6px;color:var(--tx3)">${fmtDate(m.date)}</td>
+            <td style="padding:6px;text-align:right">${(m.visits||0).toLocaleString('es')}</td>
+            <td style="padding:6px;text-align:right">${(m.interactions||0).toLocaleString('es')}</td>
+            <td style="padding:6px;text-align:right;color:#4ADE80">+${(m.newFollowers||0).toLocaleString('es')}</td>
+            <td style="padding:6px;text-align:right">${(m.reach||0).toLocaleString('es')}</td>
+          </tr>${Object.keys(m.peakHours||{}).length?`<tr><td colspan="5" style="padding:2px 6px 8px;color:var(--tx3);font-size:11px">⏰ ${Object.entries(m.peakHours).map(([d,h])=>d+' '+h).join(' · ')}</td></tr>`:''}`).join('')}
+        </table>
+      </div>`:''}
       <div class="card">
         <div class="card-t"><i class="ti ti-link"></i>Perfil de redes sociales</div>
         <div class="fg2">
@@ -1897,17 +1954,29 @@ function renderProdTab(c,mk){
   if(!c.produccion[mk])c.produccion[mk]={};
   const reels=c.reels[mk]||[];
   const prod=c.produccion[mk];
-  return PROD_STEPS.map((step,si)=>{
+  const totalSteps=PROD_STEPS.length;
+  const totalDone=PROD_STEPS.filter((_,si)=>{
+    const k='s'+si;if(!prod[k])return false;
+    return reels.length>0&&reels.every(r=>prod[k][r.id]);
+  }).length;
+
+  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="font-size:12px;color:var(--tx3)">${totalDone}/${totalSteps} pasos completos</div>
+    <button class="btn btn-s btn-p" onclick="markAllProd('${c.id}','${mk}')"><i class="ti ti-checks"></i>Marcar todo ✓</button>
+  </div>`;
+
+  html+=PROD_STEPS.map((step,si)=>{
     const stepKey='s'+si;
     if(!prod[stepKey])prod[stepKey]={};
     const done=reels.filter(r=>prod[stepKey][r.id]).length;
+    const allDone=done===reels.length&&reels.length>0;
     const isOpen=prod[stepKey]._open||false;
     return`<div class="prod-step">
       <div class="prod-step-hdr${isOpen?' open':''}" onclick="toggleProdStep('${c.id}','${mk}',${si})">
         <i class="ti ti-chevron-right arr"></i>
         <span class="prod-step-title">${step}</span>
-        <span class="prod-step-prog">${done}/${reels.length}</span>
-        ${done===reels.length&&reels.length>0?'<i class="ti ti-circle-check" style="color:var(--ok);margin-left:6px"></i>':''}
+        <span class="prod-step-prog" style="color:${allDone?'var(--ok)':'var(--tx3)'}">${done}/${reels.length}</span>
+        ${allDone?'<i class="ti ti-circle-check" style="color:var(--ok);margin-left:6px"></i>':`<button class="btn btn-s" style="margin-left:auto;font-size:10px;padding:2px 7px" onclick="event.stopPropagation();markStepAll('${c.id}','${mk}',${si})">Todo ✓</button>`}
       </div>
       <div class="prod-step-body${isOpen?' open':''}" id="ps-${c.id}-${si}">
         ${reels.length?reels.map(r=>`<div class="prod-reel-row">
@@ -1918,6 +1987,36 @@ function renderProdTab(c,mk){
       </div>
     </div>`;
   }).join('');
+  return html;
+}
+
+function markStepAll(cid,mk,si){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  if(!c.produccion)c.produccion={};if(!c.produccion[mk])c.produccion[mk]={};
+  const k='s'+si;if(!c.produccion[mk][k])c.produccion[mk][k]={};
+  const reels=c.reels[mk]||[];
+  reels.forEach(r=>{c.produccion[mk][k][r.id]=true;c.produccion[mk][k][r.id+'_d']=today();});
+  saveClients();refreshProd(c,mk);showToast('Paso completado ✓','ok');
+}
+
+function markAllProd(cid,mk){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  if(!c.produccion)c.produccion={};if(!c.produccion[mk])c.produccion[mk]={};
+  const reels=c.reels[mk]||[];
+  PROD_STEPS.forEach((_,si)=>{
+    const k='s'+si;if(!c.produccion[mk][k])c.produccion[mk][k]={};
+    reels.forEach(r=>{c.produccion[mk][k][r.id]=true;c.produccion[mk][k][r.id+'_d']=today();});
+  });
+  saveClients();refreshProd(c,mk);showToast('¡Todo marcado! ✓','ok');
+}
+
+function refreshProd(c,mk){
+  const el=document.getElementById('tc-prod');if(!el)return;
+  const reelMonths=Object.keys(c.reels||{}).sort();
+  el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div class="st">Producción mensual</div>
+    <div class="month-sel">${reelMonths.map(m=>`<button class="mbtn${m===mk?' on':''}" onclick="switchProdMonth('${c.id}','${m}')">${monthLabel(m)}</button>`).join('')}</div>
+  </div>${renderProdTab(c,mk)}`;
 }
 
 function toggleProdStep(cid,mk,si){
@@ -1925,7 +2024,7 @@ function toggleProdStep(cid,mk,si){
   if(!c.produccion)c.produccion={};if(!c.produccion[mk])c.produccion[mk]={};
   const k='s'+si;if(!c.produccion[mk][k])c.produccion[mk][k]={};
   c.produccion[mk][k]._open=!c.produccion[mk][k]._open;
-  document.getElementById('tc-prod').innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div class="st">Producción mensual</div></div>${renderProdTab(c,mk)}`;
+  refreshProd(c,mk);
 }
 function toggleProdReel(cid,mk,si,rid){
   const c=clients.find(c=>c.id===cid);if(!c)return;
@@ -1933,16 +2032,10 @@ function toggleProdReel(cid,mk,si,rid){
   const k='s'+si;if(!c.produccion[mk][k])c.produccion[mk][k]={};
   c.produccion[mk][k][rid]=!c.produccion[mk][k][rid];
   if(c.produccion[mk][k][rid])c.produccion[mk][k][rid+'_d']=today();
-  saveClients();
-  document.getElementById('tc-prod').innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div class="st">Producción mensual</div></div>${renderProdTab(c,mk)}`;
+  saveClients();refreshProd(c,mk);
 }
 function switchProdMonth(cid,mk){
-  const c=clients.find(c=>c.id===cid);if(!c)return;
-  const reelMonths=Object.keys(c.reels||{}).sort();
-  document.getElementById('tc-prod').innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-    <div class="st">Producción mensual</div>
-    <div class="month-sel">${reelMonths.map(m=>`<button class="mbtn${m===mk?' on':''}" onclick="switchProdMonth('${c.id}','${m}')">${monthLabel(m)}</button>`).join('')}</div>
-  </div>${renderProdTab(c,mk)}`;
+  const c=clients.find(c=>c.id===cid);if(!c)return;refreshProd(c,mk);
 }
 
 function switchTab(tab){
@@ -2013,8 +2106,47 @@ function saveInternalNotes(id){
   c.internalNotes=text;
   saveClients();showToast('Notas guardadas ✓','ok');
 }
+function addMetricSnapshot(cid){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  const mc=document.getElementById('modal-c');
+  mc.innerHTML=`<div class="modal-t">📊 Métricas Instagram — ${c.name}</div>
+    <div style="font-size:11px;color:var(--tx3);margin-bottom:12px">Últimos 30 días</div>
+    <div class="fg2">
+      <div class="f"><label>Visitas al perfil</label><input id="m-visits" type="number" placeholder="0" min="0"></div>
+      <div class="f"><label>Interacciones</label><input id="m-inter" type="number" placeholder="0" min="0"></div>
+    </div>
+    <div class="fg2">
+      <div class="f"><label>Nuevos seguidores</label><input id="m-follow" type="number" placeholder="0" min="0"></div>
+      <div class="f"><label>Alcance total</label><input id="m-reach" type="number" placeholder="0" min="0"></div>
+    </div>
+    <div style="height:1px;background:var(--bd);margin:12px 0"></div>
+    <div style="font-size:11px;color:var(--tx3);margin-bottom:8px">Horas pico de actividad (Instagram Professional Dashboard)</div>
+    <div style="font-size:12px;color:var(--tx2);margin-bottom:8px">Mejor hora por día de la semana</div>
+    <div class="fg2">
+      ${['L','M','X','J','V','S','D'].map((d,i)=>`<div class="f"><label>${d}</label><input id="m-h${i}" type="text" placeholder="ej. 18:00" style="font-size:12px"></div>`).join('')}
+    </div>
+    <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveMetricSnapshot('${cid}')">Guardar</button></div>`;
+  document.getElementById('mo').classList.add('open');
+}
+function saveMetricSnapshot(cid){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  if(!c.metrics)c.metrics=[];
+  const hours={};
+  ['L','M','X','J','V','S','D'].forEach((d,i)=>{
+    const v=document.getElementById('m-h'+i)?.value.trim();
+    if(v)hours[d]=v;
+  });
+  c.metrics.push({
+    date:today(),
+    visits:parseInt(document.getElementById('m-visits')?.value)||0,
+    interactions:parseInt(document.getElementById('m-inter')?.value)||0,
+    newFollowers:parseInt(document.getElementById('m-follow')?.value)||0,
+    reach:parseInt(document.getElementById('m-reach')?.value)||0,
+    peakHours:hours,
+  });
+  closeModal();saveClients();renderProfile(c);showToast('Métricas guardadas ✓','ok');
+}
 function toggleClientCM(id){
-  const c=clients.find(c=>c.id===id);if(!c)return;
   c.showCM=!c.showCM;
   saveClients();renderProfile(c);showToast('CM '+(c.showCM?'visible':'oculto')+' para el cliente ✓','ok');
 }
@@ -2041,9 +2173,9 @@ function addDriveDoc(cid){
 function delDriveDoc(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.driveDocs.splice(i,1);renderProfile(c);saveClients();}
 function addCred(cid){
   const c=clients.find(c=>c.id===cid);if(!c)return;
-  const platform=prompt('Plataforma (ej. TikTok, YouTube...):');if(!platform)return;
   if(!c.credentials)c.credentials=[];
-  c.credentials.push({platform,user:'',pass:'',notes:''});renderProfile(c);
+  c.credentials.push({platform:'Instagram',user:'',pass:'',notes:''});
+  saveClients();renderProfile(c);
 }
 function delCred(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.credentials.splice(i,1);renderProfile(c);saveClients();}
 function updateCred(cid,i,field,val){const c=clients.find(c=>c.id===cid);if(!c||!c.credentials[i])return;c.credentials[i][field]=val;saveClients();}
@@ -2164,16 +2296,23 @@ function openModal(type,extra='',extra2=null){
       <div class="f"><label>Fecha del cobro</label><input id="nc-date" type="date" value="${today()}"></div>
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveCobro()">Añadir</button></div>`;
   }else if(type==='user'){
+    const currentYear=new Date().getFullYear();
     c.innerHTML=`<div class="modal-t">Nuevo usuario</div>
       <div class="fg2">
-        <div class="f"><label>Usuario (login)</label><input id="nu-key" placeholder="ej. carlos" autocomplete="off"></div>
-        <div class="f"><label>Nombre completo</label><input id="nu-name" placeholder="ej. Carlos López"></div>
+        <div class="f"><label>Usuario (login)</label><input id="nu-key" placeholder="ej. carlos" autocomplete="off" oninput="autoGenPass()"></div>
+        <div class="f"><label>Nombre completo</label><input id="nu-name" placeholder="ej. Carlos López" oninput="autoGenPass()"></div>
       </div>
       <div class="fg2">
-        <div class="f"><label>Contraseña</label><input id="nu-pass" placeholder="contraseña" autocomplete="off"></div>
-        <div class="f"><label>Rol</label><select id="nu-role">
-          <option value="editor">Editor</option><option value="cm">CM</option><option value="pm">PM</option><option value="ceo">CEO</option>
+        <div class="f"><label>Rol</label><select id="nu-role" onchange="autoSetRole()">
+          <option value="editor">Editor</option>
+          <option value="cm">Community Manager (CM)</option>
+          <option value="pm">Project Manager (PM)</option>
+          <option value="ceo">CEO</option>
         </select></div>
+        <div class="f"><label>Año de incorporación</label><input id="nu-year" type="number" value="${currentYear}" min="2020" max="2030" oninput="autoGenPass()"></div>
+      </div>
+      <div class="f"><label>Contraseña <span style="color:var(--tx3);font-weight:400">(se genera automáticamente)</span></label>
+        <input id="nu-pass" placeholder="nombre+año" autocomplete="off">
       </div>
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveNewUser()">Crear usuario</button></div>`;
   }else if(type==='edit-user'){
@@ -2292,6 +2431,12 @@ function saveCobro(){
   if(!cliente||!importe)return showToast('Rellena cliente e importe','err');
   cobrosList.push({cliente,concepto:document.getElementById('nc-conc').value,importe,month:monthKey(),paid:false,date:document.getElementById('nc-date')?.value||today()});
   closeModal();savePayments();renderFinance();showToast('Cobro añadido ✓','ok');
+}
+function autoGenPass(){
+  const key=document.getElementById('nu-key')?.value.trim().toLowerCase()||'';
+  const year=document.getElementById('nu-year')?.value||new Date().getFullYear();
+  const passEl=document.getElementById('nu-pass');
+  if(passEl&&key)passEl.value=key+year;
 }
 function saveNewUser(){
   const key=document.getElementById('nu-key').value.trim().toLowerCase().replace(/\s+/g,'');
