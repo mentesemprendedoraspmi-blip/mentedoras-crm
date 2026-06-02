@@ -1347,7 +1347,7 @@ function renderCal(){
   for(let d=1;d<=last.getDate();d++){
     const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isT=ds===today();
-    const evs=[...calEvents.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.cards||[]).filter(card=>card.date===ds).map(card=>({title:"📋 "+card.title,type:"task",date:ds}))];
+    const evs=[...calEvents.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds).map(t=>({title:"📋 "+t.title,type:"task",date:ds}))];
     grid+=`<div class="cal-day${isT?' today':''}" onclick="openModal('event','',null,'${ds}')">
       <div class="cal-dn">${d}</div>
       ${evs.map(e=>`<div class="cal-ev ${e.type}" title="${e.title}">${e.title}</div>`).join('')}
