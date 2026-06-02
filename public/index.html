@@ -1347,14 +1347,49 @@ function renderCal(){
   for(let d=1;d<=last.getDate();d++){
     const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isT=ds===today();
-    const evs=[...calEvents.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds).map(t=>({title:"📋 "+t.title,type:"task",date:ds}))];
-    grid+=`<div class="cal-day${isT?' today':''}" onclick="openModal('event','',null,'${ds}')">
+    const evs=[...calEvents.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds).map(t=>({title:'📋 '+t.title,type:'task',date:ds,color:'#C084FC'}))];
+    evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
+    const typeColors={grab:'var(--warn)',del:'var(--c)',meet:'#4ADE80',task:'#C084FC'};
+    const visible=evs.slice(0,2);
+    const hidden=evs.length-2;
+    grid+=`<div class="cal-day${isT?' today':''}" onclick="showCalDay('${ds}',event)" style="cursor:pointer">
       <div class="cal-dn">${d}</div>
-      ${evs.map(e=>`<div class="cal-ev ${e.type}" title="${e.title}">${e.title}</div>`).join('')}
+      ${visible.map(e=>`<div style="font-size:10px;padding:1px 4px;border-radius:3px;margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;background:${(e.color||typeColors[e.type]||'var(--c)')+'22'};color:${e.color||typeColors[e.type]||'var(--c)'}">
+        ${e.time?`<span style="font-weight:600">${e.time}</span> `:''}${e.title}
+      </div>`).join('')}
+      ${hidden>0?`<div style="font-size:10px;color:var(--tx3);padding:1px 4px;margin-top:1px">+${hidden} más</div>`:''}
     </div>`;
   }
-  grid+='</div>';
+  grid+='</div><div id="cal-day-detail" style="margin-top:8px"></div>';
   document.getElementById('view-cal').innerHTML=nav2+grid;
+}
+function showCalDay(ds,evt){
+  evt&&evt.stopPropagation();
+  const evs=[...calEvents.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds).map(t=>({title:'📋 '+t.title,type:'task',date:ds,color:'#C084FC'}))];
+  evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
+  const el=document.getElementById('cal-day-detail');if(!el)return;
+  const[y,m,d]=ds.split('-');
+  const label=parseInt(d)+' de '+MONTHS[parseInt(m)-1]+' '+y;
+  if(el.dataset.date===ds){el.innerHTML='';el.dataset.date='';return;}
+  el.dataset.date=ds;
+  const typeColors={grab:'var(--warn)',del:'var(--c)',meet:'#4ADE80',task:'#C084FC'};
+  el.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--rl);padding:14px;animation:fadeIn .15s ease">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600">${label}</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-s btn-p" onclick="openModal('event','',null,'${ds}')"><i class="ti ti-plus"></i>Añadir</button>
+        <button class="btn btn-s" onclick="document.getElementById('cal-day-detail').innerHTML='';document.getElementById('cal-day-detail').dataset.date=''"><i class="ti ti-x"></i></button>
+      </div>
+    </div>
+    ${evs.length?evs.map(e=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:8px;background:var(--bg3);border-radius:var(--r);margin-bottom:6px;border-left:3px solid ${e.color||typeColors[e.type]||'var(--c)'}">
+      ${e.time?`<span style="font-size:11px;font-weight:600;color:${e.color||typeColors[e.type]||'var(--c)'};white-space:nowrap;min-width:40px">${e.time}</span>`:'<span style="min-width:40px"></span>'}
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:500">${e.title}</div>
+        ${e.client?`<div style="font-size:11px;color:var(--tx3);margin-top:2px">${e.client}</div>`:''}
+      </div>
+    </div>`).join(''):`<div style="text-align:center;padding:12px;color:var(--tx3);font-size:13px">Sin eventos. <span style="color:var(--c);cursor:pointer" onclick="openModal('event','',null,'${ds}')">Añadir uno</span></div>`}
+  </div>`;
+  el.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function renderCalWeek(){
   const todayDate=new Date();
