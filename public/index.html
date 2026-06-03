@@ -1347,17 +1347,20 @@ function renderCal(){
   for(let d=1;d<=last.getDate();d++){
     const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isT=ds===today();
-    const evs=[...calEvents.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds).map(t=>({title:'📋 '+t.title,type:'task',date:ds,color:'#C084FC'}))];
+    const evs=[...calEvents.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds).map(t=>({title:t.title,type:'task',date:ds,color:'#C084FC',time:t.time||''}))];
     evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
     const typeColors={grab:'var(--warn)',del:'var(--c)',meet:'#4ADE80',task:'#C084FC'};
-    const visible=evs.slice(0,2);
-    const hidden=evs.length-2;
+    const visible=evs.slice(0,3);
+    const hidden=evs.length-3;
     grid+=`<div class="cal-day${isT?' today':''}" onclick="showCalDay('${ds}',event)" style="cursor:pointer">
       <div class="cal-dn">${d}</div>
-      ${visible.map(e=>`<div style="font-size:10px;padding:1px 4px;border-radius:3px;margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;background:${(e.color||typeColors[e.type]||'var(--c)')+'22'};color:${e.color||typeColors[e.type]||'var(--c)'}">
-        ${e.time?`<span style="font-weight:600">${e.time}</span> `:''}${e.title}
-      </div>`).join('')}
-      ${hidden>0?`<div style="font-size:10px;color:var(--tx3);padding:1px 4px;margin-top:1px">+${hidden} más</div>`:''}
+      ${visible.map(e=>{
+        const col=e.color||typeColors[e.type]||'var(--c)';
+        const timeStr=e.time?e.time.replace(':00','').replace(/^0/,'')+' '  :'';
+        const short=(timeStr+e.title).substring(0,14);
+        return`<div style="font-size:10px;padding:1px 3px;border-radius:2px;margin-top:2px;overflow:hidden;white-space:nowrap;background:${col}22;color:${col};border-left:2px solid ${col}">${short}</div>`;
+      }).join('')}
+      ${hidden>0?`<div style="font-size:9px;color:var(--tx3);margin-top:2px;padding:0 2px">+${hidden} más</div>`:''}
     </div>`;
   }
   grid+='</div><div id="cal-day-detail" style="margin-top:8px"></div>';
