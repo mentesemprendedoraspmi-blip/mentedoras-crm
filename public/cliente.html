@@ -184,6 +184,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
     <div class="nav-tab" onclick="showTab('contrato')" id="nt-contrato"><i class="ti ti-file-text"></i><span id="tx-contrato">Contrato</span></div>
     <div class="nav-tab" onclick="showTab('modif')" id="nt-modif"><i class="ti ti-edit"></i><span id="tx-modif">Modificaciones</span></div>
     <div class="nav-tab" onclick="showTab('crecimiento')" id="nt-crecimiento"><i class="ti ti-trending-up"></i><span id="tx-crecimiento">Crecimiento</span></div>
+    <div class="nav-tab" onclick="showTab('pubcal')" id="nt-pubcal"><i class="ti ti-calendar-stats"></i><span>Publicaciones</span></div>
     <div class="nav-tab" onclick="showTab('chat')" id="nt-chat"><i class="ti ti-message-2"></i><span id="tx-chat">Chat</span></div>
     <div class="nav-tab" onclick="showTab('ideas')" id="nt-ideas"><i class="ti ti-bulb"></i><span id="tx-ideas">Ideas</span></div>
     <div class="nav-tab" onclick="showTab('ajustes')" id="nt-ajustes"><i class="ti ti-settings"></i><span id="tx-ajustes">Ajustes</span></div>
@@ -202,6 +203,8 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
     <div class="view" id="view-modif"></div>
     <!-- CRECIMIENTO -->
     <div class="view" id="view-crecimiento"></div>
+    <!-- PUBLICACIONES -->
+    <div class="view" id="view-pubcal"></div>
     <!-- CHAT -->
     <div class="view" id="view-chat"></div>
     <!-- IDEAS -->
@@ -515,6 +518,7 @@ function renderTab(name){
   if(name==='contrato')renderContrato();
   if(name==='modif')renderModif();
   if(name==='crecimiento')renderCrecimiento();
+  if(name==='pubcal')renderPubCal();
   if(name==='chat')renderChat();
   if(name==='ideas')renderIdeas();
   if(name==='ajustes')renderAjustes();
@@ -664,8 +668,96 @@ function renderInicio(){
 }
 
 // ============================================================
-// CALENDARIO
+// CALENDARIO DE PUBLICACIONES
 // ============================================================
+function renderPubCal(){
+  const months=Object.keys(client.reels||{}).sort();
+  const mk2=monthKey();
+  if(!activeMonth||!months.includes(activeMonth))activeMonth=months.includes(mk2)?mk2:(months[months.length-1]||mk2);
+  const reels=client.reels[activeMonth]||[];
+  const pubCal=(client.pubCal||{})[activeMonth]||{};
+  const peakHours=client.peakHours||{};
+  const hasTiktok=!!client.tiktokUrl;
+  const days=['L','M','X','J','V','S','D'];
+  const dayNames={L:t('Lunes','Monday'),M:t('Martes','Tuesday'),X:t('Miércoles','Wednesday'),J:t('Jueves','Thursday'),V:t('Viernes','Friday'),S:t('Sábado','Saturday'),D:t('Domingo','Sunday')};
+
+  let html=`<div style="margin-bottom:16px">
+    <div style="font-size:18px;font-weight:600;margin-bottom:4px">📅 ${t('Calendario de publicaciones','Publication calendar')}</div>
+    <div style="font-size:13px;color:var(--tx3)">${t('Cuándo se sube tu contenido este mes','When your content goes live this month')}</div>
+  </div>`;
+
+  // Month selector
+  html+=`<div class="month-row">${months.map(m=>`<button class="mbtn${m===activeMonth?' on':''}" onclick="setPubCalMonth('${m}')">${monthLabel(m)}</button>`).join('')}</div>`;
+
+  // Peak hours card
+  if(Object.keys(peakHours).length){
+    html+=`<div class="card" style="margin-bottom:14px">
+      <div class="card-t"><i class="ti ti-clock"></i>${t('Mejor hora para publicar','Best time to post')}</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center">
+        ${days.map(d=>`<div style="background:var(--bg3);border-radius:var(--r);padding:8px 4px">
+          <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">${d}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--c)">${peakHours[d]||'—'}</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Publication schedule
+  if(!reels.length){
+    html+=`<div class="card"><div style="text-align:center;padding:20px;color:var(--tx3)">${t('Sin reels este mes','No reels this month')}</div></div>`;
+  } else {
+    html+=`<div class="card" style="margin-bottom:14px">
+      <div class="card-t"><i class="ti ti-brand-instagram"></i>Instagram — ${monthLabel(activeMonth)}</div>
+      ${reels.map(r=>{
+        const pd=pubCal[r.id]||{};
+        return`<div style="padding:12px 0;border-bottom:1px solid var(--bd)">
+          <div style="font-size:13px;font-weight:500;margin-bottom:8px">${r.label}</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            ${pd.trial?`<div style="display:flex;align-items:center;gap:6px">
+              <div style="width:8px;height:8px;border-radius:50%;background:${pd.trialDone?'#4ADE80':'var(--warn)'}"></div>
+              <div>
+                <div style="font-size:10px;color:var(--tx3)">📤 Trial</div>
+                <div style="font-size:12px;font-weight:500">${fmtDate(pd.trial)}</div>
+              </div>
+              ${pd.trialDone?`<span style="font-size:10px;color:#4ADE80;font-weight:600">✓ ${t('Subido','Uploaded')}</span>`:''}
+            </div>`:''}
+            ${pd.pub?`<div style="display:flex;align-items:center;gap:6px">
+              <div style="width:8px;height:8px;border-radius:50%;background:${pd.pubDone?'#4ADE80':'var(--c)'}"></div>
+              <div>
+                <div style="font-size:10px;color:var(--tx3)">✅ ${t('Publicación','Publication')}</div>
+                <div style="font-size:12px;font-weight:500">${fmtDate(pd.pub)}</div>
+              </div>
+              ${pd.pubDone?`<span style="font-size:10px;color:#4ADE80;font-weight:600">✓ ${t('Publicado','Published')}</span>`:''}
+            </div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+    if(hasTiktok){
+      const tiktokReels=reels.filter(r=>(pubCal[r.id]||{}).tiktok);
+      if(tiktokReels.length){
+        html+=`<div class="card">
+          <div class="card-t"><i class="ti ti-brand-tiktok"></i>TikTok — ${monthLabel(activeMonth)}</div>
+          ${tiktokReels.map(r=>{
+            const pd=pubCal[r.id]||{};
+            return`<div class="pf">
+              <span style="font-size:13px">${r.label}</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:12px">${fmtDate(pd.tiktok)}</span>
+                ${pd.tiktokDone?`<span style="font-size:10px;color:#4ADE80;font-weight:600">✓ ${t('Publicado','Published')}</span>`:''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>`;
+      }
+    }
+  }
+
+  document.getElementById('view-pubcal').innerHTML=html;
+}
+
+function setPubCalMonth(m){activeMonth=m;renderPubCal();}
 function calNav(dir){calViewMonth+=dir;if(calViewMonth<0){calViewMonth=11;calViewYear--;}if(calViewMonth>11){calViewMonth=0;calViewYear++;}renderCalendario();}
 function calGoToday(){calViewYear=new Date().getFullYear();calViewMonth=new Date().getMonth();renderCalendario();}
 

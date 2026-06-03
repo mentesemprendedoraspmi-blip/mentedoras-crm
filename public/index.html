@@ -1680,6 +1680,7 @@ function renderProfile(c){
       <div class="tab${activeTab==='drive'?' on':''}" onclick="switchTab('drive')">Drive</div>
       ${isCMup()?`<div class="tab${activeTab==='creds'?' on':''}" onclick="switchTab('creds')">🔐 Credenciales</div>`:''}
       ${isPMup()?`<div class="tab${activeTab==='contrato'?' on':''}" onclick="switchTab('contrato')">Contrato</div>`:''}
+      <div class="tab${activeTab==='pubcal'?' on':''}" onclick="switchTab('pubcal')">📅 Cal. Publicación</div>
       ${isCMup()?`<div class="tab${activeTab==='crecimiento'?' on':''}" onclick="switchTab('crecimiento')">Crecimiento</div>`:''}
       <div class="tab${activeTab==='notas'?' on':''}" onclick="switchTab('notas')">📝 Notas internas</div>
     </div>
@@ -1886,6 +1887,9 @@ function renderProfile(c){
           <span style="font-size:12px">${n.text}</span>
         </div>`).join('')}
       </div>`:''}
+    </div>
+    <div class="tc${activeTab==='pubcal'?' on':''}" id="tc-pubcal">
+      ${renderPubCalTab(c)}
     </div>
     ${isCMup()?`<div class="tc${activeTab==='crecimiento'?' on':''}" id="tc-crecimiento">
       <div class="card">
@@ -2144,8 +2148,134 @@ function saveInternalNotes(id){
   c.internalNotes=text;
   saveClients();showToast('Notas guardadas ✓','ok');
 }
-function addMetricSnapshot(cid){
+function renderPubCalTab(c){
+  const hasReels=(Array.isArray(c.services)?c.services:[]).some(s=>['content_5','content_8_cm','podcast_reels_edit'].includes(s));
+  if(!hasReels)return`<div style="text-align:center;padding:30px;color:var(--tx3)">Este cliente no tiene servicio de reels.</div>`;
+  const mk=monthKey();
+  const months=Object.keys(c.reels||{}).sort();
+  const selMonth=c.pubCalMonth||mk;
+  const reels=c.reels[selMonth]||[];
+  const pubCal=c.pubCal||{};
+  const hasTiktok=!!c.tiktokUrl;
+  const peakHours=c.peakHours||{L:'18:00',M:'18:00',X:'18:00',J:'18:00',V:'19:00',S:'12:00',D:'12:00'};
+  const days=['L','M','X','J','V','S','D'];
+
+  // Peak hours editor
+  let html=`<div class="card" style="margin-bottom:14px">
+    <div class="card-t"><i class="ti ti-clock"></i>Horas pico de actividad
+      <span style="font-size:10px;color:var(--tx3);margin-left:auto;font-weight:400">Fuente: Instagram Professional Dashboard</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:10px">
+      ${days.map(d=>`<div style="text-align:center">
+        <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">${d}</div>
+        <input type="text" value="${peakHours[d]||''}" placeholder="18:00" style="font-size:11px;padding:4px;text-align:center" onchange="updatePeakHour('${c.id}','${d}',this.value)">
+      </div>`).join('')}
+    </div>
+    <button class="btn btn-s btn-p" onclick="generatePubCal('${c.id}','${selMonth}')"><i class="ti ti-wand"></i>Generar calendario automático</button>
+  </div>`;
+
+  // Month selector
+  html+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+    ${months.map(m=>`<button class="mbtn${m===selMonth?' on':''}" onclick="switchPubCalMonth('${c.id}','${m}')">${monthLabel(m)}</button>`).join('')}
+  </div>`;
+
+  // Calendar grid
+  if(!reels.length){
+    html+=`<div style="text-align:center;padding:20px;color:var(--tx3)">Sin reels para ${monthLabel(selMonth)}</div>`;
+  } else {
+    html+=`<div class="card">
+      <div class="card-t"><i class="ti ti-calendar"></i>Fechas de publicación — ${monthLabel(selMonth)}</div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr style="font-size:11px;color:var(--tx3)">
+          <th style="text-align:left;padding:6px;font-weight:500">Reel</th>
+          <th style="text-align:left;padding:6px;font-weight:500">📤 Trial Instagram</th>
+          <th style="text-align:left;padding:6px;font-weight:500">✅ Publicación normal</th>
+          ${hasTiktok?`<th style="text-align:left;padding:6px;font-weight:500">🎵 TikTok</th>`:''}
+        </tr>
+        ${reels.map((r,i)=>`<tr style="border-top:1px solid var(--bd)">
+          <td style="padding:6px;font-weight:500">${r.label}</td>
+          <td style="padding:6px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="date" value="${pubCal[selMonth]?.[r.id]?.trial||''}" style="font-size:11px;padding:3px 6px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','trial',this.value)">
+              ${pubCal[selMonth]?.[r.id]?.trialDone?'<i class="ti ti-check" style="color:var(--ok)"></i>':''}
+              <div class="chk${pubCal[selMonth]?.[r.id]?.trialDone?' on':''}" style="width:16px;height:16px;border-radius:4px" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','trialDone')" title="Marcar como subido"></div>
+            </div>
+          </td>
+          <td style="padding:6px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="date" value="${pubCal[selMonth]?.[r.id]?.pub||''}" style="font-size:11px;padding:3px 6px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','pub',this.value)">
+              ${pubCal[selMonth]?.[r.id]?.pubDone?'<i class="ti ti-check" style="color:var(--ok)"></i>':''}
+              <div class="chk${pubCal[selMonth]?.[r.id]?.pubDone?' on':''}" style="width:16px;height:16px;border-radius:4px" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','pubDone')" title="Marcar como publicado"></div>
+            </div>
+          </td>
+          ${hasTiktok?`<td style="padding:6px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="date" value="${pubCal[selMonth]?.[r.id]?.tiktok||''}" style="font-size:11px;padding:3px 6px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','tiktok',this.value)">
+              <div class="chk${pubCal[selMonth]?.[r.id]?.tiktokDone?' on':''}" style="width:16px;height:16px;border-radius:4px" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','tiktokDone')"></div>
+            </div>
+          </td>`:''}
+        </tr>`).join('')}
+      </table>
+    </div>`;
+  }
+  return html;
+}
+
+function updatePeakHour(cid,day,val){
   const c=clients.find(c=>c.id===cid);if(!c)return;
+  if(!c.peakHours)c.peakHours={};
+  c.peakHours[day]=val;
+  saveClients();
+}
+
+function generatePubCal(cid,mk){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  const reels=c.reels[mk]||[];if(!reels.length)return showToast('Sin reels para generar','err');
+  if(!c.pubCal)c.pubCal={};
+  if(!c.pubCal[mk])c.pubCal[mk]={};
+  const peakHours=c.peakHours||{};
+  const[y,m]=mk.split('-').map(Number);
+  const daysInMonth=new Date(y,m,0).getDate();
+  // Spread reels evenly across the month
+  const interval=Math.floor(daysInMonth/reels.length);
+  reels.forEach((r,i)=>{
+    const baseDay=Math.min((i+1)*interval,daysInMonth);
+    const trialDate=`${y}-${String(m).padStart(2,'0')}-${String(baseDay).padStart(2,'0')}`;
+    const pubDay=Math.min(baseDay+2,daysInMonth);
+    const pubDate=`${y}-${String(m).padStart(2,'0')}-${String(pubDay).padStart(2,'0')}`;
+    if(!c.pubCal[mk][r.id])c.pubCal[mk][r.id]={};
+    c.pubCal[mk][r.id].trial=trialDate;
+    c.pubCal[mk][r.id].pub=pubDate;
+    if(c.tiktokUrl)c.pubCal[mk][r.id].tiktok=pubDate;
+  });
+  saveClients();switchPubCalMonth(cid,mk);showToast('Calendario generado ✓','ok');
+}
+
+function savePubDate(cid,mk,rid,field,val){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  if(!c.pubCal)c.pubCal={};
+  if(!c.pubCal[mk])c.pubCal[mk]={};
+  if(!c.pubCal[mk][rid])c.pubCal[mk][rid]={};
+  c.pubCal[mk][rid][field]=val;
+  saveClients();
+}
+
+function togglePubDone(cid,mk,rid,field){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  if(!c.pubCal)c.pubCal={};
+  if(!c.pubCal[mk])c.pubCal[mk]={};
+  if(!c.pubCal[mk][rid])c.pubCal[mk][rid]={};
+  c.pubCal[mk][rid][field]=!c.pubCal[mk][rid][field];
+  saveClients();
+  document.getElementById('tc-pubcal').innerHTML=renderPubCalTab(c);
+}
+
+function switchPubCalMonth(cid,mk){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  c.pubCalMonth=mk;
+  document.getElementById('tc-pubcal').innerHTML=renderPubCalTab(c);
+}
+function addMetricSnapshot(cid){
   const mc=document.getElementById('modal-c');
   mc.innerHTML=`<div class="modal-t">📊 Métricas Instagram — ${c.name}</div>
     <div style="font-size:11px;color:var(--tx3);margin-bottom:12px">Últimos 30 días</div>
