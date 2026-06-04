@@ -2726,14 +2726,38 @@ function showPortal(c){
   document.getElementById('w-title').textContent=g+', '+c.name+'!';
   document.getElementById('w-sub').textContent='Aquí tienes toda la información de tu contenido 🚀';
   document.getElementById('welcome').classList.add('open');
-  // realtime
-  if(db){try{db.collection('crm').doc('clients').onSnapshot(snap=>{
-    if(snap&&snap.exists){const d=snap.data();if(d&&d.list){
-      clients=d.list.map(fc=>{const def=clients.find(cc=>cc.id===fc.id)||{};return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};});
-      const u=clients.find(cc=>cc.id===c.id);
-      if(u){activePortalClient=u;renderPortalDashboard(u);if(activePortalMonth)renderPortalMonth(u,activePortalMonth);}
-    }}
-  });}catch(e){}}
+  // realtime listeners
+  if(db){
+    try{
+      db.collection('crm').doc('clients').onSnapshot(snap=>{
+        if(snap&&snap.exists){const d=snap.data();if(d&&d.list){
+          clients=d.list.map(fc=>{const def=clients.find(c=>c.id===fc.id)||{};return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};});
+          if(activeClient){const u=clients.find(c=>c.id===activeClient.id);if(u)activeClient=u;}
+          if(document.querySelector('.nav-item.on')?.dataset?.view==='dash')renderDash();
+        }}
+      });
+    }catch(e){}
+    try{
+      db.collection('crm').doc('board').onSnapshot(snap=>{
+        if(snap&&snap.exists){const d=snap.data();
+          if(d&&d.cols){
+            boardCols=d.cols;
+            if(document.querySelector('.nav-item.on')?.dataset?.view==='board')renderBoard();
+            // Update badge
+            const total=boardCols.reduce((s,c)=>(s+(c.tasks||[]).length),0);
+            const el=document.getElementById('bbadge');if(el)el.textContent=total;
+          }
+        }
+      });
+    }catch(e){}
+    try{
+      db.collection('crm').doc('payments').onSnapshot(snap=>{
+        if(snap&&snap.exists){const d=snap.data();
+          if(d){if(d.list)paymentsList=d.list;if(d.cobros)cobrosList=d.cobros;}
+        }
+      });
+    }catch(e){}
+  }
 }
 
 function renderPortalDashboard(c){
