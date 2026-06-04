@@ -883,14 +883,14 @@ function renderDash(){
   }
 
   html+=`<div class="sg">
-    <div class="scard" onclick="toggleClientBreakdown()" style="cursor:pointer">
+    <div class="scard" onclick="${isPMup()?'toggleClientBreakdown()':''}" style="cursor:${isPMup()?'pointer':'default'}">
       <div class="scard-ic"><i class="ti ti-users"></i></div>
       <div class="scard-v">${mc.length}</div>
       <div class="scard-l">Clientes activos</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">
-        <span style="font-size:10px;padding:2px 6px;border-radius:20px;background:rgba(34,197,94,.15);color:#4ADE80">💰 ${mc.filter(c=>c.clientType==='pago'||!c.clientType).length}</span>
-        <span style="font-size:10px;padding:2px 6px;border-radius:20px;background:rgba(0,229,229,.12);color:var(--c)">🤝 ${mc.filter(c=>c.clientType==='intercambio').length}</span>
-        <span style="font-size:10px;padding:2px 6px;border-radius:20px;background:rgba(239,68,68,.12);color:var(--err)">📉 ${mc.filter(c=>c.clientType==='perdida').length}</span>
+        ${isPMup()?`<span style="font-size:10px;padding:2px 6px;border-radius:20px;background:rgba(34,197,94,.15);color:#4ADE80">💰 ${mc.filter(c=>c.clientType==='pago'||!c.clientType).length}</span>`:''}
+        ${isPMup()?`<span style="font-size:10px;padding:2px 6px;border-radius:20px;background:rgba(0,229,229,.12);color:var(--c)">🤝 ${mc.filter(c=>c.clientType==='intercambio').length}</span>`:''}
+        ${isPMup()?`<span style="font-size:10px;padding:2px 6px;border-radius:20px;background:rgba(239,68,68,.12);color:var(--err)">📉 ${mc.filter(c=>c.clientType==='perdida').length}</span>`:''}
       </div>
     </div>
     <div class="scard"><div class="scard-ic"><i class="ti ti-alarm" style="color:var(--err)"></i></div><div class="scard-v" style="color:var(--err)">${overdue}</div><div class="scard-l">Entregas vencidas</div></div>
@@ -1691,7 +1691,7 @@ function renderProfile(c){
             <div class="pf"><span class="pf-l">Editores</span><span class="pf-v">${(c.editors||[]).join(', ')||'—'}</span></div>
             <div class="pf"><span class="pf-l">CM</span><span class="pf-v">${c.cm||'No incluye CM'}</span></div>
             <div class="pf"><span class="pf-l">Reels/mes</span><span class="pf-v">${c.numReels}</span></div>
-            ${isCMup()?`<div class="pf" style="align-items:center">
+            ${isPMup()?`<div class="pf" style="align-items:center">
               <span class="pf-l">Tipo de cliente</span>
               <select style="font-size:12px;padding:4px 8px;width:auto" onchange="updateClientField('${c.id}','clientType',this.value);saveClients();showToast('Tipo actualizado ✓','ok')">
                 <option value="pago" ${(c.clientType||'pago')==='pago'?'selected':''}>💰 Pago</option>
@@ -1726,6 +1726,26 @@ function renderProfile(c){
             </div>
           </div>
         </div>
+          <div class="card" style="margin-top:14px">
+            <div class="card-t"><i class="ti ti-share"></i>Redes sociales activas</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              ${[{key:'instagram',icon:'ti-brand-instagram',label:'Instagram',color:'#E1306C',note:'Trial + publicación normal'},{key:'tiktok',icon:'ti-brand-tiktok',label:'TikTok',color:'#69C9D0',note:'Solo publicación normal'},{key:'youtube',icon:'ti-brand-youtube',label:'YouTube',color:'#FF0000',note:'Solo publicación normal'}].map(net=>{
+                const active=(c.socialNets||['instagram']).includes(net.key);
+                return`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:var(--r);border:1px solid ${active?net.color+'44':'var(--bd)'}">
+                  <i class="ti ${net.icon}" style="font-size:16px;color:${active?net.color:'var(--tx3)'}"></i>
+                  <div style="flex:1"><div style="font-size:13px;font-weight:500;color:${active?'var(--tx)':'var(--tx3)'}">${net.label}</div><div style="font-size:10px;color:var(--tx3)">${net.note}</div></div>
+                  <div onclick="toggleSocialNet('${c.id}','${net.key}')" style="width:38px;height:20px;border-radius:20px;background:${active?net.color:'var(--bg4)'};cursor:pointer;position:relative;transition:all .2s;flex-shrink:0">
+                    <div style="width:14px;height:14px;border-radius:50%;background:#fff;position:absolute;top:3px;${active?'right:3px':'left:3px'};transition:all .2s"></div>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>
+            <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+              ${(c.socialNets||['instagram']).includes('instagram')?`<div class="f"><label>URL Instagram</label><input type="text" value="${c.igUrl||''}" placeholder="https://instagram.com/..." onchange="updateClientField('${c.id}','igUrl',this.value)"></div>`:''}
+              ${(c.socialNets||[]).includes('tiktok')?`<div class="f"><label>URL TikTok</label><input type="text" value="${c.tiktokUrl||''}" placeholder="https://tiktok.com/@..." onchange="updateClientField('${c.id}','tiktokUrl',this.value)"></div>`:''}
+              ${(c.socialNets||[]).includes('youtube')?`<div class="f"><label>URL YouTube</label><input type="text" value="${c.ytUrl||''}" placeholder="https://youtube.com/..." onchange="updateClientField('${c.id}','ytUrl',this.value)"></div>`:''}
+            </div>
+          </div>
           <div class="card" style="margin-top:14px">
             <div class="card-t"><i class="ti ti-settings"></i>Servicios contratados</div>
             <div class="svc-grid">
@@ -1830,7 +1850,7 @@ function renderProfile(c){
             </select>
             <button class="btn btn-s btn-danger" onclick="delCred('${c.id}',${i})"><i class="ti ti-trash"></i></button>
           </div>
-          <div class="fg2" style="margin-bottom:8px">
+function toggleClientCM(id){
             <div><label style="font-size:10px;color:var(--tx3);display:block;margin-bottom:3px">USUARIO</label>
               <input type="text" value="${cr.user||''}" placeholder="Usuario" style="font-size:12px;padding:5px 8px" onchange="updateCred('${c.id}',${i},'user',this.value)">
             </div>
@@ -2164,7 +2184,10 @@ function renderPubCalTab(c){
   const selMonth=c.pubCalMonth||mk;
   const reels=c.reels[selMonth]||[];
   const pubCal=c.pubCal||{};
-  const hasTiktok=!!c.tiktokUrl;
+  const nets=c.socialNets||['instagram'];
+  const hasIG=nets.includes('instagram');
+  const hasTT=nets.includes('tiktok');
+  const hasYT=nets.includes('youtube');
   const peakHours=c.peakHours||{L:'18:00',M:'18:00',X:'18:00',J:'18:00',V:'19:00',S:'12:00',D:'12:00'};
   const days=['L','M','X','J','V','S','D'];
 
@@ -2185,30 +2208,35 @@ function renderPubCalTab(c){
       <table style="width:100%;font-size:12px;border-collapse:collapse">
         <tr style="font-size:11px;color:var(--tx3)">
           <th style="text-align:left;padding:6px;font-weight:500">Reel</th>
-          <th style="text-align:left;padding:6px;font-weight:500">📤 Trial Instagram</th>
-          <th style="text-align:left;padding:6px;font-weight:500">✅ Publicación normal</th>
-          ${hasTiktok?`<th style="text-align:left;padding:6px;font-weight:500">🎵 TikTok</th>`:''}
+          ${hasIG?`<th style="text-align:left;padding:6px;font-weight:500">📤 Trial IG</th><th style="text-align:left;padding:6px;font-weight:500">📸 Pub. IG</th>`:''}
+          ${hasTT?`<th style="text-align:left;padding:6px;font-weight:500">🎵 TikTok</th>`:''}
+          ${hasYT?`<th style="text-align:left;padding:6px;font-weight:500">📺 YouTube</th>`:''}
         </tr>
         ${reels.map((r,i)=>`<tr style="border-top:1px solid var(--bd)">
           <td style="padding:6px;font-weight:500">${r.label}</td>
+          ${hasIG?`
           <td style="padding:6px">
-            <div style="display:flex;align-items:center;gap:6px">
-              <input type="date" value="${pubCal[selMonth]?.[r.id]?.trial||''}" style="font-size:11px;padding:3px 6px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','trial',this.value)">
-              ${pubCal[selMonth]?.[r.id]?.trialDone?'<i class="ti ti-check" style="color:var(--ok)"></i>':''}
-              <div class="chk${pubCal[selMonth]?.[r.id]?.trialDone?' on':''}" style="width:16px;height:16px;border-radius:4px" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','trialDone')" title="Marcar como subido"></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="date" value="${pubCal[selMonth]?.[r.id]?.trial||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','trial',this.value)">
+              <div class="chk${pubCal[selMonth]?.[r.id]?.trialDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','trialDone')"></div>
             </div>
           </td>
           <td style="padding:6px">
-            <div style="display:flex;align-items:center;gap:6px">
-              <input type="date" value="${pubCal[selMonth]?.[r.id]?.pub||''}" style="font-size:11px;padding:3px 6px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','pub',this.value)">
-              ${pubCal[selMonth]?.[r.id]?.pubDone?'<i class="ti ti-check" style="color:var(--ok)"></i>':''}
-              <div class="chk${pubCal[selMonth]?.[r.id]?.pubDone?' on':''}" style="width:16px;height:16px;border-radius:4px" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','pubDone')" title="Marcar como publicado"></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="date" value="${pubCal[selMonth]?.[r.id]?.pub||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','pub',this.value)">
+              <div class="chk${pubCal[selMonth]?.[r.id]?.pubDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','pubDone')"></div>
             </div>
-          </td>
-          ${hasTiktok?`<td style="padding:6px">
-            <div style="display:flex;align-items:center;gap:6px">
-              <input type="date" value="${pubCal[selMonth]?.[r.id]?.tiktok||''}" style="font-size:11px;padding:3px 6px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','tiktok',this.value)">
-              <div class="chk${pubCal[selMonth]?.[r.id]?.tiktokDone?' on':''}" style="width:16px;height:16px;border-radius:4px" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','tiktokDone')"></div>
+          </td>`:''}
+          ${hasTT?`<td style="padding:6px">
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="date" value="${pubCal[selMonth]?.[r.id]?.tiktok||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','tiktok',this.value)">
+              <div class="chk${pubCal[selMonth]?.[r.id]?.tiktokDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','tiktokDone')"></div>
+            </div>
+          </td>`:''}
+          ${hasYT?`<td style="padding:6px">
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="date" value="${pubCal[selMonth]?.[r.id]?.youtube||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','youtube',this.value)">
+              <div class="chk${pubCal[selMonth]?.[r.id]?.youtubeDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','youtubeDone')"></div>
             </div>
           </td>`:''}
         </tr>`).join('')}
@@ -2235,15 +2263,16 @@ function generatePubCal(cid,mk){
   const daysInMonth=new Date(y,m,0).getDate();
   // Spread reels evenly across the month
   const interval=Math.floor(daysInMonth/reels.length);
+  const nets=c.socialNets||['instagram'];
   reels.forEach((r,i)=>{
     const baseDay=Math.min((i+1)*interval,daysInMonth);
     const trialDate=`${y}-${String(m).padStart(2,'0')}-${String(baseDay).padStart(2,'0')}`;
     const pubDay=Math.min(baseDay+2,daysInMonth);
     const pubDate=`${y}-${String(m).padStart(2,'0')}-${String(pubDay).padStart(2,'0')}`;
     if(!c.pubCal[mk][r.id])c.pubCal[mk][r.id]={};
-    c.pubCal[mk][r.id].trial=trialDate;
-    c.pubCal[mk][r.id].pub=pubDate;
-    if(c.tiktokUrl)c.pubCal[mk][r.id].tiktok=pubDate;
+    if(nets.includes('instagram')){c.pubCal[mk][r.id].trial=trialDate;c.pubCal[mk][r.id].pub=pubDate;}
+    if(nets.includes('tiktok'))c.pubCal[mk][r.id].tiktok=pubDate;
+    if(nets.includes('youtube'))c.pubCal[mk][r.id].youtube=pubDate;
   });
   saveClients();switchPubCalMonth(cid,mk);showToast('Calendario generado ✓','ok');
 }
@@ -2311,8 +2340,15 @@ function saveMetricSnapshot(cid){
   });
   closeModal();saveClients();renderProfile(c);showToast('Métricas guardadas ✓','ok');
 }
+function toggleSocialNet(cid,net){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  if(!c.socialNets)c.socialNets=['instagram'];
+  if(c.socialNets.includes(net))c.socialNets=c.socialNets.filter(n=>n!==net);
+  else c.socialNets.push(net);
+  saveClients();renderProfile(c);showToast(net+' '+(c.socialNets.includes(net)?'activado':'desactivado')+' ✓','ok');
+}
 function toggleClientCM(id){
-  c.showCM=!c.showCM;
+  const c=clients.find(c=>c.id===id);if(!c)return;
   saveClients();renderProfile(c);showToast('CM '+(c.showCM?'visible':'oculto')+' para el cliente ✓','ok');
 }
 function toggleCM(cid,cm){const c=clients.find(c=>c.id===cid);if(!c)return;c.cm=c.cm===cm?'':cm;saveClients();renderProfile(c);showToast('CM actualizado ✓','ok');}
