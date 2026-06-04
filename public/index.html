@@ -731,19 +731,27 @@ async function loadAll(){
 // ============================================================
 // AUTH
 // ============================================================
-function doLogin(){
+async function doLogin(){
   const u=document.getElementById('li-u').value.trim().toLowerCase();
   const p=document.getElementById('li-p').value.trim().toLowerCase();
-  const key=Object.keys(USERS).find(k=>k===u);
   const errEl=document.getElementById('lb-err');
+  const btn=document.querySelector('.lb-btn');
+  if(btn){btn.textContent='Verificando...';btn.disabled=true;}
+  // Always reload users from Firebase before checking
+  try{
+    if(!fbReady)await initFB();
+    const su=await fbGet('crm','users');
+    if(su&&su.users)USERS={...USERS,...su.users};
+  }catch(e){console.warn('FB users load failed:',e);}
+  if(btn){btn.textContent='Entrar al CRM';btn.disabled=false;}
+  const key=Object.keys(USERS).find(k=>k===u);
   if(key&&USERS[key].pass.toLowerCase()===p){
     errEl.style.display='none';
     CU={...USERS[key],key};
     sessionStorage.setItem('mu',JSON.stringify(CU));
     showApp();
   }else{
-    // Maybe Firebase users not loaded yet — show helpful message
-    errEl.textContent='Usuario o contraseña incorrectos. Si acabas de ser añadido, espera unos segundos y vuelve a intentarlo.';
+    errEl.textContent='Usuario o contraseña incorrectos.';
     errEl.style.display='block';
   }
 }
