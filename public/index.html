@@ -1020,6 +1020,7 @@ function dropPL(e,phase){
 let dragTaskColId=null,dragTaskId=null,dragBoardColId=null;
 
 function renderBoard(){
+  const boardScrollPos=(document.getElementById('board-wrap')||{}).scrollLeft||0;
   const visibleCols=isCMup()?boardCols:boardCols.filter(col=>col.name===CU?.name||col.id==='adri'||col.id==='alan');
   const bw=document.getElementById('view-board');
   bw.innerHTML=`<div class="bw" id="bw-scroll" style="overflow-x:auto;padding-bottom:8px"><div class="bcols" id="bcols-inner">
@@ -1076,6 +1077,8 @@ function renderBoard(){
   </div></div>`;
   renderBoardBadge();
   setupBoardAutoScroll();
+  const bwAfter=document.getElementById('board-wrap');
+  if(bwAfter&&boardScrollPos)bwAfter.scrollLeft=boardScrollPos;
 }
 
 // COLUMN DRAG (reorder columns)
@@ -1258,7 +1261,7 @@ function openTaskDetail(colId,taskId){
     <div class="f"><label>Título</label><input id="td-title" value="${t.title}"></div>
     <div class="f"><label>Fecha límite</label><input id="td-date" type="date" value="${t.date||''}"></div>
   </div>
-  <div class="f"><label>Cliente</label><select id="td-cl"><option value="">— Sin cliente —</option>${clients.map(c=>`<option${t.client===c.name?' selected':''}>${c.name}</option>`).join('')}</select></div>
+  <div class="f"><label>Cliente</label><select id="td-cl" onchange="autoAddDriveLink('${colId}','${taskId}',this.value)"><option value="">— Sin cliente —</option>${clients.map(c=>`<option${t.client===c.name?' selected':''}>${c.name}</option>`).join('')}</select></div>
   <div class="f"><label>Etiquetas</label><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${LABELS.map((l,i)=>`<span id="lc-${i}" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;background:${(t.labels||[]).includes(i)?l.bg:'var(--bg3)'};color:${(t.labels||[]).includes(i)?l.c:'var(--tx3)'}" onclick="toggleLabel(${i},'${colId}','${taskId}')" data-sel="${(t.labels||[]).includes(i)?'1':''}">${l.n}</span>`).join('')}</div></div>
   <div class="f"><label>Descripción</label><textarea id="td-desc" rows="3" placeholder="Añade más detalles..." style="resize:vertical">${t.desc||''}</textarea></div>
   <div class="f">
@@ -1291,6 +1294,20 @@ function openTaskDetail(colId,taskId){
   document.getElementById('mo').classList.add('open');
 }
 
+function autoAddDriveLink(colId,taskId,clientName){
+  if(!clientName)return;
+  const c=clients.find(c=>c.name===clientName);if(!c)return;
+  const driveUrl=c.driveMain||'';
+  if(!driveUrl)return;
+  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
+  if(!t.links)t.links=[];
+  // Only add if not already there
+  if(t.links.some(l=>l.url===driveUrl))return;
+  t.links.push({url:driveUrl,label:'Drive — '+clientName});
+  saveBoard();
+  // Refresh the links section in the modal
+  openTaskDetail(colId,taskId);
+}
 function saveTaskDetail(colId,taskId){
   const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
   t.title=document.getElementById('td-title').value;
@@ -1298,7 +1315,11 @@ function saveTaskDetail(colId,taskId){
   t.client=document.getElementById('td-cl').value;
   t.desc=document.getElementById('td-desc').value;
   t.labels=[...document.querySelectorAll('[id^="lc-"]')].filter(el=>el.dataset.sel==='1').map(el=>parseInt(el.id.replace('lc-','')));
-  closeModal();saveBoard();renderBoard();showToast('Tarjeta guardada ✓','ok');
+  closeModal();
+  saveBoard();
+  // Re-render preserving scroll
+  renderBoard();
+  showToast('Tarjeta guardada ✓','ok');
 }
 function toggleLabel(i,colId,taskId){
   const el=document.getElementById('lc-'+i);if(!el)return;
