@@ -682,6 +682,10 @@ async function saveUsers(){await fbSet('crm','users',{users:USERS,u:new Date().t
 async function loadAll(){
   if(!fbReady)await initFB();
   try{
+    // Load users FIRST so login works for Firebase users
+    const su=await fbGet('crm','users');
+    if(su&&su.users)USERS={...USERS,...su.users};
+
     const sc=await fbGet('crm','clients');
     if(sc&&sc.list&&sc.list.length){
       clients=sc.list.map(fc=>{
@@ -695,8 +699,6 @@ async function loadAll(){
     if(se&&se.list)calEvents=se.list;
     const sp=await fbGet('crm','payments');
     if(sp){if(sp.list)paymentsList=sp.list;if(sp.cobros)cobrosList=sp.cobros;}
-    const su=await fbGet('crm','users');
-    if(su&&su.users)USERS={...USERS,...su.users};
   }catch(e){console.warn('loadAll:',e);}
   render();
   // real-time
@@ -733,12 +735,16 @@ function doLogin(){
   const u=document.getElementById('li-u').value.trim().toLowerCase();
   const p=document.getElementById('li-p').value.trim().toLowerCase();
   const key=Object.keys(USERS).find(k=>k===u);
+  const errEl=document.getElementById('lb-err');
   if(key&&USERS[key].pass.toLowerCase()===p){
+    errEl.style.display='none';
     CU={...USERS[key],key};
     sessionStorage.setItem('mu',JSON.stringify(CU));
     showApp();
   }else{
-    document.getElementById('lb-err').style.display='block';
+    // Maybe Firebase users not loaded yet — show helpful message
+    errEl.textContent='Usuario o contraseña incorrectos. Si acabas de ser añadido, espera unos segundos y vuelve a intentarlo.';
+    errEl.style.display='block';
   }
 }
 function doLogout(){
