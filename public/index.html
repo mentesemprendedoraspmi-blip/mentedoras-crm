@@ -742,11 +742,10 @@ function doLogin(){
   }
 }
 function doLogout(){
-  CU=null;sessionStorage.removeItem('mu');
-  document.getElementById('app').classList.remove('on');
-  document.getElementById('lp').style.display='flex';
-  document.getElementById('li-u').value='';
-  document.getElementById('li-p').value='';
+  CU=null;
+  sessionStorage.removeItem('mu');
+  // Full reload to clear all in-memory state
+  window.location.reload();
 }
 function toggleEye(){
   const i=document.getElementById('li-p');const ic=document.getElementById('eye-ic');
@@ -2222,20 +2221,23 @@ function renderPubCalTab(c){
             </div>
           </td>
           <td style="padding:6px">
-            <div style="display:flex;align-items:center;gap:4px">
+            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
               <input type="date" value="${pubCal[selMonth]?.[r.id]?.pub||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','pub',this.value)">
+              ${pubCal[selMonth]?.[r.id]?.pubTime?`<span style="font-size:11px;color:var(--c);font-weight:600">⏰ ${pubCal[selMonth][r.id].pubTime}</span>`:''}
               <div class="chk${pubCal[selMonth]?.[r.id]?.pubDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','pubDone')"></div>
             </div>
           </td>`:''}
           ${hasTT?`<td style="padding:6px">
-            <div style="display:flex;align-items:center;gap:4px">
+            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
               <input type="date" value="${pubCal[selMonth]?.[r.id]?.tiktok||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','tiktok',this.value)">
+              ${pubCal[selMonth]?.[r.id]?.tiktokTime?`<span style="font-size:11px;color:#69C9D0;font-weight:600">⏰ ${pubCal[selMonth][r.id].tiktokTime}</span>`:''}
               <div class="chk${pubCal[selMonth]?.[r.id]?.tiktokDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','tiktokDone')"></div>
             </div>
           </td>`:''}
           ${hasYT?`<td style="padding:6px">
-            <div style="display:flex;align-items:center;gap:4px">
+            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
               <input type="date" value="${pubCal[selMonth]?.[r.id]?.youtube||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','youtube',this.value)">
+              ${pubCal[selMonth]?.[r.id]?.youtubeTime?`<span style="font-size:11px;color:#FF0000;font-weight:600">⏰ ${pubCal[selMonth][r.id].youtubeTime}</span>`:''}
               <div class="chk${pubCal[selMonth]?.[r.id]?.youtubeDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','youtubeDone')"></div>
             </div>
           </td>`:''}
@@ -2258,21 +2260,31 @@ function generatePubCal(cid,mk){
   const reels=c.reels[mk]||[];if(!reels.length)return showToast('Sin reels para generar','err');
   if(!c.pubCal)c.pubCal={};
   if(!c.pubCal[mk])c.pubCal[mk]={};
+  const nets=c.socialNets||['instagram'];
   const peakHours=c.peakHours||{};
+  const dayKeys=['D','L','M','X','J','V','S']; // JS getDay() 0=Sunday
   const[y,m]=mk.split('-').map(Number);
   const daysInMonth=new Date(y,m,0).getDate();
-  // Spread reels evenly across the month
   const interval=Math.floor(daysInMonth/reels.length);
-  const nets=c.socialNets||['instagram'];
   reels.forEach((r,i)=>{
     const baseDay=Math.min((i+1)*interval,daysInMonth);
-    const trialDate=`${y}-${String(m).padStart(2,'0')}-${String(baseDay).padStart(2,'0')}`;
-    const pubDay=Math.min(baseDay+2,daysInMonth);
-    const pubDate=`${y}-${String(m).padStart(2,'0')}-${String(pubDay).padStart(2,'0')}`;
+    const pubDateObj=new Date(y,m-1,baseDay);
+    const dayKey=dayKeys[pubDateObj.getDay()];
+    const pubDateStr=`${y}-${String(m).padStart(2,'0')}-${String(baseDay).padStart(2,'0')}`;
+    // Peak hour minus 1 hour
+    let pubTime='';
+    if(peakHours[dayKey]){
+      const[ph,pm2]=peakHours[dayKey].split(':').map(Number);
+      const adj=Math.max(0,ph-1);
+      pubTime=`${String(adj).padStart(2,'0')}:${String(pm2||0).padStart(2,'0')}`;
+    }
+    // Trial: 2 days before publication
+    const trialDay=Math.max(1,baseDay-2);
+    const trialDateStr=`${y}-${String(m).padStart(2,'0')}-${String(trialDay).padStart(2,'0')}`;
     if(!c.pubCal[mk][r.id])c.pubCal[mk][r.id]={};
-    if(nets.includes('instagram')){c.pubCal[mk][r.id].trial=trialDate;c.pubCal[mk][r.id].pub=pubDate;}
-    if(nets.includes('tiktok'))c.pubCal[mk][r.id].tiktok=pubDate;
-    if(nets.includes('youtube'))c.pubCal[mk][r.id].youtube=pubDate;
+    if(nets.includes('instagram')){c.pubCal[mk][r.id].trial=trialDateStr;c.pubCal[mk][r.id].pub=pubDateStr;c.pubCal[mk][r.id].pubTime=pubTime;}
+    if(nets.includes('tiktok')){c.pubCal[mk][r.id].tiktok=pubDateStr;c.pubCal[mk][r.id].tiktokTime=pubTime;}
+    if(nets.includes('youtube')){c.pubCal[mk][r.id].youtube=pubDateStr;c.pubCal[mk][r.id].youtubeTime=pubTime;}
   });
   saveClients();switchPubCalMonth(cid,mk);showToast('Calendario generado ✓','ok');
 }
