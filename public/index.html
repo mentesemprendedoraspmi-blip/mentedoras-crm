@@ -416,7 +416,6 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
     </div>
     <div class="cnt" id="cnt">
       <div class="view on" id="view-dash"></div>
-      <div class="view" id="view-pipeline"></div>
       <div class="view" id="view-board"></div>
       <div class="view" id="view-cal"></div>
       <div class="view" id="view-payments"></div>
@@ -776,7 +775,6 @@ function buildSBNav(){
   const el=document.getElementById('sb-nav');
   let html='<div class="nl">Panel</div>';
   html+=nav('dash','ti-layout-dashboard','Resumen');
-  if(isCMup())html+=nav('pipeline','ti-columns','Pipeline');
   html+=nav('board','ti-layout-kanban','Tablero','<span class="nbadge" id="bbadge">0</span>');
   if(isCMup())html+=nav('cal','ti-calendar','Calendario');
   if(isCEO())html+=nav('payments','ti-coin','Pagos equipo');
@@ -835,7 +833,6 @@ function showView(name){
   const acts={dash:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,profile:''};
   document.getElementById('top-acts').innerHTML=acts[name]||'';
   if(name==='dash')renderDash();
-  if(name==='pipeline')renderPipeline();
   if(name==='board')renderBoard();
   if(name==='cal')renderCal();
   if(name==='payments')renderPayments();
@@ -1694,14 +1691,14 @@ function renderProfile(c){
             <div class="pf"><span class="pf-l">Editores</span><span class="pf-v">${(c.editors||[]).join(', ')||'—'}</span></div>
             <div class="pf"><span class="pf-l">CM</span><span class="pf-v">${c.cm||'No incluye CM'}</span></div>
             <div class="pf"><span class="pf-l">Reels/mes</span><span class="pf-v">${c.numReels}</span></div>
-            <div class="pf" style="align-items:center">
+            ${isCMup()?`<div class="pf" style="align-items:center">
               <span class="pf-l">Tipo de cliente</span>
               <select style="font-size:12px;padding:4px 8px;width:auto" onchange="updateClientField('${c.id}','clientType',this.value);saveClients();showToast('Tipo actualizado ✓','ok')">
                 <option value="pago" ${(c.clientType||'pago')==='pago'?'selected':''}>💰 Pago</option>
                 <option value="intercambio" ${c.clientType==='intercambio'?'selected':''}>🤝 Intercambio</option>
                 <option value="perdida" ${c.clientType==='perdida'?'selected':''}>📉 Pérdida (Mentedoras)</option>
               </select>
-            </div>
+            </div>`:''}
             <div class="pf" style="align-items:center">
               <span class="pf-l">Mostrar CM al cliente</span>
               <div onclick="toggleClientCM('${c.id}')" style="width:40px;height:22px;border-radius:20px;background:${c.showCM?'var(--c)':'var(--bg4)'};cursor:pointer;position:relative;transition:background .2s;flex-shrink:0">
@@ -1898,6 +1895,17 @@ function renderProfile(c){
         </div>
         <div style="margin-bottom:10px">
           <button class="btn btn-s btn-p" onclick="addMetricSnapshot('${c.id}')"><i class="ti ti-plus"></i>Añadir métricas de hoy</button>
+        </div>
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-t"><i class="ti ti-clock"></i>Horas pico de actividad
+            <span style="font-size:10px;color:var(--tx3);margin-left:auto;font-weight:400">Instagram Professional Dashboard</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
+            ${['L','M','X','J','V','S','D'].map(d=>`<div style="text-align:center">
+              <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">${d}</div>
+              <input type="text" value="${(c.peakHours||{})[d]||''}" placeholder="18:00" style="font-size:11px;padding:4px;text-align:center" onchange="updatePeakHour('${c.id}','${d}',this.value)">
+            </div>`).join('')}
+          </div>
         </div>
         ${c.growth?.igStart||c.growth?.igNow||c.growth?.viewsBefore||c.growth?.viewsNow?`
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
@@ -2160,23 +2168,12 @@ function renderPubCalTab(c){
   const peakHours=c.peakHours||{L:'18:00',M:'18:00',X:'18:00',J:'18:00',V:'19:00',S:'12:00',D:'12:00'};
   const days=['L','M','X','J','V','S','D'];
 
-  // Peak hours editor
-  let html=`<div class="card" style="margin-bottom:14px">
-    <div class="card-t"><i class="ti ti-clock"></i>Horas pico de actividad
-      <span style="font-size:10px;color:var(--tx3);margin-left:auto;font-weight:400">Fuente: Instagram Professional Dashboard</span>
+  // Month selector + generate button
+  let html=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${months.map(m=>`<button class="mbtn${m===selMonth?' on':''}" onclick="switchPubCalMonth('${c.id}','${m}')">${monthLabel(m)}</button>`).join('')}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:10px">
-      ${days.map(d=>`<div style="text-align:center">
-        <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">${d}</div>
-        <input type="text" value="${peakHours[d]||''}" placeholder="18:00" style="font-size:11px;padding:4px;text-align:center" onchange="updatePeakHour('${c.id}','${d}',this.value)">
-      </div>`).join('')}
-    </div>
-    <button class="btn btn-s btn-p" onclick="generatePubCal('${c.id}','${selMonth}')"><i class="ti ti-wand"></i>Generar calendario automático</button>
-  </div>`;
-
-  // Month selector
-  html+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-    ${months.map(m=>`<button class="mbtn${m===selMonth?' on':''}" onclick="switchPubCalMonth('${c.id}','${m}')">${monthLabel(m)}</button>`).join('')}
+    <button class="btn btn-s btn-p" onclick="generatePubCal('${c.id}','${selMonth}')"><i class="ti ti-wand"></i>Generar automático</button>
   </div>`;
 
   // Calendar grid
