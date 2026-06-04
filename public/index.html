@@ -880,7 +880,30 @@ function renderDash(){
 
   let html=``;
 
-  // Alerts
+  // Alert: reels grabbed but not sent to editor
+  if(isPMup()){
+    const pendingEnvio=[];
+    mc.forEach(c=>{
+      const mk2=monthKey();
+      (c.reels[mk2]||[]).forEach(r=>{
+        if(r.grabado&&!r.enviado&&!r.editado){
+          const grabTime=r.fechaGrab?new Date(r.fechaGrab+'T12:00:00'):null;
+          const hoursAgo=grabTime?Math.round((new Date()-grabTime)/3600000):0;
+          pendingEnvio.push({client:c.name,reel:r.label,hours:hoursAgo});
+        }
+      });
+    });
+    if(pendingEnvio.length){
+      html+=`<div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:var(--r);padding:12px 14px;margin-bottom:14px">
+        <div style="font-weight:600;color:var(--warn);margin-bottom:8px;font-size:13px">📤 ${pendingEnvio.length} reel${pendingEnvio.length>1?'s':''} grabado${pendingEnvio.length>1?'s':''} sin enviar al editor</div>
+        ${pendingEnvio.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:4px 0;border-top:1px solid rgba(245,158,11,.15)">
+          <span><strong>${p.client}</strong> — ${p.reel}</span>
+          ${p.hours>=24?`<span style="color:var(--err);font-weight:600;font-size:11px">⚠️ +${p.hours}h sin enviar</span>`:`<span style="color:var(--warn);font-size:11px">${p.hours>0?p.hours+'h':'Hoy'}</span>`}
+        </div>`).join('')}
+      </div>`;
+    }
+  }
+
   if(expiringSoon.length){
     html+=`<div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--warn)">
       <i class="ti ti-alert-triangle"></i> <strong>${expiringSoon.length} contrato${expiringSoon.length>1?'s':''}</strong> vence${expiringSoon.length>1?'n':''} en menos de 30 días: ${expiringSoon.map(c=>c.name).join(', ')}
@@ -2012,11 +2035,17 @@ function renderReelTable(c,mk){
   if(!reels.length)return`<div style="text-align:center;padding:30px;color:var(--tx3)">Sin reels para este mes</div>`;
   return`<div class="card">
     <table class="rtable" style="width:100%">
-      <tr><th>Reel</th><th>Grabado</th><th>F.Grab.</th><th>Editado</th><th>F.Entrega</th><th>Subido</th><th>Editor</th><th>Notas</th><th></th></tr>
+      <tr><th>Reel</th><th>Grabado</th><th>F.Grab.</th><th>📤 Enviado</th><th>Editado</th><th>F.Entrega</th><th>Subido</th><th>Editor</th><th>Notas</th><th></th></tr>
       ${reels.map((r,i)=>`<tr>
         <td style="font-weight:600;color:var(--tx)">${r.label}</td>
         <td><div class="chk${r.grabado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'grabado')">${r.grabado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
         <td><input type="date" value="${r.fechaGrab||''}" style="width:130px;padding:3px 6px;font-size:11px" onchange="updateReel('${c.id}','${mk}',${i},'fechaGrab',this.value)"></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="chk${r.enviado?' on':''}" style="background:${r.grabado&&!r.enviado?'rgba(245,158,11,.2)':''};border-color:${r.grabado&&!r.enviado?'var(--warn)':''}" onclick="toggleReel('${c.id}','${mk}',${i},'enviado')">${r.enviado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div>
+            ${r.grabado&&!r.enviado?`<span style="font-size:10px;color:var(--warn);font-weight:600">⚠️</span>`:''}
+          </div>
+        </td>
         <td><div class="chk${r.editado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'editado')">${r.editado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
         <td><input type="date" value="${r.fechaEdit||''}" style="width:130px;padding:3px 6px;font-size:11px" onchange="updateReel('${c.id}','${mk}',${i},'fechaEdit',this.value)"></td>
         <td><div class="chk${r.subido?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'subido')">${r.subido?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
@@ -2164,7 +2193,14 @@ function addReel(cid,mk){
 function toggleReel(cid,mk,i,field){
   const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
   c.reels[mk][i][field]=!c.reels[mk][i][field];
+  // Save timestamp when marked
+  if(c.reels[mk][i][field]){
+    if(field==='grabado')c.reels[mk][i].fechaGrabTS=new Date().toISOString();
+    if(field==='enviado')c.reels[mk][i].fechaEnviadoTS=new Date().toISOString();
+  }
   saveClients();switchReelMonth(cid,mk);
+  // Refresh dashboard alert if PM or CEO
+  if(isPMup()&&document.getElementById('view-dash')?.classList.contains('on'))renderDash();
 }
 function updateReel(cid,mk,i,field,val){
   const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
