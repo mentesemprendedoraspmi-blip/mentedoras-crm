@@ -2656,7 +2656,7 @@ function autoGenPass(){
   const passEl=document.getElementById('nu-pass');
   if(passEl&&key)passEl.value=key+year;
 }
-function saveNewUser(){
+async function saveNewUser(){
   const key=document.getElementById('nu-key').value.trim().toLowerCase().replace(/\s+/g,'');
   const name=document.getElementById('nu-name').value.trim();
   const pass=document.getElementById('nu-pass').value.trim();
@@ -2665,7 +2665,7 @@ function saveNewUser(){
   if(!key||!name||!pass)return showToast('Rellena todos los campos','err');
   if(USERS[key])return showToast('Ese usuario ya existe','err');
   USERS[key]={name,pass,role:roles[level],level};
-  closeModal();saveUsers();renderUsers();buildSBNav();showToast('Usuario creado ✓','ok');
+  closeModal();await saveUsers();renderUsers();buildSBNav();showToast(`Usuario ${name} creado ✓ — contraseña: ${pass}`,'ok');
 }
 function saveEditUser(key){
   const u=USERS[key];if(!u)return;
