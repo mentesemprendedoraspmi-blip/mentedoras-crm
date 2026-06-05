@@ -1296,16 +1296,19 @@ function openTaskDetail(colId,taskId){
 
 function autoAddDriveLink(colId,taskId,clientName){
   if(!clientName)return;
-  const c=clients.find(c=>c.name===clientName);if(!c)return;
-  const driveUrl=c.driveMain||'';
-  if(!driveUrl)return;
-  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
+  const c=clients.find(c=>c.name===clientName);
+  console.log('autoAddDriveLink called:', {colId, taskId, clientName, driveMain: c?.driveMain});
+  if(!c)return;
+  const driveUrl=c.driveMain||(c.drive||{}).reelsEdit||'';
+  if(!driveUrl){console.log('No driveUrl found for', clientName);return;}
+  const col=boardCols.find(col=>col.id===colId);
+  if(!col){console.log('Col not found:', colId);return;}
+  const t=col.tasks.find(t=>t.id==taskId||t.id===taskId);
+  if(!t){console.log('Task not found:', taskId, 'available:', col.tasks.map(t=>t.id));return;}
   if(!t.links)t.links=[];
-  // Only add if not already there
   if(t.links.some(l=>l.url===driveUrl))return;
-  t.links.push({url:driveUrl,label:'Drive — '+clientName});
+  t.links.push({url:driveUrl,label:'📁 Drive — '+clientName});
   saveBoard();
-  // Refresh the links section in the modal
   openTaskDetail(colId,taskId);
 }
 function saveTaskDetail(colId,taskId){
