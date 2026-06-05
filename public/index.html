@@ -1020,6 +1020,7 @@ function dropPL(e,phase){
 let dragTaskColId=null,dragTaskId=null,dragBoardColId=null;
 
 function renderBoard(){
+  const boardScrollPos=(document.getElementById('bw-scroll')||{}).scrollLeft||0;
   const visibleCols=isCMup()?boardCols:boardCols.filter(col=>col.name===CU?.name||col.id==='adri'||col.id==='alan');
   const bw=document.getElementById('view-board');
   bw.innerHTML=`<div class="bw" id="bw-scroll" style="overflow-x:auto;padding-bottom:8px"><div class="bcols" id="bcols-inner">
@@ -1076,6 +1077,8 @@ function renderBoard(){
   </div></div>`;
   renderBoardBadge();
   setupBoardAutoScroll();
+  const bwAfter=document.getElementById('bw-scroll');
+  if(bwAfter&&boardScrollPos)bwAfter.scrollLeft=boardScrollPos;
 }
 
 // COLUMN DRAG (reorder columns)
@@ -1312,7 +1315,11 @@ function saveTaskDetail(colId,taskId){
   t.client=document.getElementById('td-cl').value;
   t.desc=document.getElementById('td-desc').value;
   t.labels=[...document.querySelectorAll('[id^="lc-"]')].filter(el=>el.dataset.sel==='1').map(el=>parseInt(el.id.replace('lc-','')));
-  closeModal();saveBoard();renderBoard();showToast('Tarjeta guardada ✓','ok');
+  closeModal();
+  saveBoard();
+  // Re-render preserving scroll
+  renderBoard();
+  showToast('Tarjeta guardada ✓','ok');
 }
 function toggleLabel(i,colId,taskId){
   const el=document.getElementById('lc-'+i);if(!el)return;
