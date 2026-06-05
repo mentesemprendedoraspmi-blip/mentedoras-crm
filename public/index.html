@@ -1261,7 +1261,12 @@ function openTaskDetail(colId,taskId){
     <div class="f"><label>Título</label><input id="td-title" value="${t.title}"></div>
     <div class="f"><label>Fecha límite</label><input id="td-date" type="date" value="${t.date||''}"></div>
   </div>
-  <div class="f"><label>Cliente</label><select id="td-cl" onchange="autoAddDriveLink('${colId}','${taskId}',this.value)"><option value="">— Sin cliente —</option>${clients.map(c=>`<option${t.client===c.name?' selected':''}>${c.name}</option>`).join('')}</select></div>
+  <div class="f"><label>Cliente</label>
+    <select id="td-cl" onchange="autoAddDriveLink('${colId}','${taskId}',this.value)">
+      <option value="">— Sin cliente —</option>${clients.map(c=>`<option${t.client===c.name?' selected':''}>${c.name}</option>`).join('')}
+    </select>
+    ${t.client?(()=>{const cl=clients.find(c=>c.name===t.client);const url=cl?.driveMain||(cl?.drive||{}).reelsEdit||'';return url?`<a href="${url}" target="_blank" class="btn btn-s btn-p" style="margin-top:6px;text-decoration:none;display:inline-flex"><i class="ti ti-folder"></i>Abrir Drive de ${t.client}</a>`:''})():''}
+  </div>
   <div class="f"><label>Etiquetas</label><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${LABELS.map((l,i)=>`<span id="lc-${i}" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;background:${(t.labels||[]).includes(i)?l.bg:'var(--bg3)'};color:${(t.labels||[]).includes(i)?l.c:'var(--tx3)'}" onclick="toggleLabel(${i},'${colId}','${taskId}')" data-sel="${(t.labels||[]).includes(i)?'1':''}">${l.n}</span>`).join('')}</div></div>
   <div class="f"><label>Descripción</label><textarea id="td-desc" rows="3" placeholder="Añade más detalles..." style="resize:vertical">${t.desc||''}</textarea></div>
   <div class="f">
