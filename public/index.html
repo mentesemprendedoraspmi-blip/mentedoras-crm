@@ -2472,6 +2472,14 @@ function savePubDate(cid,mk,rid,field,val){
   if(!c.pubCal[mk])c.pubCal[mk]={};
   if(!c.pubCal[mk][rid])c.pubCal[mk][rid]={};
   c.pubCal[mk][rid][field]=val;
+  // Auto-fill pub date 2 days after trial
+  if(field==='trial'&&val&&!c.pubCal[mk][rid].pub){
+    const d=new Date(val+'T12:00:00');
+    d.setDate(d.getDate()+2);
+    c.pubCal[mk][rid].pub=d.toISOString().split('T')[0];
+    // Refresh table to show auto-filled date
+    setTimeout(()=>switchPubCalMonth(cid,mk),100);
+  }
   saveClients();
 }
 
@@ -2619,7 +2627,8 @@ function openModal(type,extra='',extra2=null){
       </select></div>
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveContract('${extra}')">Guardar</button></div>`;
   }else if(type==='task'){
-    const prefix=CU?.name?CU.name+' - ':'';
+    const col2=boardCols.find(c=>c.id===extra);
+    const prefix=col2?.name?col2.name+' - ':'';
     c.innerHTML=`<div class="modal-t">Nueva tarea</div>
       <div class="f"><label>Tarea</label><input id="nt-title" value="${prefix}" placeholder="Descripción"></div>
       <div class="fg2">
