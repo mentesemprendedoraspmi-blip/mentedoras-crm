@@ -701,6 +701,8 @@ async function loadAll(){
     if(sp){if(sp.list)paymentsList=sp.list;if(sp.cobros)cobrosList=sp.cobros;}
   }catch(e){console.warn('loadAll:',e);}
   render();
+  // Check for auto CM tasks daily
+  setTimeout(checkAutoTasksForCM, 2000);
   // real-time
   if(db){
     try{
@@ -1067,7 +1069,9 @@ function renderBoard(){
               ${t.date?`<span class="badge ${dstatus(t.date).cls}" style="font-size:10px">${dstatus(t.date).lbl}</span>`:''}
               ${t.checklist&&t.checklist.length?`<span style="font-size:10px;background:var(--bg4);color:var(--tx3);padding:2px 6px;border-radius:20px"><i class="ti ti-checklist" style="font-size:9px"></i> ${t.checklist.filter(i=>i.done).length}/${t.checklist.length}</span>`:''}
               ${t.links&&t.links.length?`<span style="font-size:10px;background:var(--bg4);color:var(--tx3);padding:2px 6px;border-radius:20px"><i class="ti ti-link" style="font-size:9px"></i> ${t.links.length}</span>`:''}
+              ${t.images&&t.images.length?`<span style="font-size:10px;background:var(--bg4);color:var(--tx3);padding:2px 6px;border-radius:20px">🖼️ ${t.images.length}</span>`:''}
             </div>
+            ${t.images&&t.images.length?`<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">${t.images.slice(0,3).map(img=>`<img src="${img}" style="width:44px;height:44px;object-fit:cover;border-radius:4px;border:1px solid var(--bd)">`).join('')}${t.images.length>3?`<div style="width:44px;height:44px;border-radius:4px;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--tx3)">+${t.images.length-3}</div>`:''}</div>`:''}
           </div>`).join('')}
         </div>
         <button class="badd" onclick="openModal('task','${col.id}')"><i class="ti ti-plus" style="font-size:12px"></i>Añadir tarea</button>
@@ -1270,6 +1274,21 @@ function openTaskDetail(colId,taskId){
   <div class="f"><label>Etiquetas</label><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${LABELS.map((l,i)=>`<span id="lc-${i}" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;background:${(t.labels||[]).includes(i)?l.bg:'var(--bg3)'};color:${(t.labels||[]).includes(i)?l.c:'var(--tx3)'}" onclick="toggleLabel(${i},'${colId}','${taskId}')" data-sel="${(t.labels||[]).includes(i)?'1':''}">${l.n}</span>`).join('')}</div></div>
   <div class="f"><label>Descripción</label><textarea id="td-desc" rows="3" placeholder="Añade más detalles..." style="resize:vertical">${t.desc||''}</textarea></div>
   <div class="f">
+    <label>🖼️ Imágenes</label>
+    <div id="td-images" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+      ${(t.images||[]).map((img,i)=>`<div style="position:relative">
+        <img src="${img}" style="width:80px;height:80px;object-fit:cover;border-radius:var(--r);border:1px solid var(--bd);cursor:pointer" onclick="window.open('${img}','_blank')">
+        <button onclick="removeTaskImage('${colId}','${taskId}',${i})" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--err);border:none;color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
+      </div>`).join('')}
+    </div>
+    <div id="td-drop" ondrop="handleImageDrop(event,'${colId}','${taskId}')" ondragover="event.preventDefault();this.style.borderColor='var(--c)'" ondragleave="this.style.borderColor='var(--bd2)'"
+      style="border:2px dashed var(--bd2);border-radius:var(--r);padding:16px;text-align:center;cursor:pointer;transition:border-color .15s;font-size:12px;color:var(--tx3)"
+      onclick="document.getElementById('td-img-input').click()">
+      📎 Arrastra imágenes aquí o haz clic para subir
+    </div>
+    <input type="file" id="td-img-input" accept="image/*" multiple style="display:none" onchange="handleImageUpload(event,'${colId}','${taskId}')">
+  </div>
+  <div class="f">
     <label>Links</label>
     ${t.links.map((lk,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px">
       <input type="text" value="${lk.url}" placeholder="URL" style="flex:1;font-size:12px;padding:5px 8px" onchange="updateLink('${colId}','${taskId}',${i},'url',this.value)">
@@ -1299,8 +1318,88 @@ function openTaskDetail(colId,taskId){
   document.getElementById('mo').classList.add('open');
 }
 
+function handleImageUpload(event,colId,taskId){
+  const files=event.target.files;
+  if(!files.length)return;
+  const col=boardCols.find(c=>c.id===colId);
+  const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
+  if(!t.images)t.images=[];
+  let loaded=0;
+  Array.from(files).forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      t.images.push(e.target.result);
+      loaded++;
+      if(loaded===files.length){saveBoard();openTaskDetail(colId,taskId);}
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function handleImageDrop(event,colId,taskId){
+  event.preventDefault();
+  document.getElementById('td-drop').style.borderColor='var(--bd2)';
+  const files=event.dataTransfer.files;
+  if(!files.length)return;
+  const fakeEvent={target:{files}};
+  handleImageUpload(fakeEvent,colId,taskId);
+}
+function removeTaskImage(colId,taskId,i){
+  const col=boardCols.find(c=>c.id===colId);
+  const t=col?.tasks.find(t=>t.id==taskId);if(!t||!t.images)return;
+  t.images.splice(i,1);
+  saveBoard();openTaskDetail(colId,taskId);
+}
+function checkAutoTasksForCM(){
+  clients.forEach(c=>{
+    if(!c.cm||!c.pubCal)return;
+    const mk=monthKey();
+    const pubCalMonth=c.pubCal[mk]||{};
+    const reels=c.reels[mk]||[];
+    reels.forEach(r=>{
+      const pd=pubCalMonth[r.id]||{};
+      // Check trial date
+      if(pd.trial===todayStr&&!pd.trialTaskCreated){
+        createAutoTask(`📤 Trial Instagram — ${r.label} (${c.name})`,c.cm,todayStr,c);
+        pd.trialTaskCreated=true;
+      }
+      // Check pub date
+      if(pd.pub===todayStr&&!pd.pubTaskCreated){
+        const timeStr=pd.pubTime?` a las ${pd.pubTime}`:'';
+        createAutoTask(`📸 Publicar Instagram${timeStr} — ${r.label} (${c.name})`,c.cm,todayStr,c);
+        pd.pubTaskCreated=true;
+      }
+      // Check tiktok
+      if(pd.tiktok===todayStr&&!pd.tiktokTaskCreated){
+        const timeStr=pd.tiktokTime?` a las ${pd.tiktokTime}`:'';
+        createAutoTask(`🎵 Publicar TikTok${timeStr} — ${r.label} (${c.name})`,c.cm,todayStr,c);
+        pd.tiktokTaskCreated=true;
+      }
+    });
+  });
+  saveClients();
+}
+
+function createAutoTask(title,cmName,date,client){
+  // Find column for this CM or use first column
+  let col=boardCols.find(c=>c.name.toLowerCase().includes(cmName.toLowerCase()));
+  if(!col)col=boardCols[0];
+  if(!col)return;
+  // Avoid duplicates
+  if(col.tasks.some(t=>t.title===title&&t.date===date))return;
+  col.tasks.unshift({
+    id:Date.now()+Math.random(),
+    title,
+    client:client.name,
+    date,
+    done:false,
+    createdBy:'Sistema',
+    autoTask:true
+  });
+  saveBoard();
+  renderBoard();
+  showToast(`Tarea automática creada para ${cmName} 📋`,'ok');
+}
 function autoAddDriveLink(colId,taskId,clientName){
-  if(!clientName)return;
   const c=clients.find(c=>c.name===clientName);
   console.log('autoAddDriveLink called:', {colId, taskId, clientName, driveMain: c?.driveMain});
   if(!c)return;
@@ -1316,19 +1415,19 @@ function autoAddDriveLink(colId,taskId,clientName){
   saveBoard();
   openTaskDetail(colId,taskId);
 }
-function saveTaskDetail(colId,taskId){
+async function saveTaskDetail(colId,taskId){
   const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
-  t.title=document.getElementById('td-title').value;
-  t.date=document.getElementById('td-date').value;
-  t.client=document.getElementById('td-cl').value;
-  t.desc=document.getElementById('td-desc').value;
+  t.title=document.getElementById('td-title')?.value||t.title;
+  t.date=document.getElementById('td-date')?.value||'';
+  t.client=document.getElementById('td-cl')?.value||'';
+  t.desc=document.getElementById('td-desc')?.value||'';
   t.labels=[...document.querySelectorAll('[id^="lc-"]')].filter(el=>el.dataset.sel==='1').map(el=>parseInt(el.id.replace('lc-','')));
-  closeModal();
-  saveBoard();
-  // Re-render preserving scroll
-  renderBoard();
-  showToast('Tarjeta guardada ✓','ok');
+  closeModal();await saveBoard();renderBoard();showToast('Tarjeta guardada ✓','ok');
 }
+
+
+
+
 function toggleLabel(i,colId,taskId){
   const el=document.getElementById('lc-'+i);if(!el)return;
   const L=LABELS[i];const sel=el.dataset.sel=el.dataset.sel==='1'?'':'1';
@@ -2520,14 +2619,17 @@ function openModal(type,extra='',extra2=null){
       </select></div>
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveContract('${extra}')">Guardar</button></div>`;
   }else if(type==='task'){
+    const prefix=CU?.name?CU.name+' - ':'';
     c.innerHTML=`<div class="modal-t">Nueva tarea</div>
-      <div class="f"><label>Tarea</label><input id="nt-title" placeholder="Descripción"></div>
+      <div class="f"><label>Tarea</label><input id="nt-title" value="${prefix}" placeholder="Descripción"></div>
       <div class="fg2">
         <div class="f"><label>Columna</label><select id="nt-col">${boardCols.map(col=>`<option value="${col.id}"${col.id===extra?' selected':''}>${col.name}</option>`).join('')}</select></div>
         <div class="f"><label>Fecha límite</label><input id="nt-date" type="date"></div>
       </div>
       <div class="f"><label>Cliente (opcional)</label><select id="nt-cl"><option value="">— Sin cliente —</option>${clients.map(cl=>`<option>${cl.name}</option>`).join('')}</select></div>
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveTask()">Añadir</button></div>`;
+    // Focus at end of input
+    setTimeout(()=>{const el=document.getElementById('nt-title');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}},50);
   }else if(type==='event'){
     c.innerHTML=`<div class="modal-t">Nuevo evento</div>
       <div class="f"><label>Título</label><input id="ev-title" placeholder="ej. Grabación con Héctor"></div>
@@ -2687,14 +2789,18 @@ function saveContract(id){
   }
   closeModal();renderProfile(c);saveClients();showToast('Contrato actualizado ✓','ok');
 }
-function saveTask(){
-  const title=document.getElementById('nt-title').value.trim();if(!title)return;
-  const colId=document.getElementById('nt-col').value;
-  const date=document.getElementById('nt-date').value;
-  const client=document.getElementById('nt-cl').value;
+async function saveTask(){
+  const titleEl=document.getElementById('nt-title');
+  const title=(titleEl?.value||'').trim();
+  if(!title)return showToast('Escribe una descripción','err');
+  const colId=document.getElementById('nt-col')?.value;
+  const date=document.getElementById('nt-date')?.value||'';
+  const client=document.getElementById('nt-cl')?.value||'';
   const col=boardCols.find(c=>c.id===colId);
-  if(col)col.tasks.unshift({id:Date.now(),title,client,date,done:false});
-  closeModal();saveBoard();renderBoard();renderBoardBadge();showToast('Tarea añadida ✓','ok');
+  if(col)col.tasks.unshift({id:Date.now(),title,client,date,done:false,createdBy:CU?.name||''});
+  closeModal();
+  await saveBoard();
+  renderBoard();renderBoardBadge();showToast('Tarea añadida ✓','ok');
 }
 function saveEvent(){
   const title=document.getElementById('ev-title').value.trim();if(!title)return;
