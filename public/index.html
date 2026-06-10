@@ -1033,6 +1033,7 @@ function renderBoard(){
   bw.innerHTML=`<div class="bw" id="bw-scroll" style="overflow-x:auto;padding-bottom:8px"><div class="bcols" id="bcols-inner">
     ${visibleCols.map(col=>{
       const sortedTasks=[...(col.tasks||[])].sort((a,b)=>{if(a.done&&!b.done)return 1;if(!a.done&&b.done)return -1;if(a.date&&b.date)return a.date.localeCompare(b.date);if(a.date&&!b.date)return -1;if(!a.date&&b.date)return 1;return 0;});
+      const pend=sortedTasks.filter(t=>!t.done).length;
       return`<div class="bcol" data-col="${col.id}"
         ondragover="boardColDragOver(event,'${col.id}')"
         ondragleave="boardColDragLeave(event,'${col.id}')"
@@ -1362,6 +1363,7 @@ function removeTaskImage(colId,taskId,i){
   saveBoard();openTaskDetail(colId,taskId);
 }
 function checkAutoTasksForCM(){
+  const todayStr=today();
   clients.forEach(c=>{
     if(!c.cm||!c.pubCal)return;
     const mk=monthKey();
