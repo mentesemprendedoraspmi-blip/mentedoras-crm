@@ -780,10 +780,22 @@ function showApp(){
   document.getElementById('sb-un').textContent=CU.name+' · '+CU.role;
   buildSBNav();loadAll();loadConfig();
   const h=new Date().getHours();
+  const dow=new Date().getDay(); // 0=Dom, 1=Lun, 2=Mar, 3=Mié, 4=Jue, 5=Vie, 6=Sáb
   const g=h<13?'¡Buenos días':h<20?'¡Buenas tardes':'¡Buenas noches';
-  document.getElementById('w-emoji').textContent=h<13?'☀️':h<20?'👋':'🌙';
+  const dayMsgs={
+    0:['¡Domingo de descanso! 😴','Recarga pilas que mañana toca','El equipo descansa, la energía se acumula 🔋'],
+    1:['¡Semana nueva, energía nueva! 💪','¡A por todas esta semana!','Lunes de arranque 🚀'],
+    2:['¡Martes en marcha! 🎯','El ritmo ya está cogido 🔥','Segundo día, segundo piso 📈'],
+    3:['¡Mitad de semana! 🏁','Ya vamos a la bajada 📉','Miércoles, el ecuador 🌍'],
+    4:['¡Ya queda menos! 🙌','Mañana es viernes, aguanta 💪','Jueves — la meta se acerca 🎯'],
+    5:['¡Es VIERNES! 🎉','¡Que ya se acaba la semana! 🥳','¡Último empujón y a descansar! 🚀','¡Viernes! El mejor día de la semana 🔥'],
+    6:['¡Sábado! Si estás aquí, eres de los buenos 🏆','Trabajando en sábado — eso se llama compromiso 💎','¡Sábado de crack! 🔥']
+  };
+  const msgs=dayMsgs[dow]||['¡A por ello!'];
+  const subMsg=msgs[Math.floor(Math.random()*msgs.length)];
+  document.getElementById('w-emoji').textContent=dow===5?'🎉':dow===4?'💪':h<13?'☀️':h<20?'👋':'🌙';
   document.getElementById('w-title').textContent=g+', '+CU.name+'!';
-  document.getElementById('w-sub').textContent='Listo para gestionar 💪';
+  document.getElementById('w-sub').textContent=subMsg;
   document.getElementById('welcome').classList.add('open');
 }
 function closeWelcome(){document.getElementById('welcome').classList.remove('open');}
@@ -2359,13 +2371,33 @@ function addReel(cid,mk){
 function toggleReel(cid,mk,i,field){
   const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
   c.reels[mk][i][field]=!c.reels[mk][i][field];
-  // Save timestamp when marked
   if(c.reels[mk][i][field]){
-    if(field==='grabado')c.reels[mk][i].fechaGrabTS=new Date().toISOString();
+    if(field==='grabado'){
+      c.reels[mk][i].fechaGrabTS=new Date().toISOString();
+      // Auto-calculate pub calendar dates
+      const rid=c.reels[mk][i].id;
+      const grabDate=c.reels[mk][i].fechaGrab||today();
+      const d=new Date(grabDate+'T12:00:00');
+      const editDate=new Date(d);editDate.setDate(d.getDate()+4);
+      const trialDate=new Date(d);trialDate.setDate(d.getDate()+5);
+      const pubDate=new Date(d);pubDate.setDate(d.getDate()+7);
+      const fmt=dt=>dt.toISOString().split('T')[0];
+      // Update reel fechaEdit
+      if(!c.reels[mk][i].fechaEdit)c.reels[mk][i].fechaEdit=fmt(editDate);
+      // Update pubCal
+      if(!c.pubCal)c.pubCal={};
+      if(!c.pubCal[mk])c.pubCal[mk]={};
+      if(!c.pubCal[mk][rid])c.pubCal[mk][rid]={};
+      const pd=c.pubCal[mk][rid];
+      if(!pd.trial)pd.trial=fmt(trialDate);
+      if(!pd.pub)pd.pub=fmt(pubDate);
+      const nets=c.socialNets||['instagram'];
+      if(nets.includes('tiktok')&&!pd.tiktok)pd.tiktok=fmt(pubDate);
+      if(nets.includes('youtube')&&!pd.youtube)pd.youtube=fmt(pubDate);
+    }
     if(field==='enviado')c.reels[mk][i].fechaEnviadoTS=new Date().toISOString();
   }
   saveClients();switchReelMonth(cid,mk);
-  // Refresh dashboard alert if PM or CEO
   if(isPMup()&&document.getElementById('view-dash')?.classList.contains('on'))renderDash();
 }
 function updateReel(cid,mk,i,field,val){
@@ -2497,6 +2529,7 @@ function generatePubCal(cid,mk){
     const trialDay=Math.max(1,baseDay-2);
     const trialDateStr=`${y}-${String(m).padStart(2,'0')}-${String(trialDay).padStart(2,'0')}`;
     if(!c.pubCal[mk][r.id])c.pubCal[mk][r.id]={};
+    // Always overwrite
     if(nets.includes('instagram')){c.pubCal[mk][r.id].trial=trialDateStr;c.pubCal[mk][r.id].pub=pubDateStr;c.pubCal[mk][r.id].pubTime=pubTime;}
     if(nets.includes('tiktok')){c.pubCal[mk][r.id].tiktok=pubDateStr;c.pubCal[mk][r.id].tiktokTime=pubTime;}
     if(nets.includes('youtube')){c.pubCal[mk][r.id].youtube=pubDateStr;c.pubCal[mk][r.id].youtubeTime=pubTime;}
@@ -2514,8 +2547,12 @@ function savePubDate(cid,mk,rid,field,val){
   if(field==='trial'&&val&&!c.pubCal[mk][rid].pub){
     const d=new Date(val+'T12:00:00');
     d.setDate(d.getDate()+2);
-    c.pubCal[mk][rid].pub=d.toISOString().split('T')[0];
-    // Refresh table to show auto-filled date
+    const pubDate=d.toISOString().split('T')[0];
+    c.pubCal[mk][rid].pub=pubDate;
+    // Same date for TikTok and YouTube if active
+    const nets=c.socialNets||['instagram'];
+    if(nets.includes('tiktok')&&!c.pubCal[mk][rid].tiktok)c.pubCal[mk][rid].tiktok=pubDate;
+    if(nets.includes('youtube')&&!c.pubCal[mk][rid].youtube)c.pubCal[mk][rid].youtube=pubDate;
     setTimeout(()=>switchPubCalMonth(cid,mk),100);
   }
   saveClients();
