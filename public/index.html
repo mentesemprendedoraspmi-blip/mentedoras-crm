@@ -1211,9 +1211,33 @@ function toggleTask(colId,taskId){
 
 function clearColTasks(colId){
   const col=boardCols.find(c=>c.id===colId);if(!col)return;
-  if(!confirm(`¿Eliminar todas las tarjetas de "${col.name}"?`))return;
-  col.tasks=[];
-  saveBoard();renderBoard();showToast('Columna vaciada ✓','ok');
+  const mc=document.getElementById('modal-c');
+  mc.innerHTML=`<div class="modal-t">¿Vaciar "${col.name}"?</div>
+    <p style="font-size:13px;color:var(--tx2);margin-bottom:16px">Se eliminarán todas las tarjetas de esta columna.</p>
+    <div class="modal-acts">
+      <button class="btn btn-s" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-s btn-p" style="background:var(--err);border-color:var(--err)" onclick="closeModal();col_clear('${colId}')">Vaciar</button>
+    </div>`;
+  document.getElementById('mo').classList.add('open');
+}
+function col_clear(colId){
+  const col=boardCols.find(c=>c.id===colId);if(!col)return;
+  col.tasks=[];saveBoard();renderBoard();showToast('Columna vaciada ✓','ok');
+}
+function deleteCol(colId){
+  const col=boardCols.find(c=>c.id===colId);if(!col)return;
+  const mc=document.getElementById('modal-c');
+  mc.innerHTML=`<div class="modal-t">¿Eliminar "${col.name}"?</div>
+    <p style="font-size:13px;color:var(--tx2);margin-bottom:16px">Se eliminará la columna y todas sus tarjetas.</p>
+    <div class="modal-acts">
+      <button class="btn btn-s" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-s btn-p" style="background:var(--err);border-color:var(--err)" onclick="closeModal();col_delete('${colId}')">Eliminar</button>
+    </div>`;
+  document.getElementById('mo').classList.add('open');
+}
+function col_delete(colId){
+  boardCols=boardCols.filter(c=>c.id!==colId);
+  saveBoard();renderBoard();showToast('Columna eliminada ✓','ok');
 }
 function addBoardCol(){
   const name=prompt('Nombre de la nueva columna:');
