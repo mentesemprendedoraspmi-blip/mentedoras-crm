@@ -620,6 +620,7 @@ let clients=[
   {id:'valerio',name:'Valerio Queentins',type:'Negocio local',phase:2,services:['content_5'],editors:['Darwin'],cm:'',delivery:'',msgs:[],contract:null,contractStart:'',contractEnd:'',contractType:'Mensual',price:0,numReels:5,reels:mkMonths(5),fase0:mkFase0(),produccion:{}},
 ];
 
+let _lastBoardSave=null;
 let boardCols=[
   {id:'adri',name:'Adri',color:'var(--c)',tasks:[]},
   {id:'alan',name:'Alan',color:'var(--c)',tasks:[]},
@@ -674,7 +675,11 @@ function myClients(){
 // FIREBASE SAVE
 // ============================================================
 async function saveClients(){await fbSet('crm','clients',{list:clients,u:new Date().toISOString()});}
-async function saveBoard(){await fbSet('crm','board',{cols:boardCols,u:new Date().toISOString()});}
+async function saveBoard(){
+  const data={cols:boardCols,u:new Date().toISOString()};
+  await fbSet('crm','board',data);
+  _lastBoardSave=data.u;
+}
 async function saveEvents(){await fbSet('crm','events',{list:calEvents,u:new Date().toISOString()});}
 async function savePayments(){await fbSet('crm','payments',{list:paymentsList,cobros:cobrosList,u:new Date().toISOString()});}
 async function saveUsers(){await fbSet('crm','users',{users:USERS,u:new Date().toISOString()});}
@@ -1027,7 +1032,7 @@ function renderBoard(){
   const bw=document.getElementById('view-board');
   bw.innerHTML=`<div class="bw" id="bw-scroll" style="overflow-x:auto;padding-bottom:8px"><div class="bcols" id="bcols-inner">
     ${visibleCols.map(col=>{
-      const pend=col.tasks.filter(t=>!t.done).length;
+      const sortedTasks=[...(col.tasks||[])].sort((a,b)=>{if(a.done&&!b.done)return 1;if(!a.done&&b.done)return -1;if(a.date&&b.date)return a.date.localeCompare(b.date);if(a.date&&!b.date)return -1;if(!a.date&&b.date)return 1;return 0;});
       return`<div class="bcol" data-col="${col.id}"
         ondragover="boardColDragOver(event,'${col.id}')"
         ondragleave="boardColDragLeave(event,'${col.id}')"
@@ -1047,13 +1052,14 @@ function renderBoard(){
                 <div class="dm-item" onclick="moveAllCards('${col.id}')"><i class="ti ti-arrows-move"></i>Mover todas</div>
                 <div class="dm-item" onclick="sortCol('${col.id}','date')"><i class="ti ti-sort-ascending"></i>Ordenar por fecha</div>
                 <div class="dm-item" onclick="sortCol('${col.id}','name')"><i class="ti ti-sort-ascending-letters"></i>Ordenar por nombre</div>
-                <div class="dm-item danger" onclick="deleteCol('${col.id}')"><i class="ti ti-trash"></i>Eliminar</div>
+                <div class="dm-item" onclick="clearColTasks('${col.id}')"><i class="ti ti-trash"></i>Vaciar columna</div>
+                <div class="dm-item danger" onclick="deleteCol('${col.id}')"><i class="ti ti-trash"></i>Eliminar columna</div>
               </div>
             </div>`:''}
           </div>
         </div>
         <div class="bcol-body" id="bcl-${col.id}">
-          ${col.tasks.map((t,ti)=>`<div class="bcard" draggable="true" data-task="${t.id}" data-col="${col.id}"
+          ${sortedTasks.map((t,ti)=>`<div class="bcard" draggable="true" data-task="${t.id}" data-col="${col.id}"
             ondragstart="startDragTask(event,'${col.id}','${t.id}')"
             ondragend="endDragTask(event)"
             ondragover="taskDragOver(event,'${col.id}',${ti})"
@@ -1202,6 +1208,12 @@ function toggleTask(colId,taskId){
   if(t){t.done=!t.done;saveBoard();renderBoard();}
 }
 
+function clearColTasks(colId){
+  const col=boardCols.find(c=>c.id===colId);if(!col)return;
+  if(!confirm(`¿Eliminar todas las tarjetas de "${col.name}"?`))return;
+  col.tasks=[];
+  saveBoard();renderBoard();showToast('Columna vaciada ✓','ok');
+}
 function addBoardCol(){
   const name=prompt('Nombre de la nueva columna:');
   if(!name)return;
@@ -2921,11 +2933,13 @@ function showPortal(c){
       db.collection('crm').doc('board').onSnapshot(snap=>{
         if(snap&&snap.exists){const d=snap.data();
           if(d&&d.cols){
-            boardCols=d.cols;
-            if(document.querySelector('.nav-item.on')?.dataset?.view==='board')renderBoard();
-            // Update badge
-            const total=boardCols.reduce((s,c)=>(s+(c.tasks||[]).length),0);
-            const el=document.getElementById('bbadge');if(el)el.textContent=total;
+            // Only update if Firebase data is newer than our last save
+            if(!_lastBoardSave||!d.u||d.u>_lastBoardSave){
+              boardCols=d.cols;
+              if(document.querySelector('.nav-item.on')?.dataset?.view==='board')renderBoard();
+              const total=boardCols.reduce((s,c)=>(s+(c.tasks||[]).length),0);
+              const el=document.getElementById('bbadge');if(el)el.textContent=total;
+            }
           }
         }
       });
