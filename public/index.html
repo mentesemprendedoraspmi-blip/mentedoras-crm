@@ -676,9 +676,25 @@ function myClients(){
 // ============================================================
 async function saveClients(){await fbSet('crm','clients',{list:clients,u:new Date().toISOString()});}
 async function saveBoard(){
-  const data={cols:boardCols,u:new Date().toISOString()};
+  // Save images separately to avoid Firebase 1MB limit
+  const boardWithoutImages=boardCols.map(col=>({
+    ...col,
+    tasks:(col.tasks||[]).map(t=>{
+      const{images,...rest}=t;
+      return rest;
+    })
+  }));
+  const data={cols:boardWithoutImages,u:new Date().toISOString()};
   await fbSet('crm','board',data);
   _lastBoardSave=data.u;
+  // Save images separately
+  const imagesData={};
+  boardCols.forEach(col=>{
+    (col.tasks||[]).forEach(t=>{
+      if(t.images&&t.images.length)imagesData[t.id]=t.images;
+    });
+  });
+  if(Object.keys(imagesData).length)await fbSet('crm','board_images',{data:imagesData,u:data.u});
 }
 async function saveEvents(){await fbSet('crm','events',{list:calEvents,u:new Date().toISOString()});}
 async function savePayments(){await fbSet('crm','payments',{list:paymentsList,cobros:cobrosList,u:new Date().toISOString()});}
@@ -700,6 +716,17 @@ async function loadAll(){
     }
     const sb=await fbGet('crm','board');
     if(sb&&sb.cols)boardCols=sb.cols;
+    // Load images separately and merge
+    try{
+      const si=await fbGet('crm','board_images');
+      if(si&&si.data){
+        boardCols.forEach(col=>{
+          (col.tasks||[]).forEach(t=>{
+            if(si.data[t.id])t.images=si.data[t.id];
+          });
+        });
+      }
+    }catch(e){}
     const se=await fbGet('crm','events');
     if(se&&se.list)calEvents=se.list;
     const sp=await fbGet('crm','payments');
@@ -719,14 +746,17 @@ async function loadAll(){
               const def=clients.find(c=>c.id===fc.id)||{};
               return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};
             });
-            renderDash();renderSB();
+            // Refresh dashboard
+            if(document.getElementById('view-dash')?.classList.contains('on'))renderDash();
+            // Refresh sidebar
+            renderSB();
+            // Refresh active client profile if open
             if(activeClient){
               const u=clients.find(c=>c.id===activeClient.id);
-              if(u){activeClient=u;if(document.getElementById('view-profile').classList.contains('on'))renderProfile(u);}
-            }
-            if(activePortalClient){
-              const u=clients.find(c=>c.id===activePortalClient.id);
-              if(u){activePortalClient=u;if(activePortalMonth)renderPortalMonth(u,activePortalMonth);}
+              if(u){
+                activeClient=u;
+                if(document.getElementById('view-profile')?.classList.contains('on'))renderProfile(u);
+              }
             }
           }
         }
@@ -1030,7 +1060,7 @@ function renderPipeline(){
 function dropPL(e,phase){
   e.preventDefault();document.querySelectorAll('.pcol').forEach(c=>c.classList.remove('dov'));
   const id=e.dataTransfer.getData('cid');const c=clients.find(c=>c.id===id);
-  if(c){c.phase=phase;renderPipeline();renderDash();saveClients();showToast('Fase → '+PHASES[phase],'ok');}
+  if(c){c.phase=phase;renderDash();saveClients();showToast('Fase → '+PHASES[phase],'ok');}
 }
 
 // ============================================================
@@ -1215,7 +1245,7 @@ function setupBoardAutoScroll(){
   });
 }
 // drag vars declared above
-function toggleTask(colId,taskId){
+async function toggleTask(colId,taskId){
   const col=boardCols.find(c=>c.id===colId);
   const t=col?.tasks.find(t=>String(t.id)===String(taskId));
   if(t){t.done=!t.done;saveBoard();renderBoard();}
@@ -1350,7 +1380,7 @@ function openTaskDetail(colId,taskId){
     <label>Checklist</label>
     <div id="td-checklist">
       ${t.checklist.map((ci,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0">
-        <div class="chk${ci.done?' on':''}" onclick="toggleCheck('${colId}','${taskId}',${i})">${ci.done?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div>
+        <div class="chk${ci.done?' on':''}" onclick="toggleCheck('${colId}','${taskId}',${i})" ontouchend="event.preventDefault();toggleCheck('${colId}','${taskId}',${i})">${ci.done?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div>
         <span style="font-size:13px;flex:1;${ci.done?'text-decoration:line-through;color:var(--tx3)':''}">${ci.text}</span>
         <button class="btn btn-s btn-danger" onclick="removeCheck('${colId}','${taskId}',${i})" style="padding:2px 6px"><i class="ti ti-x" style="font-size:10px"></i></button>
       </div>`).join('')}
@@ -1472,7 +1502,7 @@ async function saveTaskDetail(colId,taskId){
   t.client=document.getElementById('td-cl')?.value||'';
   t.desc=document.getElementById('td-desc')?.value||'';
   t.labels=[...document.querySelectorAll('[id^="lc-"]')].filter(el=>el.dataset.sel==='1').map(el=>parseInt(el.id.replace('lc-','')));
-  closeModal();await saveBoard();renderBoard();showToast('Tarjeta guardada ✓','ok');
+  closeModal();saveBoard();renderBoard();showToast('Tarjeta guardada ✓','ok');
 }
 
 
@@ -1514,7 +1544,7 @@ function removeCheck(colId,taskId,i){
   const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
   t.checklist.splice(i,1);openTaskDetail(colId,taskId);
 }
-function toggleCheck(colId,taskId,i){
+async function toggleCheck(colId,taskId,i){
   const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t||!t.checklist[i])return;
   t.checklist[i].done=!t.checklist[i].done;saveBoard();openTaskDetail(colId,taskId);
 }
@@ -1694,7 +1724,7 @@ function renderPayments(){
   document.getElementById('view-payments').innerHTML=html;
 }
 
-function togglePayGlobal(i){if(paymentsList[i]){paymentsList[i].paid=!paymentsList[i].paid;savePayments();renderPayments();}}
+async function togglePayGlobal(i){if(paymentsList[i]){paymentsList[i].paid=!paymentsList[i].paid;savePayments();renderPayments();}}
 function delPayGlobal(i){if(!confirm('¿Eliminar?'))return;paymentsList.splice(i,1);savePayments();renderPayments();showToast('Eliminado','ok');}
 function editPayGlobal(i){
   const p=paymentsList[i];if(!p)return;
@@ -1708,7 +1738,7 @@ function editPayGlobal(i){
     <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveEditPayGlobal(${i})">Guardar</button></div>`;
   document.getElementById('mo').classList.add('open');
 }
-function saveEditPayGlobal(i){
+async function saveEditPayGlobal(i){
   const p=paymentsList[i];if(!p)return;
   p.concepto=document.getElementById('ep-c').value;
   p.importe=parseFloat(document.getElementById('ep-i').value)||0;
@@ -1823,7 +1853,7 @@ function renderFinance(){
       </table>
     </div>`;
 }
-function toggleCobro(i){if(cobrosList[i]){cobrosList[i].paid=!cobrosList[i].paid;savePayments();renderFinance();}}
+async function toggleCobro(i){if(cobrosList[i]){cobrosList[i].paid=!cobrosList[i].paid;savePayments();renderFinance();}}
 function delCobro(i){if(!confirm('¿Eliminar?'))return;cobrosList.splice(i,1);savePayments();renderFinance();}
 
 // ============================================================
@@ -2216,17 +2246,17 @@ function renderReelTable(c,mk){
       <tr><th>Reel</th><th>Grabado</th><th>F.Grab.</th><th>📤 Enviado</th><th>Editado</th><th>F.Entrega</th><th>Subido</th><th>Editor</th><th>Notas</th><th></th></tr>
       ${reels.map((r,i)=>`<tr>
         <td style="font-weight:600;color:var(--tx)">${r.label}</td>
-        <td><div class="chk${r.grabado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'grabado')">${r.grabado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
+        <td><div class="chk${r.grabado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'grabado')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'grabado')">${r.grabado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
         <td><input type="date" value="${r.fechaGrab||''}" style="width:130px;padding:3px 6px;font-size:11px" onchange="updateReel('${c.id}','${mk}',${i},'fechaGrab',this.value)"></td>
         <td>
           <div style="display:flex;align-items:center;gap:6px">
-            <div class="chk${r.enviado?' on':''}" style="background:${r.grabado&&!r.enviado?'rgba(245,158,11,.2)':''};border-color:${r.grabado&&!r.enviado?'var(--warn)':''}" onclick="toggleReel('${c.id}','${mk}',${i},'enviado')">${r.enviado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div>
+            <div class="chk${r.enviado?' on':''}" style="background:${r.grabado&&!r.enviado?'rgba(245,158,11,.2)':''};border-color:${r.grabado&&!r.enviado?'var(--warn)':''}" onclick="toggleReel('${c.id}','${mk}',${i},'enviado')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'enviado')">${r.enviado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div>
             ${r.grabado&&!r.enviado?`<span style="font-size:10px;color:var(--warn);font-weight:600">⚠️</span>`:''}
           </div>
         </td>
-        <td><div class="chk${r.editado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'editado')">${r.editado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
+        <td><div class="chk${r.editado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'editado')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'editado')">${r.editado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
         <td><input type="date" value="${r.fechaEdit||''}" style="width:130px;padding:3px 6px;font-size:11px" onchange="updateReel('${c.id}','${mk}',${i},'fechaEdit',this.value)"></td>
-        <td><div class="chk${r.subido?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'subido')">${r.subido?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
+        <td><div class="chk${r.subido?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'subido')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'subido')">${r.subido?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
         <td><select style="width:88px;padding:3px 5px;font-size:11px" onchange="updateReel('${c.id}','${mk}',${i},'editor',this.value)">
           <option value="">—</option>${['Dani','Darwin','Dante','Oscar'].map(e=>`<option${r.editor===e?' selected':''}>${e}</option>`).join('')}
         </select></td>
@@ -2269,7 +2299,7 @@ function renderProdTab(c,mk){
       </div>
       <div class="prod-step-body${isOpen?' open':''}" id="ps-${c.id}-${si}">
         ${reels.length?reels.map(r=>`<div class="prod-reel-row">
-          <div class="chk${prod[stepKey][r.id]?' on':''}" onclick="toggleProdReel('${c.id}','${mk}',${si},'${r.id}')">${prod[stepKey][r.id]?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div>
+          <div class="chk${prod[stepKey][r.id]?' on':''}" onclick="toggleProdReel('${c.id}','${mk}',${si},'${r.id}')" ontouchend="event.preventDefault();toggleProdReel('${c.id}','${mk}',${si},'${r.id}')">${prod[stepKey][r.id]?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div>
           <span style="font-size:13px;flex:1">${r.label}</span>
           ${prod[stepKey][r.id+'_d']?`<span style="font-size:10px;color:var(--tx3)">${fmtDate(prod[stepKey][r.id+'_d'])}</span>`:''}
         </div>`).join(''):'<div style="color:var(--tx3);font-size:12px;padding:8px 0">Sin reels este mes</div>'}
@@ -2308,14 +2338,14 @@ function refreshProd(c,mk){
   </div>${renderProdTab(c,mk)}`;
 }
 
-function toggleProdStep(cid,mk,si){
+async function toggleProdStep(cid,mk,si){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(!c.produccion)c.produccion={};if(!c.produccion[mk])c.produccion[mk]={};
   const k='s'+si;if(!c.produccion[mk][k])c.produccion[mk][k]={};
   c.produccion[mk][k]._open=!c.produccion[mk][k]._open;
   refreshProd(c,mk);
 }
-function toggleProdReel(cid,mk,si,rid){
+async function toggleProdReel(cid,mk,si,rid){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(!c.produccion)c.produccion={};if(!c.produccion[mk])c.produccion[mk]={};
   const k='s'+si;if(!c.produccion[mk][k])c.produccion[mk][k]={};
@@ -2368,13 +2398,12 @@ function addReel(cid,mk){
   c.reels[mk].push({id:n,label:'Reel '+n,month:mk,grabado:false,fechaGrab:'',editado:false,fechaEdit:'',subido:false,editor:'',notas:''});
   switchReelMonth(cid,mk);saveClients();showToast('Reel '+n+' añadido ✓','ok');
 }
-function toggleReel(cid,mk,i,field){
+async function toggleReel(cid,mk,i,field){
   const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
   c.reels[mk][i][field]=!c.reels[mk][i][field];
   if(c.reels[mk][i][field]){
     if(field==='grabado'){
       c.reels[mk][i].fechaGrabTS=new Date().toISOString();
-      // Auto-calculate pub calendar dates
       const rid=c.reels[mk][i].id;
       const grabDate=c.reels[mk][i].fechaGrab||today();
       const d=new Date(grabDate+'T12:00:00');
@@ -2382,9 +2411,7 @@ function toggleReel(cid,mk,i,field){
       const trialDate=new Date(d);trialDate.setDate(d.getDate()+5);
       const pubDate=new Date(d);pubDate.setDate(d.getDate()+7);
       const fmt=dt=>dt.toISOString().split('T')[0];
-      // Update reel fechaEdit
       if(!c.reels[mk][i].fechaEdit)c.reels[mk][i].fechaEdit=fmt(editDate);
-      // Update pubCal
       if(!c.pubCal)c.pubCal={};
       if(!c.pubCal[mk])c.pubCal[mk]={};
       if(!c.pubCal[mk][rid])c.pubCal[mk][rid]={};
@@ -2397,24 +2424,26 @@ function toggleReel(cid,mk,i,field){
     }
     if(field==='enviado')c.reels[mk][i].fechaEnviadoTS=new Date().toISOString();
   }
-  saveClients();switchReelMonth(cid,mk);
+  saveClients();
+  switchReelMonth(cid,mk);
   if(isPMup()&&document.getElementById('view-dash')?.classList.contains('on'))renderDash();
+  showToast('Guardado ✓','ok');
 }
 function updateReel(cid,mk,i,field,val){
   const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
   c.reels[mk][i][field]=val;saveClients();
 }
-function toggleFase0(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.fase0[i].done=!c.fase0[i].done;renderProfile(c);saveClients();}
+async function toggleFase0(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.fase0[i].done=!c.fase0[i].done;renderProfile(c);saveClients();}
 function markAllFase0(cid,val){const c=clients.find(c=>c.id===cid);if(!c)return;c.fase0.forEach(f=>f.done=val);renderProfile(c);saveClients();showToast(val?'Todo marcado ✓':'Todo desmarcado','ok');}
-function setPhase(id,phase){const c=clients.find(c=>c.id===id);if(!c)return;c.phase=phase;renderProfile(c);renderDash();saveClients();showToast('Fase → '+PHASES[phase],'ok');}
-function toggleEditor(cid,ed){
+async function setPhase(id,phase){const c=clients.find(c=>c.id===id);if(!c)return;c.phase=phase;renderProfile(c);renderDash();saveClients();showToast('Fase → '+PHASES[phase],'ok');}
+async function toggleEditor(cid,ed){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(!c.editors)c.editors=[];
   if(c.editors.includes(ed))c.editors=c.editors.filter(e=>e!==ed);
   else c.editors.push(ed);
   saveClients();renderProfile(c);renderSB();showToast('Editores actualizados ✓','ok');
 }
-function saveInternalNotes(id){
+async function saveInternalNotes(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
   const text=document.getElementById('client-notes')?.value||'';
   if(!c.notesHistory)c.notesHistory=[];
@@ -2464,28 +2493,28 @@ function renderPubCalTab(c){
           <td style="padding:6px">
             <div style="display:flex;align-items:center;gap:4px">
               <input type="date" value="${pubCal[selMonth]?.[r.id]?.trial||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','trial',this.value)">
-              <div class="chk${pubCal[selMonth]?.[r.id]?.trialDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','trialDone')"></div>
+              <div class="chk${pubCal[selMonth]?.[r.id]?.trialDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','trialDone')" ontouchend="event.preventDefault();togglePubDone('${c.id}','${selMonth}','${r.id}','trialDone')"></div>
             </div>
           </td>
           <td style="padding:6px">
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
               <input type="date" value="${pubCal[selMonth]?.[r.id]?.pub||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','pub',this.value)">
               ${pubCal[selMonth]?.[r.id]?.pubTime?`<span style="font-size:11px;color:var(--c);font-weight:600">⏰ ${pubCal[selMonth][r.id].pubTime}</span>`:''}
-              <div class="chk${pubCal[selMonth]?.[r.id]?.pubDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','pubDone')"></div>
+              <div class="chk${pubCal[selMonth]?.[r.id]?.pubDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','pubDone')" ontouchend="event.preventDefault();togglePubDone('${c.id}','${selMonth}','${r.id}','pubDone')"></div>
             </div>
           </td>`:''}
           ${hasTT?`<td style="padding:6px">
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
               <input type="date" value="${pubCal[selMonth]?.[r.id]?.tiktok||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','tiktok',this.value)">
               ${pubCal[selMonth]?.[r.id]?.tiktokTime?`<span style="font-size:11px;color:#69C9D0;font-weight:600">⏰ ${pubCal[selMonth][r.id].tiktokTime}</span>`:''}
-              <div class="chk${pubCal[selMonth]?.[r.id]?.tiktokDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','tiktokDone')"></div>
+              <div class="chk${pubCal[selMonth]?.[r.id]?.tiktokDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','tiktokDone')" ontouchend="event.preventDefault();togglePubDone('${c.id}','${selMonth}','${r.id}','tiktokDone')"></div>
             </div>
           </td>`:''}
           ${hasYT?`<td style="padding:6px">
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
               <input type="date" value="${pubCal[selMonth]?.[r.id]?.youtube||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','youtube',this.value)">
               ${pubCal[selMonth]?.[r.id]?.youtubeTime?`<span style="font-size:11px;color:#FF0000;font-weight:600">⏰ ${pubCal[selMonth][r.id].youtubeTime}</span>`:''}
-              <div class="chk${pubCal[selMonth]?.[r.id]?.youtubeDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','youtubeDone')"></div>
+              <div class="chk${pubCal[selMonth]?.[r.id]?.youtubeDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','youtubeDone')" ontouchend="event.preventDefault();togglePubDone('${c.id}','${selMonth}','${r.id}','youtubeDone')"></div>
             </div>
           </td>`:''}
         </tr>`).join('')}
@@ -2537,7 +2566,7 @@ function generatePubCal(cid,mk){
   saveClients();switchPubCalMonth(cid,mk);showToast('Calendario generado ✓','ok');
 }
 
-function savePubDate(cid,mk,rid,field,val){
+async function savePubDate(cid,mk,rid,field,val){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(!c.pubCal)c.pubCal={};
   if(!c.pubCal[mk])c.pubCal[mk]={};
@@ -2558,7 +2587,7 @@ function savePubDate(cid,mk,rid,field,val){
   saveClients();
 }
 
-function togglePubDone(cid,mk,rid,field){
+async function togglePubDone(cid,mk,rid,field){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(!c.pubCal)c.pubCal={};
   if(!c.pubCal[mk])c.pubCal[mk]={};
@@ -2594,7 +2623,7 @@ function addMetricSnapshot(cid){
     <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveMetricSnapshot('${cid}')">Guardar</button></div>`;
   document.getElementById('mo').classList.add('open');
 }
-function saveMetricSnapshot(cid){
+async function saveMetricSnapshot(cid){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(!c.metrics)c.metrics=[];
   const hours={};
@@ -2612,26 +2641,26 @@ function saveMetricSnapshot(cid){
   });
   closeModal();saveClients();renderProfile(c);showToast('Métricas guardadas ✓','ok');
 }
-function toggleSocialNet(cid,net){
+async function toggleSocialNet(cid,net){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(!c.socialNets)c.socialNets=['instagram'];
   if(c.socialNets.includes(net))c.socialNets=c.socialNets.filter(n=>n!==net);
   else c.socialNets.push(net);
   saveClients();renderProfile(c);showToast(net+' '+(c.socialNets.includes(net)?'activado':'desactivado')+' ✓','ok');
 }
-function toggleClientCM(id){
+async function toggleClientCM(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
   saveClients();renderProfile(c);showToast('CM '+(c.showCM?'visible':'oculto')+' para el cliente ✓','ok');
 }
 function toggleCM(cid,cm){const c=clients.find(c=>c.id===cid);if(!c)return;c.cm=c.cm===cm?'':cm;saveClients();renderProfile(c);showToast('CM actualizado ✓','ok');}
-function toggleService(cid,svcId){
+async function toggleService(cid,svcId){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(!Array.isArray(c.services))c.services=[];
   if(c.services.includes(svcId))c.services=c.services.filter(s=>s!==svcId);
   else c.services.push(svcId);
   saveClients();renderProfile(c);showToast('Servicios actualizados ✓','ok');
 }
-function saveDrive(cid,key,val){
+async function saveDrive(cid,key,val){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(key==='main'){c.driveMain=val;}else{if(!c.drive)c.drive={};c.drive[key]=val;}
   saveClients();showToast('Link guardado ✓','ok');
@@ -2824,7 +2853,7 @@ function saveClient(){
   clients.push({id,name,type:type||'Sin clasificar',phase,services:[],editors:[],cm:'',delivery:'',msgs:[],contract:null,contractStart:'',contractEnd:'',contractType:'Mensual',price,numReels,reels:mkMonths(numReels),fase0:mkFase0(),produccion:{},driveMain:'',drive:{},driveDocs:[],credentials:[{platform:'Instagram',user:'',pass:'',notes:''}]});
   closeModal();saveClients();render();showToast('Cliente añadido ✓','ok');
 }
-function saveGrowth(id){
+async function saveGrowth(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
   c.growth={
     igStart:parseInt(document.getElementById('g-ig-start')?.value)||0,
@@ -2841,13 +2870,13 @@ function updateClientField(id,field,val){
   const c=clients.find(c=>c.id===id);if(!c)return;
   c[field]=val;saveClients();
 }
-function saveEditClient(id){
+async function saveEditClient(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
   c.name=document.getElementById('ec-name').value.trim()||c.name;
   c.type=document.getElementById('ec-type').value.trim()||c.type;
   closeModal();renderProfile(c);renderSB();renderDash();saveClients();showToast('Cliente actualizado ✓','ok');
 }
-function saveContract(id){
+async function saveContract(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
   const oldNum=c.numReels;
   c.numReels=parseInt(document.getElementById('co-reels').value)||5;
@@ -2883,10 +2912,10 @@ async function saveTask(){
   const col=boardCols.find(c=>c.id===colId);
   if(col)col.tasks.unshift({id:Date.now(),title,client,date,done:false,createdBy:CU?.name||''});
   closeModal();
-  await saveBoard();
+  saveBoard();
   renderBoard();renderBoardBadge();showToast('Tarea añadida ✓','ok');
 }
-function saveEvent(){
+async function saveEvent(){
   const title=document.getElementById('ev-title').value.trim();if(!title)return;
   calEvents.push({id:Date.now(),title,date:document.getElementById('ev-date').value,type:document.getElementById('ev-type').value,client:document.getElementById('ev-cl').value});
   closeModal();saveEvents();renderCal();showToast('Evento añadido ✓','ok');
@@ -2897,7 +2926,7 @@ function calcPay(){
   const el=document.getElementById('np-calc');
   if(ppr&&nr){const t=ppr*nr;document.getElementById('np-imp').value=t;if(el)el.textContent=`${ppr}€ × ${nr} reels = ${t}€`;}
 }
-function savePay(editor){
+async function savePay(editor){
   const importe=parseFloat(document.getElementById('np-imp')?.value)||0;
   const concepto=document.getElementById('np-conc')?.value||'Edición de reels';
   const currency=document.getElementById('np-cur')?.value||'EUR';
@@ -2906,7 +2935,7 @@ function savePay(editor){
   closeModal();savePayments();renderPayments();showToast('Pago añadido ✓','ok');
 }
 function currSymbol(cur){return cur==='USD'?'$':cur==='GBP'?'£':'€';}
-function saveCobro(){
+async function saveCobro(){
   const cliente=document.getElementById('nc-cl').value;
   const importe=parseFloat(document.getElementById('nc-imp').value)||0;
   if(!cliente||!importe)return showToast('Rellena cliente e importe','err');
@@ -2930,7 +2959,7 @@ async function saveNewUser(){
   USERS[key]={name,pass,role:roles[level],level};
   closeModal();await saveUsers();renderUsers();buildSBNav();showToast(`Usuario ${name} creado ✓ — contraseña: ${pass}`,'ok');
 }
-function saveEditUser(key){
+async function saveEditUser(key){
   const u=USERS[key];if(!u)return;
   u.name=document.getElementById('eu-name').value.trim()||u.name;
   u.pass=document.getElementById('eu-pass').value.trim()||u.pass;
@@ -2996,9 +3025,15 @@ function showPortal(c){
       db.collection('crm').doc('board').onSnapshot(snap=>{
         if(snap&&snap.exists){const d=snap.data();
           if(d&&d.cols){
-            // Only update if Firebase data is newer than our last save
-            if(!_lastBoardSave||!d.u||d.u>_lastBoardSave){
-              boardCols=d.cols;
+            // Always accept Firebase updates - this is the source of truth
+            // Only skip if WE just saved in the last 2 seconds (to avoid echo)
+            const now=Date.now();
+            const justSaved=_lastBoardSave&&(now-new Date(_lastBoardSave).getTime())<2000;
+            if(!justSaved){
+              // Merge images from current boardCols before replacing
+              const currentImages={};
+              boardCols.forEach(col=>{(col.tasks||[]).forEach(t=>{if(t.images)currentImages[t.id]=t.images;});});
+              boardCols=d.cols.map(col=>({...col,tasks:(col.tasks||[]).map(t=>({...t,images:currentImages[t.id]||t.images||[]}))}));
               if(document.querySelector('.nav-item.on')?.dataset?.view==='board')renderBoard();
               const total=boardCols.reduce((s,c)=>(s+(c.tasks||[]).length),0);
               const el=document.getElementById('bbadge');if(el)el.textContent=total;
@@ -3180,7 +3215,7 @@ function openMeetingModal(){
     <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveMeetingRequest()">Solicitar reunión</button></div>`;
   document.getElementById('mo').classList.add('open');
 }
-function saveMeetingRequest(){
+async function saveMeetingRequest(){
   const motivo=document.getElementById('mt-motivo').value.trim();
   const fecha=document.getElementById('mt-fecha').value;
   const hora=document.getElementById('mt-hora').value;
