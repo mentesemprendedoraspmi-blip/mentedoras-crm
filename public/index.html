@@ -1076,14 +1076,14 @@ function renderBoard(){
     ${visibleCols.map(col=>{
       const sortedTasks=[...(col.tasks||[])].sort((a,b)=>{if(a.done&&!b.done)return 1;if(!a.done&&b.done)return -1;if(a.date&&b.date)return a.date.localeCompare(b.date);if(a.date&&!b.date)return -1;if(!a.date&&b.date)return 1;return 0;});
       const pend=sortedTasks.filter(t=>!t.done).length;
-      return`<div class="bcol" data-col="${col.id}"
+      return`<div class="bcol" data-col="${col.id}" ${col.isFinal?'style="border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.04)"':''}
         ondragover="boardColDragOver(event,'${col.id}')"
         ondragleave="boardColDragLeave(event,'${col.id}')"
         ondrop="boardColDrop(event,'${col.id}')">
         <div class="bch" draggable="true"
           ondragstart="startDragCol(event,'${col.id}')"
           ondragend="endDragCol(event)">
-          <span class="bcn">${col.name}</span>
+          <span class="bcn">${col.isFinal?'⭐ ':''}${col.name}</span>
           <div style="display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">
             <span class="bcc">${pend}</span>
             ${isCMup()?`<div class="dot-btn" onclick="event.stopPropagation();toggleColMenu('${col.id}')"><i class="ti ti-dots-vertical"></i>
@@ -1095,6 +1095,7 @@ function renderBoard(){
                 <div class="dm-item" onclick="moveAllCards('${col.id}')"><i class="ti ti-arrows-move"></i>Mover todas</div>
                 <div class="dm-item" onclick="sortCol('${col.id}','date')"><i class="ti ti-sort-ascending"></i>Ordenar por fecha</div>
                 <div class="dm-item" onclick="sortCol('${col.id}','name')"><i class="ti ti-sort-ascending-letters"></i>Ordenar por nombre</div>
+                <div class="dm-item" onclick="setFinalCol('${col.id}')"><i class="ti ti-${col.isFinal?'star-filled':'star'}" style="color:${col.isFinal?'var(--warn)':''}"></i>${col.isFinal?'✅ Columna Finalizado':'⭐ Marcar como Finalizado'}</div>
                 <div class="dm-item" onclick="clearColTasks('${col.id}')"><i class="ti ti-trash"></i>Vaciar columna</div>
                 <div class="dm-item danger" onclick="deleteCol('${col.id}')"><i class="ti ti-trash"></i>Eliminar columna</div>
               </div>
@@ -1115,6 +1116,7 @@ function renderBoard(){
             <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">
               ${(t.labels||[]).map(li=>`<span style="font-size:10px;padding:2px 6px;border-radius:20px;font-weight:600;background:${LABELS[li].bg};color:${LABELS[li].c}">${LABELS[li].n}</span>`).join('')}
               ${t.client?`<span style="font-size:10px;background:var(--cdim);color:var(--c);padding:2px 6px;border-radius:20px">${t.client}</span>`:''}
+              ${t.movedFrom?`<span style="font-size:10px;background:rgba(245,158,11,.12);color:var(--warn);padding:2px 6px;border-radius:20px">← ${t.movedFrom}</span>`:''}
               ${t.date?`<span class="badge ${dstatus(t.date).cls}" style="font-size:10px">${dstatus(t.date).lbl}</span>`:''}
               ${t.checklist&&t.checklist.length?`<span style="font-size:10px;background:var(--bg4);color:var(--tx3);padding:2px 6px;border-radius:20px"><i class="ti ti-checklist" style="font-size:9px"></i> ${t.checklist.filter(i=>i.done).length}/${t.checklist.length}</span>`:''}
               ${t.links&&t.links.length?`<span style="font-size:10px;background:var(--bg4);color:var(--tx3);padding:2px 6px;border-radius:20px"><i class="ti ti-link" style="font-size:9px"></i> ${t.links.length}</span>`:''}
@@ -1248,9 +1250,33 @@ function setupBoardAutoScroll(){
 async function toggleTask(colId,taskId){
   const col=boardCols.find(c=>c.id===colId);
   const t=col?.tasks.find(t=>String(t.id)===String(taskId));
-  if(t){t.done=!t.done;saveBoard();renderBoard();}
+  if(!t)return;
+  t.done=!t.done;
+  // If marked done, move to finalized column if one is set
+  if(t.done){
+    const finalCol=boardCols.find(c=>c.isFinal);
+    if(finalCol&&finalCol.id!==colId){
+      // Remove from current column
+      col.tasks=col.tasks.filter(tt=>String(tt.id)!==String(taskId));
+      // Add to finalized column at top
+      t.movedFrom=col.name;
+      t.movedAt=new Date().toLocaleDateString('es-ES');
+      finalCol.tasks.unshift(t);
+      saveBoard();renderBoard();
+      showToast(`✅ Tarea movida a "${finalCol.name}"`, 'ok');
+      return;
+    }
+  }
+  saveBoard();renderBoard();
 }
 
+function setFinalCol(colId){
+  // Toggle - if already final, unset it
+  boardCols.forEach(c=>{c.isFinal=c.id===colId?!c.isFinal:false;});
+  const col=boardCols.find(c=>c.id===colId);
+  saveBoard();renderBoard();
+  showToast(col?.isFinal?`⭐ "${col?.name}" es ahora la columna Finalizado`:`"${col?.name}" ya no es Finalizado`,'ok');
+}
 function clearColTasks(colId){
   const col=boardCols.find(c=>c.id===colId);if(!col)return;
   const mc=document.getElementById('modal-c');
