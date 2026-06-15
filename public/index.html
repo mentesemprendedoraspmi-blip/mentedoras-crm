@@ -1486,10 +1486,12 @@ function checkAutoTasksForCM(){
 }
 
 function createAutoTask(title,cmName,date,client){
-  // Find column for this CM or use first column
-  let col=boardCols.find(c=>c.name.toLowerCase().includes(cmName.toLowerCase()));
-  if(!col)col=boardCols[0];
-  if(!col)return;
+  // Find the column with the CM's name
+  let col=boardCols.find(c=>c.name.toLowerCase()===cmName.toLowerCase());
+  // If not found by exact match, try partial
+  if(!col)col=boardCols.find(c=>c.name.toLowerCase().includes(cmName.toLowerCase()));
+  // If still not found, don't create - we don't want it in random columns
+  if(!col){console.log('No column found for CM:',cmName);return;}
   // Avoid duplicates
   if(col.tasks.some(t=>t.title===title&&t.date===date))return;
   col.tasks.unshift({
@@ -1503,7 +1505,7 @@ function createAutoTask(title,cmName,date,client){
   });
   saveBoard();
   renderBoard();
-  showToast(`Tarea automática creada para ${cmName} 📋`,'ok');
+  showToast(`📋 Tarea para ${cmName} creada`,'ok');
 }
 function autoAddDriveLink(colId,taskId,clientName){
   const c=clients.find(c=>c.name===clientName);
