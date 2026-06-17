@@ -1446,32 +1446,47 @@ function handleImageUpload(event,colId,taskId){
   const files=event.target.files;
   if(!files.length)return;
   const col=boardCols.find(c=>c.id===colId);
-  const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
+  const t=col?.tasks.find(t=>String(t.id)===String(taskId));if(!t)return;
   if(!t.images)t.images=[];
   let loaded=0;
   Array.from(files).forEach(file=>{
     const reader=new FileReader();
-    reader.onload=e=>{
+    reader.onload=async e=>{
       t.images.push(e.target.result);
       loaded++;
-      if(loaded===files.length){saveBoard();openTaskDetail(colId,taskId);}
+      if(loaded===files.length){
+        // Save images to Firebase immediately
+        try{
+          const si=await fbGet('crm','board_images')||{data:{}};
+          if(!si.data)si.data={};
+          si.data[t.id]=t.images;
+          await fbSet('crm','board_images',{data:si.data,u:new Date().toISOString()});
+        }catch(e){}
+        openTaskDetail(colId,taskId);
+        showToast(`${loaded} imagen${loaded>1?'es':''} subida${loaded>1?'s':''} ✓`,'ok');
+      }
     };
     reader.readAsDataURL(file);
   });
 }
 function handleImageDrop(event,colId,taskId){
   event.preventDefault();
-  document.getElementById('td-drop').style.borderColor='var(--bd2)';
+  const el=document.getElementById('td-drop');if(el)el.style.borderColor='var(--bd2)';
   const files=event.dataTransfer.files;
   if(!files.length)return;
-  const fakeEvent={target:{files}};
-  handleImageUpload(fakeEvent,colId,taskId);
+  handleImageUpload({target:{files}},colId,taskId);
 }
-function removeTaskImage(colId,taskId,i){
+async function removeTaskImage(colId,taskId,i){
   const col=boardCols.find(c=>c.id===colId);
-  const t=col?.tasks.find(t=>t.id==taskId);if(!t||!t.images)return;
+  const t=col?.tasks.find(t=>String(t.id)===String(taskId));if(!t||!t.images)return;
   t.images.splice(i,1);
-  saveBoard();openTaskDetail(colId,taskId);
+  try{
+    const si=await fbGet('crm','board_images')||{data:{}};
+    if(!si.data)si.data={};
+    si.data[t.id]=t.images;
+    await fbSet('crm','board_images',{data:si.data,u:new Date().toISOString()});
+  }catch(e){}
+  openTaskDetail(colId,taskId);
 }
 function checkAutoTasksForCM(){
   const todayStr=today();
@@ -1543,13 +1558,29 @@ function autoAddDriveLink(colId,taskId,clientName){
   openTaskDetail(colId,taskId);
 }
 async function saveTaskDetail(colId,taskId){
-  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
+  const col=boardCols.find(c=>c.id===colId);
+  const t=col?.tasks.find(t=>String(t.id)===String(taskId));
+  if(!t)return;
+  // Read all values BEFORE closing modal
   t.title=document.getElementById('td-title')?.value||t.title;
   t.date=document.getElementById('td-date')?.value||'';
   t.client=document.getElementById('td-cl')?.value||'';
   t.desc=document.getElementById('td-desc')?.value||'';
   t.labels=[...document.querySelectorAll('[id^="lc-"]')].filter(el=>el.dataset.sel==='1').map(el=>parseInt(el.id.replace('lc-','')));
-  closeModal();saveBoard();renderBoard();showToast('Tarjeta guardada ✓','ok');
+  // Save to Firebase BEFORE closing
+  await saveBoardTask(t,colId);
+  // Save images separately
+  if(t.images&&t.images.length){
+    try{
+      const si=await fbGet('crm','board_images')||{data:{}};
+      if(!si.data)si.data={};
+      si.data[t.id]=t.images;
+      await fbSet('crm','board_images',{data:si.data,u:new Date().toISOString()});
+    }catch(e){}
+  }
+  closeModal();
+  renderBoard();
+  showToast('Tarjeta guardada ✓','ok');
 }
 
 
