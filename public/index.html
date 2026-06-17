@@ -676,25 +676,38 @@ function myClients(){
 // ============================================================
 async function saveClients(){await fbSet('crm','clients',{list:clients,u:new Date().toISOString()});}
 async function saveBoard(){
-  // Save images separately to avoid Firebase 1MB limit
-  const boardWithoutImages=boardCols.map(col=>({
-    ...col,
-    tasks:(col.tasks||[]).map(t=>{
-      const{images,...rest}=t;
-      return rest;
-    })
-  }));
-  const data={cols:boardWithoutImages,u:new Date().toISOString()};
-  await fbSet('crm','board',data);
-  _lastBoardSave=data.u;
-  // Save images separately
-  const imagesData={};
-  boardCols.forEach(col=>{
-    (col.tasks||[]).forEach(t=>{
-      if(t.images&&t.images.length)imagesData[t.id]=t.images;
-    });
-  });
-  if(Object.keys(imagesData).length)await fbSet('crm','board_images',{data:imagesData,u:data.u});
+  _lastBoardSave=new Date().toISOString();
+  try{
+    await fbSet('crm','board_index',{cols:boardCols.map(c=>({id:c.id,name:c.name,color:c.color||'',isFinal:c.isFinal||false})),u:_lastBoardSave});
+    for(const col of boardCols){for(const task of(col.tasks||[])){const{images,...td}=task;await fbSet('board_tasks',String(task.id),{...td,colId:col.id,u:_lastBoardSave});}}
+    const imgs={};boardCols.forEach(col=>{(col.tasks||[]).forEach(t=>{if(t.images&&t.images.length)imgs[t.id]=t.images;});});
+    if(Object.keys(imgs).length)await fbSet('crm','board_images',{data:imgs,u:_lastBoardSave});
+  }catch(e){console.error('saveBoard:',e);}
+}
+async function saveBoardTask(task,colId){
+  _lastBoardSave=new Date().toISOString();
+  try{const{images,...td}=task;await fbSet('board_tasks',String(task.id),{...td,colId,u:_lastBoardSave});}catch(e){}
+}
+async function deleteBoardTask(taskId){
+  try{if(!fbReady)await initFB();await db.collection('board_tasks').doc(String(taskId)).delete();}catch(e){}
+}
+
+async function loadBoard(){
+  try{
+    const index=await fbGet('crm','board_index');
+    if(index&&index.cols){
+      if(!fbReady)await initFB();
+      const snap=await db.collection('board_tasks').get();
+      const allTasks={};
+      snap.forEach(doc=>{const d=doc.data();if(d&&d.colId){if(!allTasks[d.colId])allTasks[d.colId]=[];allTasks[d.colId].push(d);}});
+      boardCols=index.cols.map(meta=>({...meta,tasks:(allTasks[meta.id]||[])}));
+      try{const si=await fbGet('crm','board_images');if(si&&si.data){boardCols.forEach(col=>{(col.tasks||[]).forEach(t=>{if(si.data[t.id])t.images=si.data[t.id];});});}}catch(e){}
+      return true;
+    }
+    const sb=await fbGet('crm','board');
+    if(sb&&sb.cols){boardCols=sb.cols;return true;}
+  }catch(e){console.warn('loadBoard:',e);}
+  return false;
 }
 async function saveEvents(){await fbSet('crm','events',{list:calEvents,u:new Date().toISOString()});}
 async function savePayments(){await fbSet('crm','payments',{list:paymentsList,cobros:cobrosList,u:new Date().toISOString()});}
@@ -714,19 +727,7 @@ async function loadAll(){
         return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};
       });
     }
-    const sb=await fbGet('crm','board');
-    if(sb&&sb.cols)boardCols=sb.cols;
-    // Load images separately and merge
-    try{
-      const si=await fbGet('crm','board_images');
-      if(si&&si.data){
-        boardCols.forEach(col=>{
-          (col.tasks||[]).forEach(t=>{
-            if(si.data[t.id])t.images=si.data[t.id];
-          });
-        });
-      }
-    }catch(e){}
+    await loadBoard();
     const se=await fbGet('crm','events');
     if(se&&se.list)calEvents=se.list;
     const sp=await fbGet('crm','payments');
@@ -734,6 +735,22 @@ async function loadAll(){
   }catch(e){console.warn('loadAll:',e);}
   render();
   // Check for auto CM tasks daily
+  // Auto-refresh every 30 seconds to catch any missed updates
+  setInterval(async()=>{
+    if(!CU)return;
+    try{
+      await loadBoard();
+      if(document.querySelector('.nav-item.on')?.dataset?.view==='board')renderBoard();
+    }catch(e){}
+    try{
+      const sc=await fbGet('crm','clients');
+      if(sc&&sc.list&&sc.list.length){
+        clients=sc.list.map(fc=>{const def=clients.find(c=>c.id===fc.id)||{};return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};});
+        if(activeClient){const u=clients.find(c=>c.id===activeClient.id);if(u){activeClient=u;if(document.getElementById('view-profile')?.classList.contains('on'))renderProfile(u);}}
+      }
+    }catch(e){}
+  },30000);
+  // Check auto tasks for CM
   setTimeout(checkAutoTasksForCM, 2000);
   // real-time
   if(db){
@@ -1262,7 +1279,9 @@ async function toggleTask(colId,taskId){
       t.movedFrom=col.name;
       t.movedAt=new Date().toLocaleDateString('es-ES');
       finalCol.tasks.unshift(t);
-      saveBoard();renderBoard();
+      for(const t2 of (col.tasks||[]))await saveBoardTask(t2,col.id);
+      for(const t2 of finalCol.tasks)await saveBoardTask(t2,finalCol.id);
+      renderBoard();
       showToast(`✅ Tarea movida a "${finalCol.name}"`, 'ok');
       return;
     }
@@ -2938,9 +2957,9 @@ async function saveTask(){
   const date=document.getElementById('nt-date')?.value||'';
   const client=document.getElementById('nt-cl')?.value||'';
   const col=boardCols.find(c=>c.id===colId);
-  if(col)col.tasks.unshift({id:Date.now(),title,client,date,done:false,createdBy:CU?.name||''});
+  const nt={id:Date.now(),title,client,date,done:false,createdBy:CU?.name||''};
+  if(col){col.tasks.unshift(nt);await saveBoardTask(nt,colId);await fbSet('crm','board_index',{cols:boardCols.map(c=>({id:c.id,name:c.name,color:c.color||'',isFinal:c.isFinal||false})),u:new Date().toISOString()});}
   closeModal();
-  saveBoard();
   renderBoard();renderBoardBadge();showToast('Tarea añadida ✓','ok');
 }
 async function saveEvent(){
@@ -3050,26 +3069,24 @@ function showPortal(c){
       });
     }catch(e){}
     try{
-      db.collection('crm').doc('board').onSnapshot(snap=>{
-        if(snap&&snap.exists){const d=snap.data();
-          if(d&&d.cols){
-            // Always accept Firebase updates - this is the source of truth
-            // Only skip if WE just saved in the last 2 seconds (to avoid echo)
-            const now=Date.now();
-            const justSaved=_lastBoardSave&&(now-new Date(_lastBoardSave).getTime())<2000;
-            if(!justSaved){
-              // Merge images from current boardCols before replacing
-              const currentImages={};
-              boardCols.forEach(col=>{(col.tasks||[]).forEach(t=>{if(t.images)currentImages[t.id]=t.images;});});
-              boardCols=d.cols.map(col=>({...col,tasks:(col.tasks||[]).map(t=>({...t,images:currentImages[t.id]||t.images||[]}))}));
-              if(document.querySelector('.nav-item.on')?.dataset?.view==='board')renderBoard();
-              const total=boardCols.reduce((s,c)=>(s+(c.tasks||[]).length),0);
-              const el=document.getElementById('bbadge');if(el)el.textContent=total;
-            }
+      db.collection('board_tasks').onSnapshot(snap=>{
+        if(!snap)return;
+        const now=Date.now();
+        const justSaved=_lastBoardSave&&(now-new Date(_lastBoardSave).getTime())<3000;
+        if(justSaved)return;
+        const allTasks={};
+        snap.forEach(doc=>{const d=doc.data();if(d&&d.colId){if(!allTasks[d.colId])allTasks[d.colId]=[];allTasks[d.colId].push(d);}});
+        boardCols.forEach(col=>{
+          if(allTasks[col.id]!==undefined){
+            const imgs={};(col.tasks||[]).forEach(t=>{if(t.images)imgs[t.id]=t.images;});
+            col.tasks=allTasks[col.id].map(t=>({...t,images:imgs[t.id]||[]}));
           }
-        }
+        });
+        if(document.querySelector('.nav-item.on')?.dataset?.view==='board')renderBoard();
+        const total=boardCols.reduce((s,c)=>(s+(c.tasks||[]).length),0);
+        const el=document.getElementById('bbadge');if(el)el.textContent=total;
       });
-    }catch(e){}
+    }catch(e){console.warn('board listener:',e);}
     try{
       db.collection('crm').doc('payments').onSnapshot(snap=>{
         if(snap&&snap.exists){const d=snap.data();
