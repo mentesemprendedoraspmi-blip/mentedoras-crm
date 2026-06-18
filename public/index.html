@@ -960,7 +960,11 @@ function renderDash(){
   let html=``;
 
   html+=`<div id="dash-notifs"></div>`;
-  const todayTasks=boardCols.flatMap(col=>(col.tasks||[]).filter(t=>t.date===today()&&!t.done).map(t=>({...t,colName:col.name})));
+  // Today's tasks - only show tasks from user's own column
+  const myColName=CU?.name||'';
+  const todayTasks=boardCols
+    .filter(col=>isCEO()||col.name.toLowerCase()===myColName.toLowerCase())
+    .flatMap(col=>(col.tasks||[]).filter(t=>t.date===today()&&!t.done).map(t=>({...t,colName:col.name})));
   if(todayTasks.length){
     html+=`<div style="background:rgba(var(--c-rgb,0,229,229),.08);border:1px solid rgba(var(--c-rgb,0,229,229),.2);border-radius:var(--r);padding:12px 14px;margin-bottom:14px">
       <div style="font-weight:600;font-size:13px;margin-bottom:8px">📋 ${todayTasks.length} tarea${todayTasks.length>1?'s':''} para hoy</div>
@@ -1159,7 +1163,6 @@ function renderBoard(){
               ${(t.labels||[]).map(li=>`<span style="font-size:10px;padding:2px 6px;border-radius:20px;font-weight:600;background:${LABELS[li].bg};color:${LABELS[li].c}">${LABELS[li].n}</span>`).join('')}
               ${t.client?`<span style="font-size:10px;background:var(--cdim);color:var(--c);padding:2px 6px;border-radius:20px">${t.client}</span>`:''}
               ${t.movedFrom?`<span style="font-size:10px;background:rgba(245,158,11,.12);color:var(--warn);padding:2px 6px;border-radius:20px">← ${t.movedFrom}</span>`:''}
-              ${t.createdBy&&t.createdBy!=='Sistema'?`<span style="font-size:10px;color:var(--tx3)">✍️ ${t.createdBy}</span>`:''}
               ${t.date?`<span class="badge ${dstatus(t.date).cls}" style="font-size:10px">${dstatus(t.date).lbl}</span>`:''}
               ${t.checklist&&t.checklist.length?`<span style="font-size:10px;background:var(--bg4);color:var(--tx3);padding:2px 6px;border-radius:20px"><i class="ti ti-checklist" style="font-size:9px"></i> ${t.checklist.filter(i=>i.done).length}/${t.checklist.length}</span>`:''}
               ${t.links&&t.links.length?`<span style="font-size:10px;background:var(--bg4);color:var(--tx3);padding:2px 6px;border-radius:20px"><i class="ti ti-link" style="font-size:9px"></i> ${t.links.length}</span>`:''}
@@ -1420,6 +1423,10 @@ function openTaskDetail(colId,taskId){
     <div class="modal-t" style="margin:0">${t.title}</div>
     <button class="btn btn-s btn-danger" onclick="deleteTask('${colId}','${taskId}')"><i class="ti ti-trash"></i></button>
   </div>
+  ${t.createdBy||t.movedFrom?`<div style="font-size:11px;color:var(--tx3);margin-bottom:12px;display:flex;gap:10px">
+    ${t.createdBy?`<span>✍️ Creado por <strong>${t.createdBy}</strong></span>`:''}
+    ${t.movedFrom?`<span>← Movido desde <strong>${t.movedFrom}</strong>${t.movedAt?' el '+t.movedAt:''}</span>`:''}
+  </div>`:''}
   <div class="fg2" style="margin-bottom:12px">
     <div class="f"><label>Título</label><input id="td-title" value="${t.title}"></div>
     <div class="f"><label>Fecha límite</label><input id="td-date" type="date" value="${t.date||''}"></div>
