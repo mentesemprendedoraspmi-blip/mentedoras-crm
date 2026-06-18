@@ -2059,7 +2059,7 @@ function renderProfile(c){
   const reelMonths=Object.keys(c.reels||{}).sort();
   const fase0done=c.fase0.filter(f=>f.done).length;
   const link=location.origin+location.pathname.replace('index.html','')+'cliente.html?id='+c.id;
-  const editorNames=['Dani','Darwin','Dante','Oscar'];
+  const editorNames=Object.values(USERS).filter(u=>u.level==='editor'||u.role==='Editor').map(u=>u.name);
   const cmNames=['Laura'];
   document.getElementById('view-profile').innerHTML=`
     <div class="prof-hdr">
@@ -2121,7 +2121,10 @@ function renderProfile(c){
             </div>
             <div>
               <div style="font-size:11px;color:var(--tx3);margin-bottom:6px">CM</div>
-              <input type="text" value="${c.cm||''}" placeholder="Nombre del CM (dejar vacío si no tiene)" style="font-size:12px;padding:6px 10px" onchange="updateClientField('${c.id}','cm',this.value);saveClients();showToast('CM actualizado ✓','ok')">
+              <select style="font-size:12px;padding:6px 10px;width:100%" onchange="updateClientField('${c.id}','cm',this.value);saveClients();showToast('CM actualizado ✓','ok')">
+                <option value="">— Sin CM —</option>
+                ${Object.values(USERS).filter(u=>u.level==='cm'||u.role==='CM').map(u=>`<option${c.cm===u.name?' selected':''}>${u.name}</option>`).join('')}
+              </select>
             </div>
           </div>
         </div>
@@ -2413,7 +2416,7 @@ function renderReelTable(c,mk){
         <td><input type="date" value="${r.fechaEdit||''}" style="width:130px;padding:3px 6px;font-size:11px" onchange="updateReel('${c.id}','${mk}',${i},'fechaEdit',this.value)"></td>
         <td><div class="chk${r.subido?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'subido')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'subido')">${r.subido?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
         <td><select style="width:88px;padding:3px 5px;font-size:11px" onchange="updateReel('${c.id}','${mk}',${i},'editor',this.value)">
-          <option value="">—</option>${['Dani','Darwin','Dante','Oscar'].map(e=>`<option${r.editor===e?' selected':''}>${e}</option>`).join('')}
+          <option value="">—</option>${Object.values(USERS).filter(u=>u.level==='editor'||u.role==='Editor').map(u=>`<option${r.editor===u.name?' selected':''}>${u.name}</option>`).join('')}
         </select></td>
         <td><input type="text" value="${r.notas||''}" placeholder="Notas..." style="font-size:11px;padding:3px 6px" onchange="updateReel('${c.id}','${mk}',${i},'notas',this.value)"></td>
         <td><button class="btn btn-s" style="color:var(--err);padding:3px 7px" onclick="deleteReel('${c.id}','${mk}',${i})"><i class="ti ti-trash" style="font-size:11px"></i></button></td>
