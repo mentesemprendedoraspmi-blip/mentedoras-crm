@@ -1202,10 +1202,27 @@ async function sendMsg(){
   const txt=inp.value.trim();if(!txt)return;
   inp.value='';
   const sugg=document.getElementById('chat-sugg');if(sugg)sugg.innerHTML='';
-  chatMsgs.push({from:'client',text:txt,time:new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),date:new Date().toLocaleDateString('es-ES',{day:'numeric',month:'short'})});
+  const now=new Date();
+  chatMsgs.push({from:'client',text:txt,time:now.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),date:now.toLocaleDateString('es-ES',{day:'numeric',month:'short'})});
   client.msgs=chatMsgs;
+  // Add notification for team in CRM board
+  try{
+    const notifTask={
+      id:Date.now(),
+      title:`💬 ${client.name} ha escrito en el chat`,
+      desc:txt.length>100?txt.substring(0,100)+'...':txt,
+      client:client.name,
+      date:now.toISOString().split('T')[0],
+      createdBy:'Portal Cliente',
+      autoTask:true,
+      done:false
+    };
+    // Save to a notifications collection in Firebase
+    if(window.db){
+      await window.db.collection('crm_notifications').doc(String(notifTask.id)).set({...notifTask,u:now.toISOString()});
+    }
+  }catch(e){}
   renderChatMsgs();
-  // Typing
   const msgs=document.getElementById('chat-msgs');
   if(msgs){const t=document.createElement('div');t.className='msg bot';t.id='typing';t.innerHTML='<div class="msg-bub" style="opacity:.6">✍️ Escribiendo...</div>';msgs.appendChild(t);msgs.scrollTop=msgs.scrollHeight;}
   setTimeout(async()=>{

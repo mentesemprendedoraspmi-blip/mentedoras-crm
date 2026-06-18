@@ -869,11 +869,24 @@ function nav(id,ic,label,extra=''){
 }
 function renderSB(){
   const list=myClients();
-  document.getElementById('cl-list').innerHTML=list.map(c=>`
-    <div class="sci${activeClient?.id===c.id?' on':''}" onclick="openProfile('${c.id}')">
+  const today2=today();
+  document.getElementById('cl-list').innerHTML=list.map(c=>{
+    // Check if any reel is due today in pubCal
+    const mk=monthKey();
+    const pubCal=(c.pubCal||{})[mk]||{};
+    const reelsToday=Object.values(pubCal).some(pd=>pd.pub===today2||pd.trial===today2||pd.tiktok===today2);
+    // Check if any reel grabbed but not sent
+    const reels=c.reels[mk]||[];
+    const pendingEnvio=reels.some(r=>r.grabado&&!r.enviado&&!r.editado);
+    return`<div class="sci${activeClient?.id===c.id?' on':''}" onclick="openProfile('${c.id}')">
       <div class="sc-av">${ini(c.name)}</div>
       <div class="sc-n">${c.name}</div>
-    </div>`).join('');
+      <div style="display:flex;gap:3px;margin-left:auto;flex-shrink:0">
+        ${reelsToday?'<div style="width:7px;height:7px;border-radius:50%;background:#E1306C" title="Publicación hoy"></div>':''}
+        ${pendingEnvio?'<div style="width:7px;height:7px;border-radius:50%;background:var(--warn)" title="Reel sin enviar a editor"></div>':''}
+      </div>
+    </div>`;
+  }).join('');
 }
 function filterCL(q){
   const lq=q.toLowerCase();
@@ -946,7 +959,19 @@ function renderDash(){
 
   let html=``;
 
-  // Alert: reels grabbed but not sent to editor
+  html+=`<div id="dash-notifs"></div>`;
+  const todayTasks=boardCols.flatMap(col=>(col.tasks||[]).filter(t=>t.date===today()&&!t.done).map(t=>({...t,colName:col.name})));
+  if(todayTasks.length){
+    html+=`<div style="background:rgba(var(--c-rgb,0,229,229),.08);border:1px solid rgba(var(--c-rgb,0,229,229),.2);border-radius:var(--r);padding:12px 14px;margin-bottom:14px">
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">📋 ${todayTasks.length} tarea${todayTasks.length>1?'s':''} para hoy</div>
+      ${todayTasks.slice(0,5).map(t=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 0;border-top:1px solid var(--bd)">
+        <div class="chk" style="width:14px;height:14px;border-radius:3px;flex-shrink:0" onclick="toggleTask('${boardCols.find(col=>col.tasks?.some(tt=>String(tt.id)===String(t.id)))?.id}','${t.id}')"></div>
+        <span style="flex:1">${t.title}</span>
+        <span style="color:var(--tx3);font-size:10px">${t.colName}</span>
+      </div>`).join('')}
+      ${todayTasks.length>5?`<div style="font-size:11px;color:var(--tx3);margin-top:6px">+${todayTasks.length-5} más en el tablero</div>`:''}
+    </div>`;
+  }
   if(isPMup()){
     const pendingEnvio=[];
     mc.forEach(c=>{
@@ -1126,14 +1151,15 @@ function renderBoard(){
             ondragover="taskDragOver(event,'${col.id}',${ti})"
             ondragleave="this.classList.remove('drag-over')">
             <div class="bc-top">
-              <div class="bc-chk${t.done?' on':''}" onclick="event.stopPropagation();toggleTask('${col.id}','${t.id}')">${t.done?'<i class="ti ti-check" style="font-size:10px;color:#fff"></i>':''}</div>
-              <div class="bc-title${t.done?' done':''}" onclick="openTaskDetail('${col.id}','${t.id}')" style="cursor:pointer;flex:1">${t.title}</div>
+              <div class="bc-chk${t.done?' on':''}" onclick="event.stopPropagation();toggleTask('${col.id}','${t.id}')" ontouchend="event.preventDefault();event.stopPropagation();toggleTask('${col.id}','${t.id}')">${t.done?'<i class="ti ti-check" style="font-size:10px;color:#fff"></i>':''}</div>
+              <div class="bc-title${t.done?' done':''}" onclick="openTaskDetail('${col.id}','${t.id}')" ondblclick="event.stopPropagation();inlineEditTask(event,'${col.id}','${t.id}')" style="cursor:pointer;flex:1" title="Doble clic para editar título">${t.title}</div>
               <div class="dot-btn" onclick="event.stopPropagation();openTaskDetail('${col.id}','${t.id}')"><i class="ti ti-pencil" style="font-size:13px"></i></div>
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">
               ${(t.labels||[]).map(li=>`<span style="font-size:10px;padding:2px 6px;border-radius:20px;font-weight:600;background:${LABELS[li].bg};color:${LABELS[li].c}">${LABELS[li].n}</span>`).join('')}
               ${t.client?`<span style="font-size:10px;background:var(--cdim);color:var(--c);padding:2px 6px;border-radius:20px">${t.client}</span>`:''}
               ${t.movedFrom?`<span style="font-size:10px;background:rgba(245,158,11,.12);color:var(--warn);padding:2px 6px;border-radius:20px">← ${t.movedFrom}</span>`:''}
+              ${t.createdBy&&t.createdBy!=='Sistema'?`<span style="font-size:10px;color:var(--tx3)">✍️ ${t.createdBy}</span>`:''}
               ${t.date?`<span class="badge ${dstatus(t.date).cls}" style="font-size:10px">${dstatus(t.date).lbl}</span>`:''}
               ${t.checklist&&t.checklist.length?`<span style="font-size:10px;background:var(--bg4);color:var(--tx3);padding:2px 6px;border-radius:20px"><i class="ti ti-checklist" style="font-size:9px"></i> ${t.checklist.filter(i=>i.done).length}/${t.checklist.length}</span>`:''}
               ${t.links&&t.links.length?`<span style="font-size:10px;background:var(--bg4);color:var(--tx3);padding:2px 6px;border-radius:20px"><i class="ti ti-link" style="font-size:9px"></i> ${t.links.length}</span>`:''}
@@ -1269,24 +1295,26 @@ async function toggleTask(colId,taskId){
   const t=col?.tasks.find(t=>String(t.id)===String(taskId));
   if(!t)return;
   t.done=!t.done;
+  // Update UI instantly
+  renderBoard();
   // If marked done, move to finalized column if one is set
   if(t.done){
     const finalCol=boardCols.find(c=>c.isFinal);
     if(finalCol&&finalCol.id!==colId){
-      // Remove from current column
       col.tasks=col.tasks.filter(tt=>String(tt.id)!==String(taskId));
-      // Add to finalized column at top
       t.movedFrom=col.name;
       t.movedAt=new Date().toLocaleDateString('es-ES');
       finalCol.tasks.unshift(t);
-      for(const t2 of (col.tasks||[]))await saveBoardTask(t2,col.id);
-      for(const t2 of finalCol.tasks)await saveBoardTask(t2,finalCol.id);
       renderBoard();
       showToast(`✅ Tarea movida a "${finalCol.name}"`, 'ok');
+      // Save async in background
+      saveBoardTask(t,finalCol.id);
+      col.tasks.forEach(t2=>saveBoardTask(t2,col.id));
       return;
     }
   }
-  saveBoard();renderBoard();
+  // Save async in background - don't block UI
+  saveBoardTask(t,colId);
 }
 
 function setFinalCol(colId){
@@ -1307,9 +1335,13 @@ function clearColTasks(colId){
     </div>`;
   document.getElementById('mo').classList.add('open');
 }
-function col_clear(colId){
+async function col_clear(colId){
   const col=boardCols.find(c=>c.id===colId);if(!col)return;
-  col.tasks=[];saveBoard();renderBoard();showToast('Columna vaciada ✓','ok');
+  const taskIds=[...col.tasks.map(t=>t.id)];
+  col.tasks=[];
+  for(const tid of taskIds)await deleteBoardTask(tid);
+  await fbSet('crm','board_index',{cols:boardCols.map(c=>({id:c.id,name:c.name,color:c.color||'',isFinal:c.isFinal||false})),u:new Date().toISOString()});
+  renderBoard();showToast('Columna vaciada ✓','ok');
 }
 function deleteCol(colId){
   const col=boardCols.find(c=>c.id===colId);if(!col)return;
@@ -1322,9 +1354,12 @@ function deleteCol(colId){
     </div>`;
   document.getElementById('mo').classList.add('open');
 }
-function col_delete(colId){
+async function col_delete(colId){
+  const col=boardCols.find(c=>c.id===colId);
+  if(col){for(const t of(col.tasks||[]))await deleteBoardTask(t.id);}
   boardCols=boardCols.filter(c=>c.id!==colId);
-  saveBoard();renderBoard();showToast('Columna eliminada ✓','ok');
+  await fbSet('crm','board_index',{cols:boardCols.map(c=>({id:c.id,name:c.name,color:c.color||'',isFinal:c.isFinal||false})),u:new Date().toISOString()});
+  renderBoard();showToast('Columna eliminada ✓','ok');
 }
 function addBoardCol(){
   const name=prompt('Nombre de la nueva columna:');
@@ -1488,8 +1523,33 @@ async function removeTaskImage(colId,taskId,i){
   }catch(e){}
   openTaskDetail(colId,taskId);
 }
+async function markNotifRead(id){
+  try{if(db)await db.collection('crm_notifications').doc(String(id)).update({read:true});}catch(e){}
+}
+function inlineEditTask(event,colId,taskId){
+  event.preventDefault();event.stopPropagation();
+  const el=event.target;
+  const col=boardCols.find(c=>c.id===colId);
+  const t=col?.tasks.find(t=>String(t.id)===String(taskId));
+  if(!t)return;
+  const inp=document.createElement('input');
+  inp.value=t.title;
+  inp.style.cssText='font-size:12px;padding:2px 4px;border:1px solid var(--c);border-radius:4px;background:var(--bg3);color:var(--tx);width:100%;outline:none';
+  el.replaceWith(inp);
+  inp.focus();inp.select();
+  const save=()=>{
+    const newTitle=inp.value.trim();
+    if(newTitle&&newTitle!==t.title){t.title=newTitle;saveBoardTask(t,colId);}
+    renderBoard();
+  };
+  inp.addEventListener('blur',save);
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter')inp.blur();if(e.key==='Escape'){renderBoard();}});
+}
+function showBoardTaskCreator(t){
+  if(!t.createdBy||t.createdBy==='Sistema')return'';
+  return`<div style="font-size:10px;color:var(--tx3);margin-top:4px">✍️ ${t.createdBy}${t.movedFrom?` · ← ${t.movedFrom}`:''}</div>`;
+}
 function checkAutoTasksForCM(){
-  const todayStr=today();
   clients.forEach(c=>{
     if(!c.cm||!c.pubCal)return;
     const mk=monthKey();
@@ -1561,15 +1621,16 @@ async function saveTaskDetail(colId,taskId){
   const col=boardCols.find(c=>c.id===colId);
   const t=col?.tasks.find(t=>String(t.id)===String(taskId));
   if(!t)return;
-  // Read all values BEFORE closing modal
+  // Read ALL values BEFORE closing modal
   t.title=document.getElementById('td-title')?.value||t.title;
   t.date=document.getElementById('td-date')?.value||'';
   t.client=document.getElementById('td-cl')?.value||'';
   t.desc=document.getElementById('td-desc')?.value||'';
   t.labels=[...document.querySelectorAll('[id^="lc-"]')].filter(el=>el.dataset.sel==='1').map(el=>parseInt(el.id.replace('lc-','')));
-  // Save to Firebase BEFORE closing
+  // checklist already saved live via addCheck/toggleCheck/removeCheck
+  // Save task to Firebase BEFORE closing
   await saveBoardTask(t,colId);
-  // Save images separately
+  // Save images separately if any
   if(t.images&&t.images.length){
     try{
       const si=await fbGet('crm','board_images')||{data:{}};
@@ -1591,11 +1652,12 @@ function toggleLabel(i,colId,taskId){
   const L=LABELS[i];const sel=el.dataset.sel=el.dataset.sel==='1'?'':'1';
   el.style.background=sel?L.bg:'var(--bg3)';el.style.color=sel?L.c:'var(--tx3)';
 }
-function deleteTask(colId,taskId){
-  if(!confirm('¿Eliminar esta tarjeta?'))return;
+async function deleteTask(colId,taskId){
   const col=boardCols.find(c=>c.id===colId);if(!col)return;
-  col.tasks=col.tasks.filter(t=>t.id!=taskId);
-  closeModal();saveBoard();renderBoard();showToast('Tarjeta eliminada','ok');
+  col.tasks=col.tasks.filter(t=>String(t.id)!==String(taskId));
+  closeModal();
+  await deleteBoardTask(taskId);
+  renderBoard();showToast('Tarjeta eliminada','ok');
 }
 function addLink(colId,taskId){
   const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
@@ -1613,18 +1675,26 @@ function updateLink(colId,taskId,i,field,val){
 }
 function addCheck(colId,taskId){
   const inp=document.getElementById('new-check');if(!inp||!inp.value.trim())return;
-  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
+  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>String(t.id)===String(taskId));if(!t)return;
   if(!t.checklist)t.checklist=[];
   t.checklist.push({text:inp.value.trim(),done:false});
-  inp.value='';openTaskDetail(colId,taskId);
+  inp.value='';
+  // Save to Firebase in background
+  saveBoardTask(t,colId);
+  // Refresh modal
+  openTaskDetail(colId,taskId);
 }
 function removeCheck(colId,taskId,i){
-  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
-  t.checklist.splice(i,1);openTaskDetail(colId,taskId);
+  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>String(t.id)===String(taskId));if(!t)return;
+  t.checklist.splice(i,1);
+  saveBoardTask(t,colId);
+  openTaskDetail(colId,taskId);
 }
 async function toggleCheck(colId,taskId,i){
-  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t||!t.checklist[i])return;
-  t.checklist[i].done=!t.checklist[i].done;saveBoard();openTaskDetail(colId,taskId);
+  const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>String(t.id)===String(taskId));if(!t||!t.checklist[i])return;
+  t.checklist[i].done=!t.checklist[i].done;
+  saveBoardTask(t,colId);
+  openTaskDetail(colId,taskId);
 }
 function renderBoardBadge(){
   const me=CU?.name;
@@ -3107,17 +3177,35 @@ function showPortal(c){
         if(justSaved)return;
         const allTasks={};
         snap.forEach(doc=>{const d=doc.data();if(d&&d.colId){if(!allTasks[d.colId])allTasks[d.colId]=[];allTasks[d.colId].push(d);}});
+        // Update tasks per column, including deletions (empty array = all deleted)
         boardCols.forEach(col=>{
-          if(allTasks[col.id]!==undefined){
-            const imgs={};(col.tasks||[]).forEach(t=>{if(t.images)imgs[t.id]=t.images;});
-            col.tasks=allTasks[col.id].map(t=>({...t,images:imgs[t.id]||[]}));
-          }
+          const imgs={};(col.tasks||[]).forEach(t=>{if(t.images)imgs[t.id]=t.images;});
+          col.tasks=(allTasks[col.id]||[]).map(t=>({...t,images:imgs[t.id]||[]}));
         });
         if(document.querySelector('.nav-item.on')?.dataset?.view==='board')renderBoard();
         const total=boardCols.reduce((s,c)=>(s+(c.tasks||[]).length),0);
         const el=document.getElementById('bbadge');if(el)el.textContent=total;
       });
     }catch(e){console.warn('board listener:',e);}
+    try{
+      db.collection('crm_notifications').orderBy('u','desc').limit(20).onSnapshot(snap=>{
+        if(!snap)return;
+        const notifs=[];
+        snap.forEach(doc=>notifs.push(doc.data()));
+        const badge=document.getElementById('notif-badge');
+        const unread=notifs.filter(n=>!n.read).length;
+        if(badge)badge.textContent=unread||'';
+        if(badge)badge.style.display=unread?'flex':'none';
+        // Show in dash if open
+        const notifEl=document.getElementById('dash-notifs');
+        if(notifEl&&notifs.length){
+          notifEl.innerHTML=notifs.slice(0,5).map(n=>`<div style="display:flex;gap:10px;padding:8px;background:var(--bg3);border-radius:var(--r);margin-bottom:6px;border-left:3px solid var(--c);${n.read?'opacity:0.6':''}">
+            <div style="flex:1"><div style="font-size:12px;font-weight:500">${n.title}</div>${n.desc?`<div style="font-size:11px;color:var(--tx3);margin-top:2px">"${n.desc}"</div>`:''}</div>
+            <button onclick="markNotifRead('${n.id}')" style="font-size:10px;background:none;border:none;color:var(--tx3);cursor:pointer;padding:0">✓</button>
+          </div>`).join('');
+        }
+      });
+    }catch(e){}
     try{
       db.collection('crm').doc('payments').onSnapshot(snap=>{
         if(snap&&snap.exists){const d=snap.data();
@@ -3127,7 +3215,6 @@ function showPortal(c){
     }catch(e){}
   }
 }
-
 function renderPortalDashboard(c){
   const mk=monthKey();
   const reels=c.reels[mk]||[];
