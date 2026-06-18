@@ -955,7 +955,7 @@ function renderDash(){
 
   // Today's events
   const todayEvents=calEvents.filter(e=>e.date===todayStr);
-  const expiringSoon=clients.filter(c=>c.contractEnd&&new Date(c.contractEnd+'T12:00:00')>=new Date()&&new Date(c.contractEnd+'T12:00:00')<=new Date(Date.now()+30*864e5));
+  const expiringSoon=isPMup()?clients.filter(c=>c.contractEnd&&new Date(c.contractEnd+'T12:00:00')>=new Date()&&new Date(c.contractEnd+'T12:00:00')<=new Date(Date.now()+30*864e5)):[];
 
   let html=``;
 
@@ -2086,7 +2086,7 @@ function renderProfile(c){
         <div>
           <div class="card">
             <div class="card-t"><i class="ti ti-info-circle"></i>Estado general</div>
-            <div class="pf"><span class="pf-l">Fase actual</span><span style="font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600;background:${PHC[c.phase]}22;color:${PHC[c.phase]}">${PHASES[c.phase]}</span></div>
+            ${isPMup()?`<div class="pf"><span class="pf-l">Fase actual</span><span style="font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600;background:${PHC[c.phase]}22;color:${PHC[c.phase]}">${PHASES[c.phase]}</span></div>`:""}
             <div class="pf"><span class="pf-l">Editores</span><span class="pf-v">${(c.editors||[]).join(', ')||'—'}</span></div>
             <div class="pf"><span class="pf-l">CM</span><span class="pf-v">${c.cm||'No incluye CM'}</span></div>
             <div class="pf"><span class="pf-l">Reels/mes</span><span class="pf-v">${c.numReels}</span></div>
