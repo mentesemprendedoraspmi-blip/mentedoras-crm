@@ -684,6 +684,10 @@ async function saveBoard(){
     if(Object.keys(imgs).length)await fbSet('crm','board_images',{data:imgs,u:_lastBoardSave});
   }catch(e){console.error('saveBoard:',e);}
 }
+
+async function saveIndex(){
+  try{await fbSet('crm','board_index',{cols:boardCols.map(c=>({id:c.id,name:c.name,color:c.color||'',isFinal:c.isFinal||false})),u:new Date().toISOString()});}catch(e){}
+}
 async function saveBoardTask(task,colId){
   _lastBoardSave=new Date().toISOString();
   try{const{images,...td}=task;await fbSet('board_tasks',String(task.id),{...td,colId,u:_lastBoardSave});}catch(e){}
@@ -1116,7 +1120,7 @@ let dragTaskColId=null,dragTaskId=null,dragBoardColId=null;
 
 function renderBoard(){
   const boardScrollPos=(document.getElementById('bw-scroll')||{}).scrollLeft||0;
-  const visibleCols=isCMup()?boardCols:boardCols.filter(col=>col.name===CU?.name||col.id==='adri'||col.id==='alan');
+  const visibleCols=isCEO()?boardCols:boardCols.filter(col=>col.name.toLowerCase()===CU?.name?.toLowerCase()||col.isFinal);
   const bw=document.getElementById('view-board');
   bw.innerHTML=`<div class="bw" id="bw-scroll" style="overflow-x:auto;padding-bottom:8px"><div class="bcols" id="bcols-inner">
     ${visibleCols.map(col=>{
@@ -1341,10 +1345,9 @@ function clearColTasks(colId){
 async function col_clear(colId){
   const col=boardCols.find(c=>c.id===colId);if(!col)return;
   const taskIds=[...col.tasks.map(t=>t.id)];
-  col.tasks=[];
-  for(const tid of taskIds)await deleteBoardTask(tid);
-  await fbSet('crm','board_index',{cols:boardCols.map(c=>({id:c.id,name:c.name,color:c.color||'',isFinal:c.isFinal||false})),u:new Date().toISOString()});
-  renderBoard();showToast('Columna vaciada ✓','ok');
+  col.tasks=[];renderBoard();
+  await Promise.all(taskIds.map(id=>deleteBoardTask(id)));
+  saveIndex();showToast('Columna vaciada ✓','ok');
 }
 function deleteCol(colId){
   const col=boardCols.find(c=>c.id===colId);if(!col)return;
@@ -1359,10 +1362,9 @@ function deleteCol(colId){
 }
 async function col_delete(colId){
   const col=boardCols.find(c=>c.id===colId);
-  if(col){for(const t of(col.tasks||[]))await deleteBoardTask(t.id);}
+  if(col){await Promise.all(col.tasks.map(t=>deleteBoardTask(t.id)));}
   boardCols=boardCols.filter(c=>c.id!==colId);
-  await fbSet('crm','board_index',{cols:boardCols.map(c=>({id:c.id,name:c.name,color:c.color||'',isFinal:c.isFinal||false})),u:new Date().toISOString()});
-  renderBoard();showToast('Columna eliminada ✓','ok');
+  renderBoard();saveIndex();showToast('Columna eliminada ✓','ok');
 }
 function addBoardCol(){
   const name=prompt('Nombre de la nueva columna:');
@@ -1595,16 +1597,9 @@ function createAutoTask(title,cmName,date,client){
   if(!col){console.log('No column found for CM:',cmName);return;}
   // Avoid duplicates
   if(col.tasks.some(t=>t.title===title&&t.date===date))return;
-  col.tasks.unshift({
-    id:Date.now()+Math.random(),
-    title,
-    client:client.name,
-    date,
-    done:false,
-    createdBy:'Sistema',
-    autoTask:true
-  });
-  saveBoard();
+  const newAutoTask={id:Date.now()+Math.random(),title,client:client?.name||'',date,done:false,createdBy:'Sistema',autoTask:true};
+  col.tasks.unshift(newAutoTask);
+  saveBoardTask(newAutoTask,col.id);saveIndex();
   renderBoard();
   showToast(`📋 Tarea para ${cmName} creada`,'ok');
 }
