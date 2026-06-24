@@ -1120,7 +1120,15 @@ let dragTaskColId=null,dragTaskId=null,dragBoardColId=null;
 
 function renderBoard(){
   const boardScrollPos=(document.getElementById('bw-scroll')||{}).scrollLeft||0;
-  const visibleCols=isCEO()?boardCols:boardCols.filter(col=>col.name.toLowerCase()===CU?.name?.toLowerCase()||col.isFinal);
+  const ceoCols=boardCols.filter(col=>{
+    const u=Object.values(USERS).find(u=>u.name.toLowerCase()===col.name.toLowerCase());
+    return u&&(u.level==='ceo'||u.role==='CEO');
+  });
+  const visibleCols=isCEO()?boardCols:boardCols.filter(col=>
+    col.name.toLowerCase()===CU?.name?.toLowerCase()|| // own column
+    col.isFinal|| // finalized column
+    ceoCols.some(c=>c.id===col.id) // CEO columns
+  );
   const bw=document.getElementById('view-board');
   bw.innerHTML=`<div class="bw" id="bw-scroll" style="overflow-x:auto;padding-bottom:8px"><div class="bcols" id="bcols-inner">
     ${visibleCols.map(col=>{
@@ -1175,7 +1183,7 @@ function renderBoard(){
             ${t.images&&t.images.length?`<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">${t.images.slice(0,3).map(img=>`<img src="${img}" style="width:44px;height:44px;object-fit:cover;border-radius:4px;border:1px solid var(--bd)">`).join('')}${t.images.length>3?`<div style="width:44px;height:44px;border-radius:4px;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--tx3)">+${t.images.length-3}</div>`:''}</div>`:''}
           </div>`).join('')}
         </div>
-        ${(!col.isFinal||isCEO())?`<button class="badd" onclick="openModal('task','${col.id}')"><i class="ti ti-plus" style="font-size:12px"></i>Añadir tarea</button>`:''}
+        ${(isCEO()||(!col.isFinal&&(col.name.toLowerCase()===CU?.name?.toLowerCase()||ceoCols.some(c=>c.id===col.id))))?`<button class="badd" onclick="openModal('task','${col.id}')"><i class="ti ti-plus" style="font-size:12px"></i>Añadir tarea</button>`:''}
       </div>`;
     }).join('')}
     ${isCMup()?`<button class="add-col-btn" onclick="addBoardCol()"><i class="ti ti-plus"></i>Nueva columna</button>`:''}
