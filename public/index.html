@@ -722,7 +722,11 @@ async function loadAll(){
   try{
     // Load users FIRST so login works for Firebase users
     const su=await fbGet('crm','users');
-    if(su&&su.users)USERS={...USERS,...su.users};
+    if(su&&su.users){
+      USERS={...USERS,...su.users};
+      // Re-render board if open so column visibility updates with new users
+      if(CU&&document.querySelector('.nav-item.on')?.dataset?.view==='board')renderBoard();
+    }
 
     const sc=await fbGet('crm','clients');
     if(sc&&sc.list&&sc.list.length){
@@ -1121,14 +1125,20 @@ let dragTaskColId=null,dragTaskId=null,dragBoardColId=null;
 function renderBoard(){
   const boardScrollPos=(document.getElementById('bw-scroll')||{}).scrollLeft||0;
   const visibleCols=isCEO()?boardCols:boardCols.filter(col=>{
-    const colNameLow=col.name.toLowerCase();
-    const myNameLow=(CU?.name||'').toLowerCase();
-    // Own column
-    if(colNameLow===myNameLow)return true;
+    const colNameLow=col.name.toLowerCase().trim();
+    const myNameLow=(CU?.name||'').toLowerCase().trim();
+    const myFirstName=myNameLow.split(' ')[0];
+    const myKey=(CU?.key||'').toLowerCase().trim();
+    // Own column - match full name, first name, or username
+    if(colNameLow===myNameLow||colNameLow===myFirstName||colNameLow===myKey)return true;
     // Finalized column
     if(col.isFinal)return true;
-    // CEO columns (Adri, Alan, or any CEO user)
-    const colUser=Object.values(USERS).find(u=>u.name.toLowerCase()===colNameLow);
+    // CEO columns
+    const colUser=Object.values(USERS).find(u=>{
+      const n=u.name.toLowerCase().trim();
+      const fn=n.split(' ')[0];
+      return n===colNameLow||fn===colNameLow;
+    });
     if(colUser&&(colUser.level==='ceo'||colUser.role==='CEO'))return true;
     return false;
   });
@@ -1189,9 +1199,13 @@ function renderBoard(){
         ${(()=>{
           if(isCEO())return true;
           if(col.isFinal)return false;
-          if(col.name.toLowerCase()===(CU?.name||'').toLowerCase())return true;
-          const colUser=Object.values(USERS).find(u=>u.name.toLowerCase()===col.name.toLowerCase());
-          return colUser&&(colUser.level==='ceo'||colUser.role==='CEO');
+          const cn=col.name.toLowerCase().trim();
+          const mn=(CU?.name||'').toLowerCase().trim();
+          const mf=mn.split(' ')[0];
+          const mk2=(CU?.key||'').toLowerCase().trim();
+          if(cn===mn||cn===mf||cn===mk2)return true;
+          const cu=Object.values(USERS).find(u=>{const n=u.name.toLowerCase().trim();return n===cn||n.split(' ')[0]===cn;});
+          return cu&&(cu.level==='ceo'||cu.role==='CEO');
         })()?`<button class="badd" onclick="openModal('task','${col.id}')"><i class="ti ti-plus" style="font-size:12px"></i>Añadir tarea</button>`:''}
       </div>`;
     }).join('')}
