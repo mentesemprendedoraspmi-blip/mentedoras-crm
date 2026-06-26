@@ -2117,6 +2117,11 @@ function renderProfile(c){
             <div class="pf"><span class="pf-l">CM</span><span class="pf-v">${c.cm||'No incluye CM'}</span></div>
             <div class="pf"><span class="pf-l">Reels/mes</span><span class="pf-v">${c.numReels}</span></div>
             ${isPMup()?`<div class="pf" style="align-items:center">
+              <span class="pf-l">Propietario</span>
+              <input type="text" value="${c.owner||''}" placeholder="Nombre del propietario (si aplica)" style="font-size:12px;padding:4px 8px;flex:1" onchange="updateClientField('${c.id}','owner',this.value);saveClients();showToast('Propietario actualizado ✓','ok')">
+            </div>
+            ${renderOwnerSiblings(c)}`:''}
+            ${isPMup()?`<div class="pf" style="align-items:center">
               <span class="pf-l">Tipo de cliente</span>
               <select style="font-size:12px;padding:4px 8px;width:auto" onchange="updateClientField('${c.id}','clientType',this.value);saveClients();showToast('Tipo actualizado ✓','ok')">
                 <option value="pago" ${(c.clientType||'pago')==='pago'?'selected':''}>💰 Pago</option>
@@ -2832,7 +2837,13 @@ async function toggleSocialNet(cid,net){
   else c.socialNets.push(net);
   saveClients();renderProfile(c);showToast(net+' '+(c.socialNets.includes(net)?'activado':'desactivado')+' ✓','ok');
 }
-async function toggleClientCM(id){
+async function renderOwnerSiblings(c){
+  if(!c.owner)return'';
+  const siblings=clients.filter(cc=>cc.owner===c.owner&&cc.id!==c.id);
+  if(!siblings.length)return'';
+  return`<div class="pf"><span class="pf-l">Otros negocios de ${c.owner}</span><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${siblings.map(s=>`<span onclick="openProfile('${s.id}')" style="font-size:12px;padding:3px 10px;border-radius:20px;background:var(--cdim);color:var(--c);cursor:pointer;border:1px solid var(--c)">${s.name}</span>`).join('')}</div></div>`;
+}
+function toggleClientCM(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
   saveClients();renderProfile(c);showToast('CM '+(c.showCM?'visible':'oculto')+' para el cliente ✓','ok');
 }
