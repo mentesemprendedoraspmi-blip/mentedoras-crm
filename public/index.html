@@ -2837,7 +2837,7 @@ async function toggleSocialNet(cid,net){
   else c.socialNets.push(net);
   saveClients();renderProfile(c);showToast(net+' '+(c.socialNets.includes(net)?'activado':'desactivado')+' ✓','ok');
 }
-async function renderOwnerSiblings(c){
+function renderOwnerSiblings(c){
   if(!c.owner)return'';
   const siblings=clients.filter(cc=>cc.owner===c.owner&&cc.id!==c.id);
   if(!siblings.length)return'';
