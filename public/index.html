@@ -3209,17 +3209,8 @@ function showPortal(c){
   document.getElementById('w-title').textContent=g+', '+c.name+'!';
   document.getElementById('w-sub').textContent='Aquí tienes toda la información de tu contenido 🚀';
   document.getElementById('welcome').classList.add('open');
-  // realtime listeners
+  // realtime listeners (board_tasks only - clients listener lives in loadAll to avoid duplicates)
   if(db){
-    try{
-      db.collection('crm').doc('clients').onSnapshot(snap=>{
-        if(snap&&snap.exists){const d=snap.data();if(d&&d.list){
-          clients=d.list.map(fc=>{const def=clients.find(c=>c.id===fc.id)||{};return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};});
-          if(activeClient){const u=clients.find(c=>c.id===activeClient.id);if(u)activeClient=u;}
-          if(document.querySelector('.nav-item.on')?.dataset?.view==='dash')renderDash();
-        }}
-      });
-    }catch(e){}
     try{
       db.collection('board_tasks').onSnapshot(snap=>{
         if(!snap)return;
