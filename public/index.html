@@ -1257,7 +1257,7 @@ function boardColDrop(e,targetColId){
     if(fromIdx>=0&&toIdx>=0){
       const[col]=boardCols.splice(fromIdx,1);
       boardCols.splice(toIdx,0,col);
-      saveBoard();renderBoard();showToast('Columna movida ✓','ok');
+      saveIndex();renderBoard();showToast('Columna movida ✓','ok');
     }
     return;
   }
@@ -1270,7 +1270,7 @@ function boardColDrop(e,targetColId){
     const ti=fromCol.tasks.findIndex(t=>String(t.id)===String(dragTaskId));
     if(ti>=0){const[task]=fromCol.tasks.splice(ti,1);toCol.tasks.unshift(task);}
     dragTaskColId=null;dragTaskId=null;
-    saveBoard();renderBoard();showToast('Tarea movida ✓','ok');
+    const movedT=toCol.tasks.find(t=>String(t.id)===String(task?.id));if(movedT)saveBoardTask(movedT,toCol.id);saveIndex();renderBoard();showToast('Tarea movida ✓','ok');
   }
 }
 
@@ -1315,7 +1315,7 @@ function taskDragOver(e,colId,taskIndex){
       toCol.tasks.splice(taskIndex,0,task);
     }
     dragTaskColId=null;dragTaskId=null;
-    saveBoard();renderBoard();showToast('Tarea movida ✓','ok');
+    const movedT2=toCol.tasks.find(t=>String(t.id)===String(task?.id));if(movedT2)saveBoardTask(movedT2,toCol.id);saveIndex();renderBoard();showToast('Tarea movida ✓','ok');
   };
 }
 function setupBoardAutoScroll(){
@@ -1345,9 +1345,8 @@ async function toggleTask(colId,taskId){
       finalCol.tasks.unshift(t);
       renderBoard();
       showToast(`✅ Tarea movida a "${finalCol.name}"`, 'ok');
-      // Save async in background
+      // Save async in background - only the moved task needs updating
       saveBoardTask(t,finalCol.id);
-      col.tasks.forEach(t2=>saveBoardTask(t2,col.id));
       return;
     }
   }
@@ -1359,7 +1358,7 @@ function setFinalCol(colId){
   // Toggle - if already final, unset it
   boardCols.forEach(c=>{c.isFinal=c.id===colId?!c.isFinal:false;});
   const col=boardCols.find(c=>c.id===colId);
-  saveBoard();renderBoard();
+  saveIndex();renderBoard();
   showToast(col?.isFinal?`⭐ "${col?.name}" es ahora la columna Finalizado`:`"${col?.name}" ya no es Finalizado`,'ok');
 }
 function clearColTasks(colId){
@@ -1401,7 +1400,7 @@ function addBoardCol(){
   const name=prompt('Nombre de la nueva columna:');
   if(!name)return;
   boardCols.push({id:'col'+Date.now(),name,color:'var(--bd2)',tasks:[]});
-  saveBoard();renderBoard();showToast('Columna añadida ✓','ok');
+  saveIndex();renderBoard();showToast('Columna añadida ✓','ok');
 }
 function toggleColMenu(id){
   document.querySelectorAll('.drop-menu').forEach(m=>m.classList.remove('open'));
@@ -1410,18 +1409,18 @@ function toggleColMenu(id){
 document.addEventListener('click',e=>{if(!e.target.closest('.dot-btn'))document.querySelectorAll('.drop-menu').forEach(m=>m.classList.remove('open'));});
 function copyCol(id){
   const col=boardCols.find(c=>c.id===id);if(!col)return;
-  const newCol={...col,id:'col'+Date.now(),name:col.name+' (copia)',tasks:JSON.parse(JSON.stringify(col.tasks))};
+  const newCol={...col,id:'col'+Date.now(),name:col.name+' (copia)',tasks:JSON.parse(JSON.stringify(col.tasks)).map((t,i)=>({...t,id:Date.now()+i+Math.random()}))};
   const idx=boardCols.findIndex(c=>c.id===id);
   boardCols.splice(idx+1,0,newCol);
-  saveBoard();renderBoard();showToast('Lista copiada ✓','ok');
+  saveIndex();for(const t of newCol.tasks)saveBoardTask(t,newCol.id);renderBoard();showToast('Lista copiada ✓','ok');
 }
 function moveColLeft(id){
   const idx=boardCols.findIndex(c=>c.id===id);
-  if(idx>0){[boardCols[idx-1],boardCols[idx]]=[boardCols[idx],boardCols[idx-1]];saveBoard();renderBoard();}
+  if(idx>0){[boardCols[idx-1],boardCols[idx]]=[boardCols[idx],boardCols[idx-1]];saveIndex();renderBoard();}
 }
 function moveColRight(id){
   const idx=boardCols.findIndex(c=>c.id===id);
-  if(idx<boardCols.length-1){[boardCols[idx],boardCols[idx+1]]=[boardCols[idx+1],boardCols[idx]];saveBoard();renderBoard();}
+  if(idx<boardCols.length-1){[boardCols[idx],boardCols[idx+1]]=[boardCols[idx+1],boardCols[idx]];saveIndex();renderBoard();}
 }
 function moveAllCards(fromId){
   const fromCol=boardCols.find(c=>c.id===fromId);if(!fromCol||!fromCol.tasks.length)return showToast('Sin tarjetas que mover','err');
@@ -1436,14 +1435,17 @@ function doMoveAll(fromId){
   const toId=document.getElementById('ma-col').value;
   const fromCol=boardCols.find(c=>c.id===fromId);const toCol=boardCols.find(c=>c.id===toId);
   if(!fromCol||!toCol)return;
-  toCol.tasks=[...toCol.tasks,...fromCol.tasks];fromCol.tasks=[];
-  closeModal();saveBoard();renderBoard();showToast('Tarjetas movidas ✓','ok');
+  const movedTasks=[...fromCol.tasks];
+  toCol.tasks=[...toCol.tasks,...movedTasks];fromCol.tasks=[];
+  closeModal();
+  for(const t of movedTasks)saveBoardTask(t,toCol.id);
+  renderBoard();showToast('Tarjetas movidas ✓','ok');
 }
 function sortCol(id,by){
   const col=boardCols.find(c=>c.id===id);if(!col)return;
   if(by==='date')col.tasks.sort((a,b)=>(a.date||'9').localeCompare(b.date||'9'));
   if(by==='name')col.tasks.sort((a,b)=>a.title.localeCompare(b.title));
-  saveBoard();renderBoard();showToast('Ordenado ✓','ok');
+  renderBoard();showToast('Ordenado ✓','ok');
 }
 
 function openTaskDetail(colId,taskId){
@@ -1647,7 +1649,7 @@ function autoAddDriveLink(colId,taskId,clientName){
   if(!t.links)t.links=[];
   if(t.links.some(l=>l.url===driveUrl))return;
   t.links.push({url:driveUrl,label:'📁 Drive — '+clientName});
-  saveBoard();
+  saveBoardTask(t,colId);
   openTaskDetail(colId,taskId);
 }
 async function saveTaskDetail(colId,taskId){
@@ -1696,15 +1698,18 @@ function addLink(colId,taskId){
   const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
   if(!t.links)t.links=[];
   t.links.push({url:'',label:''});
+  saveBoardTask(t,colId);
   openTaskDetail(colId,taskId);
 }
 function removeLink(colId,taskId,i){
   const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
-  t.links.splice(i,1);openTaskDetail(colId,taskId);
+  t.links.splice(i,1);
+  saveBoardTask(t,colId);
+  openTaskDetail(colId,taskId);
 }
 function updateLink(colId,taskId,i,field,val){
   const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t||!t.links[i])return;
-  t.links[i][field]=val;saveBoard();
+  t.links[i][field]=val;saveBoardTask(t,colId);
 }
 function addCheck(colId,taskId){
   const inp=document.getElementById('new-check');if(!inp||!inp.value.trim())return;
@@ -1738,10 +1743,10 @@ function renderBoardBadge(){
 function createAutoTask(title){
   const adriCol=boardCols.find(c=>c.id==='adri');
   const alanCol=boardCols.find(c=>c.id==='alan');
-  const task={id:Date.now(),title,client:activePortalClient?.name||'',date:today(),done:false};
-  if(adriCol)adriCol.tasks.unshift({...task});
-  if(alanCol)alanCol.tasks.unshift({...task,id:Date.now()+1});
-  saveBoard();renderBoardBadge();
+  const baseId=Date.now();
+  if(adriCol){const t1={id:baseId,title,client:activePortalClient?.name||'',date:today(),done:false};adriCol.tasks.unshift(t1);saveBoardTask(t1,adriCol.id);}
+  if(alanCol){const t2={id:baseId+1,title,client:activePortalClient?.name||'',date:today(),done:false};alanCol.tasks.unshift(t2);saveBoardTask(t2,alanCol.id);}
+  renderBoardBadge();
 }
 
 // ============================================================
@@ -2613,10 +2618,9 @@ async function toggleReel(cid,mk,i,field){
     }
     if(field==='enviado')c.reels[mk][i].fechaEnviadoTS=new Date().toISOString();
   }
-  saveClients();
-  switchReelMonth(cid,mk);
-  if(isPMup()&&document.getElementById('view-dash')?.classList.contains('on'))renderDash();
+  switchReelMonth(cid,mk); // Instant UI feedback
   showToast('Guardado ✓','ok');
+  await saveClients(); // Persist to Firebase - this triggers the realtime listener for all users
 }
 function updateReel(cid,mk,i,field,val){
   const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
@@ -3219,12 +3223,9 @@ function showPortal(c){
     try{
       db.collection('board_tasks').onSnapshot(snap=>{
         if(!snap)return;
-        const now=Date.now();
-        const justSaved=_lastBoardSave&&(now-new Date(_lastBoardSave).getTime())<3000;
-        if(justSaved)return;
         const allTasks={};
         snap.forEach(doc=>{const d=doc.data();if(d&&d.colId){if(!allTasks[d.colId])allTasks[d.colId]=[];allTasks[d.colId].push(d);}});
-        // Update tasks per column, including deletions (empty array = all deleted)
+        // Always sync from Firebase - it's the single source of truth
         boardCols.forEach(col=>{
           const imgs={};(col.tasks||[]).forEach(t=>{if(t.images)imgs[t.id]=t.images;});
           col.tasks=(allTasks[col.id]||[]).map(t=>({...t,images:imgs[t.id]||[]}));
@@ -3234,6 +3235,17 @@ function showPortal(c){
         const el=document.getElementById('bbadge');if(el)el.textContent=total;
       });
     }catch(e){console.warn('board listener:',e);}
+    try{
+      db.collection('crm').doc('board_index').onSnapshot(snap=>{
+        if(!snap||!snap.exists)return;
+        const d=snap.data();if(!d||!d.cols)return;
+        // Merge column structure changes (add/remove/rename/isFinal) while preserving loaded tasks
+        const existingTasks={};
+        boardCols.forEach(col=>{existingTasks[col.id]=col.tasks||[];});
+        boardCols=d.cols.map(meta=>({...meta,tasks:existingTasks[meta.id]||[]}));
+        if(document.querySelector('.nav-item.on')?.dataset?.view==='board')renderBoard();
+      });
+    }catch(e){console.warn('board_index listener:',e);}
     try{
       db.collection('crm_notifications').orderBy('u','desc').limit(20).onSnapshot(snap=>{
         if(!snap)return;
