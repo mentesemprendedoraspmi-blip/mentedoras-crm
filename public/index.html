@@ -1124,7 +1124,7 @@ let dragTaskColId=null,dragTaskId=null,dragBoardColId=null;
 
 function renderBoard(){
   const boardScrollPos=(document.getElementById('bw-scroll')||{}).scrollLeft||0;
-  const visibleCols=isCEO()?boardCols:boardCols.filter(col=>{
+  const visibleCols=isPMup()?boardCols:boardCols.filter(col=>{
     const colNameLow=col.name.toLowerCase().trim();
     const myNameLow=(CU?.name||'').toLowerCase().trim();
     const myFirstName=myNameLow.split(' ')[0];
@@ -1157,7 +1157,7 @@ function renderBoard(){
           <span class="bcn">${col.isFinal?'⭐ ':''}${col.name}</span>
           <div style="display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">
             <span class="bcc">${pend}</span>
-            ${isCMup()&&(!col.isFinal||isCEO())?`<div class="dot-btn" onclick="event.stopPropagation();toggleColMenu('${col.id}')"><i class="ti ti-dots-vertical"></i>
+            ${isCMup()&&(!col.isFinal||isPMup())?`<div class="dot-btn" onclick="event.stopPropagation();toggleColMenu('${col.id}')"><i class="ti ti-dots-vertical"></i>
               <div class="drop-menu" id="cm-${col.id}">
                 <div class="dm-item" onclick="openModal('task','${col.id}')"><i class="ti ti-plus"></i>Añadir tarjeta</div>
                 <div class="dm-item" onclick="copyCol('${col.id}')"><i class="ti ti-copy"></i>Copiar lista</div>
@@ -1197,7 +1197,7 @@ function renderBoard(){
           </div>`).join('')}
         </div>
         ${(()=>{
-          if(isCEO())return true;
+          if(isPMup())return true;
           if(col.isFinal)return false;
           const cn=col.name.toLowerCase().trim();
           const mn=(CU?.name||'').toLowerCase().trim();
