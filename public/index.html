@@ -674,7 +674,63 @@ function myClients(){
 // ============================================================
 // FIREBASE SAVE
 // ============================================================
-async function saveClients(){await fbSet('crm','clients',{list:clients,u:new Date().toISOString()});}
+let _lastClientsSave=null;
+let _clientSaveQueue=new Set(); // tracks client IDs pending save to batch them
+let _clientSaveTimer=null;
+async function saveClients(){
+  // Save each client as its own document - prevents the race condition where
+  // a realtime listener overwrites a newly-created or just-edited client
+  // with a stale version from before the write completed.
+  _lastClientsSave=new Date().toISOString();
+  try{
+    for(const c of clients){
+      await fbSet('client_docs',c.id,{...c,u:_lastClientsSave});
+    }
+    await fbSet('crm','clients_index',{ids:clients.map(c=>c.id),u:_lastClientsSave});
+    // Mirror to legacy single-document format for cliente.html portal compatibility
+    await fbSet('crm','clients',{list:clients,u:_lastClientsSave});
+  }catch(e){console.error('saveClients:',e);}
+}
+async function saveClient_doc(c){
+  // Save a single client without touching others - use this when only one client changed
+  _lastClientsSave=new Date().toISOString();
+  try{
+    await fbSet('client_docs',c.id,{...c,u:_lastClientsSave});
+    // Mirror full list to legacy format for cliente.html portal compatibility
+    await fbSet('crm','clients',{list:clients,u:_lastClientsSave});
+  }catch(e){console.error('saveClient_doc:',e);}
+}
+async function deleteClient_doc(id){
+  try{if(!fbReady)await initFB();await db.collection('client_docs').doc(id).delete();}catch(e){}
+}
+async function loadClients(){
+  try{
+    const index=await fbGet('crm','clients_index');
+    if(index&&index.ids&&index.ids.length){
+      if(!fbReady)await initFB();
+      const snap=await db.collection('client_docs').get();
+      const byId={};
+      snap.forEach(doc=>{byId[doc.id]=doc.data();});
+      const loaded=index.ids.map(id=>{
+        const fc=byId[id];
+        if(!fc)return null;
+        const def=clients.find(c=>c.id===fc.id)||{};
+        return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};
+      }).filter(Boolean);
+      if(loaded.length){clients=loaded;return true;}
+    }
+    // Fallback to old single-document format if no migrated data exists yet
+    const sc=await fbGet('crm','clients');
+    if(sc&&sc.list&&sc.list.length){
+      clients=sc.list.map(fc=>{
+        const def=clients.find(c=>c.id===fc.id)||{};
+        return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};
+      });
+      return true;
+    }
+  }catch(e){console.warn('loadClients:',e);}
+  return false;
+}
 async function saveBoard(){
   _lastBoardSave=new Date().toISOString();
   try{
@@ -728,13 +784,7 @@ async function loadAll(){
       if(CU&&document.querySelector('.nav-item.on')?.dataset?.view==='board')renderBoard();
     }
 
-    const sc=await fbGet('crm','clients');
-    if(sc&&sc.list&&sc.list.length){
-      clients=sc.list.map(fc=>{
-        const def=clients.find(c=>c.id===fc.id)||{};
-        return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};
-      });
-    }
+    await loadClients();
     await loadBoard();
     const se=await fbGet('crm','events');
     if(se&&se.list)calEvents=se.list;
@@ -751,11 +801,8 @@ async function loadAll(){
       if(document.querySelector('.nav-item.on')?.dataset?.view==='board')renderBoard();
     }catch(e){}
     try{
-      const sc=await fbGet('crm','clients');
-      if(sc&&sc.list&&sc.list.length){
-        clients=sc.list.map(fc=>{const def=clients.find(c=>c.id===fc.id)||{};return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};});
-        if(activeClient){const u=clients.find(c=>c.id===activeClient.id);if(u){activeClient=u;if(document.getElementById('view-profile')?.classList.contains('on'))renderProfile(u);}}
-      }
+      await loadClients();
+      if(activeClient){const u=clients.find(c=>c.id===activeClient.id);if(u){activeClient=u;if(document.getElementById('view-profile')?.classList.contains('on'))renderProfile(u);}}
     }catch(e){}
   },30000);
   // Check auto tasks for CM
@@ -763,30 +810,31 @@ async function loadAll(){
   // real-time
   if(db){
     try{
-      db.collection('crm').doc('clients').onSnapshot(snap=>{
-        if(snap&&snap.exists){
-          const d=snap.data();
-          if(d&&d.list&&d.list.length){
-            clients=d.list.map(fc=>{
-              const def=clients.find(c=>c.id===fc.id)||{};
-              return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};
-            });
-            // Refresh dashboard
-            if(document.getElementById('view-dash')?.classList.contains('on'))renderDash();
-            // Refresh sidebar
-            renderSB();
-            // Refresh active client profile if open
-            if(activeClient){
-              const u=clients.find(c=>c.id===activeClient.id);
-              if(u){
-                activeClient=u;
-                if(document.getElementById('view-profile')?.classList.contains('on'))renderProfile(u);
-              }
-            }
+      db.collection('client_docs').onSnapshot(snap=>{
+        if(!snap)return;
+        const byId={};
+        snap.forEach(doc=>{byId[doc.id]=doc.data();});
+        const ids=Object.keys(byId);
+        if(!ids.length)return; // don't wipe local data if collection is momentarily empty (e.g. still migrating)
+        clients=ids.map(id=>{
+          const fc=byId[id];
+          const def=clients.find(c=>c.id===id)||{};
+          return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{},editors:Array.isArray(fc.editors)?fc.editors:[],services:Array.isArray(fc.services)?fc.services:[]};
+        });
+        // Refresh dashboard
+        if(document.getElementById('view-dash')?.classList.contains('on'))renderDash();
+        // Refresh sidebar
+        renderSB();
+        // Refresh active client profile if open
+        if(activeClient){
+          const u=clients.find(c=>c.id===activeClient.id);
+          if(u){
+            activeClient=u;
+            if(document.getElementById('view-profile')?.classList.contains('on'))renderProfile(u);
           }
         }
       });
-    }catch(e){}
+    }catch(e){console.warn('client_docs listener:',e);}
   }
 }
 
@@ -987,13 +1035,14 @@ function renderDash(){
   if(isPMup()){
     const pendingEnvio=[];
     mc.forEach(c=>{
-      const mk2=monthKey();
-      (c.reels[mk2]||[]).forEach(r=>{
-        if(r.grabado&&!r.enviado&&!r.editado){
-          const grabTime=r.fechaGrab?new Date(r.fechaGrab+'T12:00:00'):null;
-          const hoursAgo=grabTime?Math.round((new Date()-grabTime)/3600000):0;
-          pendingEnvio.push({client:c.name,reel:r.label,hours:hoursAgo});
-        }
+      Object.keys(c.reels||{}).forEach(mk2=>{
+        (c.reels[mk2]||[]).forEach(r=>{
+          if(r.grabado&&!r.enviado&&!r.editado){
+            const grabTime=r.fechaGrab?new Date(r.fechaGrab+'T12:00:00'):null;
+            const hoursAgo=grabTime?Math.round((new Date()-grabTime)/3600000):0;
+            pendingEnvio.push({client:c.name,reel:r.label,hours:hoursAgo,month:mk2});
+          }
+        });
       });
     });
     if(pendingEnvio.length){
@@ -2882,11 +2931,14 @@ function delCred(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.crede
 function updateCred(cid,i,field,val){const c=clients.find(c=>c.id===cid);if(!c||!c.credentials[i])return;c.credentials[i][field]=val;saveClients();}
 function togglePassVis(id){const inp=document.getElementById(id);if(!inp)return;inp.type=inp.type==='password'?'text':'password';}
 function uploadContract(id){const c=clients.find(c=>c.id===id);if(!c)return;c.contract='Contrato_'+c.name.replace(/\s+/g,'_')+'.pdf';renderProfile(c);saveClients();showToast('Contrato subido ✓','ok');}
-function delClient(id){
+async function delClient(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
   if(!confirm('¿Eliminar a '+c.name+'? Esta acción no se puede deshacer.'))return;
   clients=clients.filter(c=>c.id!==id);
-  activeClient=null;showView('dash');saveClients();showToast(c.name+' eliminado','ok');
+  activeClient=null;showView('dash');
+  await deleteClient_doc(id);
+  await saveClients();
+  showToast(c.name+' eliminado','ok');
 }
 function copyLink(id){copyLinkStr(location.origin+location.pathname.replace('index.html','')+'cliente.html?id='+id);}
 function copyLinkStr(url){navigator.clipboard.writeText(url).then(()=>showToast('Link copiado ✓','ok'));}
@@ -3040,7 +3092,7 @@ function openModal(type,extra='',extra2=null){
 function closeModal(){document.getElementById('mo').classList.remove('open');}
 document.getElementById('mo').addEventListener('click',e=>{if(e.target===document.getElementById('mo'))closeModal();});
 
-function saveClient(){
+async function saveClient(){
   const name=document.getElementById('nc-name').value.trim();
   const type=document.getElementById('nc-type').value.trim();
   const phase=parseInt(document.getElementById('nc-phase').value);
@@ -3050,7 +3102,8 @@ function saveClient(){
   const id=name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
   if(clients.find(c=>c.id===id))return showToast('Ese cliente ya existe','err');
   clients.push({id,name,type:type||'Sin clasificar',phase,services:[],editors:[],cm:'',delivery:'',msgs:[],contract:null,contractStart:'',contractEnd:'',contractType:'Mensual',price,numReels,reels:mkMonths(numReels),fase0:mkFase0(),produccion:{},driveMain:'',drive:{},driveDocs:[],credentials:[{platform:'Instagram',user:'',pass:'',notes:''}]});
-  closeModal();saveClients();render();showToast('Cliente añadido ✓','ok');
+  closeModal();render();showToast('Cliente añadido ✓','ok');
+  await saveClients(); // Wait for Firebase confirmation before the realtime listener can safely sync
 }
 async function saveGrowth(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
@@ -3177,13 +3230,7 @@ async function checkRoute(){
   const cid=h.replace('#/cliente/','');
   if(!fbReady)await initFB();
   try{
-    const saved=await fbGet('crm','clients');
-    if(saved&&saved.list&&saved.list.length){
-      clients=saved.list.map(fc=>{
-        const def=clients.find(c=>c.id===fc.id)||{};
-        return{...def,...fc,msgs:fc.msgs||[],reels:fc.reels||mkMonths(fc.numReels||5),fase0:fc.fase0||mkFase0(),produccion:fc.produccion||{}};
-      });
-    }
+    await loadClients();
   }catch(e){}
   const c=clients.find(c=>c.id===cid);
   if(c){showPortal(c);return true;}
