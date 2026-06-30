@@ -1046,12 +1046,20 @@ function renderDash(){
       });
     });
     if(pendingEnvio.length){
+      pendingEnvio.sort((a,b)=>a.month.localeCompare(b.month)||a.client.localeCompare(b.client));
+      // Group by month
+      const byMonth={};
+      pendingEnvio.forEach(p=>{if(!byMonth[p.month])byMonth[p.month]=[];byMonth[p.month].push(p);});
+      const months=Object.keys(byMonth).sort();
       html+=`<div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:var(--r);padding:12px 14px;margin-bottom:14px">
-        <div style="font-weight:600;color:var(--warn);margin-bottom:8px;font-size:13px">📤 ${pendingEnvio.length} reel${pendingEnvio.length>1?'s':''} grabado${pendingEnvio.length>1?'s':''} sin enviar al editor</div>
-        ${pendingEnvio.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:4px 0;border-top:1px solid rgba(245,158,11,.15)">
-          <span><strong>${p.client}</strong> — ${p.reel}</span>
-          ${p.hours>=24?`<span style="color:var(--err);font-weight:600;font-size:11px">⚠️ +${p.hours}h sin enviar</span>`:`<span style="color:var(--warn);font-size:11px">${p.hours>0?p.hours+'h':'Hoy'}</span>`}
-        </div>`).join('')}
+        <div style="font-weight:600;color:var(--warn);margin-bottom:10px;font-size:13px">📤 ${pendingEnvio.length} reel${pendingEnvio.length>1?'s':''} grabado${pendingEnvio.length>1?'s':''} sin enviar al editor</div>
+        ${months.map(m=>`
+          <div style="font-size:11px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 4px">${monthLabel(m)}</div>
+          ${byMonth[m].map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:4px 0;border-top:1px solid rgba(245,158,11,.15)">
+            <span><strong>${p.client}</strong> — ${p.reel}</span>
+            ${p.hours>=24?`<span style="color:var(--err);font-weight:600;font-size:11px">⚠️ +${p.hours}h sin enviar</span>`:`<span style="color:var(--warn);font-size:11px">${p.hours>0?p.hours+'h':'Hoy'}</span>`}
+          </div>`).join('')}
+        `).join('')}
       </div>`;
     }
   }
@@ -1163,7 +1171,7 @@ function renderPipeline(){
 function dropPL(e,phase){
   e.preventDefault();document.querySelectorAll('.pcol').forEach(c=>c.classList.remove('dov'));
   const id=e.dataTransfer.getData('cid');const c=clients.find(c=>c.id===id);
-  if(c){c.phase=phase;renderDash();saveClients();showToast('Fase → '+PHASES[phase],'ok');}
+  if(c){c.phase=phase;renderDash();saveClient_doc(c);showToast('Fase → '+PHASES[phase],'ok');}
 }
 
 // ============================================================
@@ -2172,12 +2180,12 @@ function renderProfile(c){
             <div class="pf"><span class="pf-l">Reels/mes</span><span class="pf-v">${c.numReels}</span></div>
             ${isPMup()?`<div class="pf" style="align-items:center">
               <span class="pf-l">Propietario</span>
-              <input type="text" value="${c.owner||''}" placeholder="Nombre del propietario (si aplica)" style="font-size:12px;padding:4px 8px;flex:1" onchange="updateClientField('${c.id}','owner',this.value);saveClients();showToast('Propietario actualizado ✓','ok')">
+              <input type="text" value="${c.owner||''}" placeholder="Nombre del propietario (si aplica)" style="font-size:12px;padding:4px 8px;flex:1" onchange="updateClientField('${c.id}','owner',this.value);saveClient_doc(c);showToast('Propietario actualizado ✓','ok')">
             </div>
             ${renderOwnerSiblings(c)}`:''}
             ${isPMup()?`<div class="pf" style="align-items:center">
               <span class="pf-l">Tipo de cliente</span>
-              <select style="font-size:12px;padding:4px 8px;width:auto" onchange="updateClientField('${c.id}','clientType',this.value);saveClients();showToast('Tipo actualizado ✓','ok')">
+              <select style="font-size:12px;padding:4px 8px;width:auto" onchange="updateClientField('${c.id}','clientType',this.value);saveClient_doc(c);showToast('Tipo actualizado ✓','ok')">
                 <option value="pago" ${(c.clientType||'pago')==='pago'?'selected':''}>💰 Pago</option>
                 <option value="intercambio" ${c.clientType==='intercambio'?'selected':''}>🤝 Intercambio</option>
                 <option value="perdida" ${c.clientType==='perdida'?'selected':''}>📉 Pérdida (Mentedoras)</option>
@@ -2192,7 +2200,7 @@ function renderProfile(c){
             <div class="pf" style="flex-direction:column;align-items:flex-start;gap:6px">
               <span class="pf-l">📋 Detalle del contrato</span>
               <textarea style="width:100%;font-size:12px;padding:7px 10px;resize:vertical;min-height:70px" placeholder="Escribe aquí qué incluye exactamente este contrato..." onchange="updateClientField('${c.id}','contractNotes',this.value)">${c.contractNotes||''}</textarea>
-              <button class="btn btn-s btn-p" onclick="updateClientField('${c.id}','contractNotes',this.previousElementSibling.previousElementSibling.value);saveClients();showToast('Guardado ✓','ok')" style="align-self:flex-end"><i class="ti ti-check"></i>Guardar</button>
+              <button class="btn btn-s btn-p" onclick="updateClientField('${c.id}','contractNotes',this.previousElementSibling.previousElementSibling.value);saveClient_doc(c);showToast('Guardado ✓','ok')" style="align-self:flex-end"><i class="ti ti-check"></i>Guardar</button>
             </div>
             <div class="pf"><span class="pf-l">Link cliente</span><div class="link-pill" onclick="copyLinkStr('${link}')"><i class="ti ti-copy" style="font-size:10px"></i>/cliente/${c.id}</div></div>
           </div>
@@ -2206,7 +2214,7 @@ function renderProfile(c){
             </div>
             <div>
               <div style="font-size:11px;color:var(--tx3);margin-bottom:6px">CM</div>
-              <select style="font-size:12px;padding:6px 10px;width:100%" onchange="updateClientField('${c.id}','cm',this.value);saveClients();showToast('CM actualizado ✓','ok')">
+              <select style="font-size:12px;padding:6px 10px;width:100%" onchange="updateClientField('${c.id}','cm',this.value);saveClient_doc(c);showToast('CM actualizado ✓','ok')">
                 <option value="">— Sin CM —</option>
                 ${Object.values(USERS).filter(u=>u.level==='cm'||u.role==='CM').map(u=>`<option${c.cm===u.name?' selected':''}>${u.name}</option>`).join('')}
               </select>
@@ -2459,7 +2467,7 @@ function renderProfile(c){
           <div class="f"><label>YouTube</label><input type="text" value="${c.ytUrl||''}" placeholder="https://youtube.com/..." onchange="updateClientField('${c.id}','ytUrl',this.value)"></div>
           <div class="f"><label>LinkedIn</label><input type="text" value="${c.liUrl||''}" placeholder="https://linkedin.com/..." onchange="updateClientField('${c.id}','liUrl',this.value)"></div>
         </div>
-        <button class="btn btn-s btn-p" style="margin-top:8px" onclick="saveClients();showToast('Links guardados ✓','ok')"><i class="ti ti-check"></i>Guardar links</button>
+        <button class="btn btn-s btn-p" style="margin-top:8px" onclick="saveClient_doc(c);showToast('Links guardados ✓','ok')"><i class="ti ti-check"></i>Guardar links</button>
       </div>
     </div>`:''}
     <div class="tc${activeTab==='notas'?' on':''}" id="tc-notas">
@@ -2483,8 +2491,14 @@ function renderProfile(c){
 
 function renderReelTable(c,mk){
   const reels=c.reels[mk]||[];
-  if(!reels.length)return`<div style="text-align:center;padding:30px;color:var(--tx3)">Sin reels para este mes</div>`;
-  return`<div class="card">
+  const grabados=reels.filter(r=>r.grabado).length;
+  const subidos=reels.filter(r=>r.subido).length;
+  const header=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:8px 12px;background:var(--bg3);border-radius:var(--r);border-left:3px solid var(--c)">
+    <div style="font-size:14px;font-weight:600">📅 ${monthLabel(mk)}</div>
+    <div style="font-size:11px;color:var(--tx3)">${reels.length} reel${reels.length!==1?'s':''} · ${grabados} grabado${grabados!==1?'s':''} · ${subidos} subido${subidos!==1?'s':''}</div>
+  </div>`;
+  if(!reels.length)return header+`<div style="text-align:center;padding:30px;color:var(--tx3)">Sin reels para este mes</div>`;
+  return header+`<div class="card">
     <table class="rtable" style="width:100%">
       <tr><th>Reel</th><th>Grabado</th><th>F.Grab.</th><th>📤 Enviado</th><th>Editado</th><th>F.Entrega</th><th>Subido</th><th>Editor</th><th>Notas</th><th></th></tr>
       ${reels.map((r,i)=>`<tr>
@@ -2558,7 +2572,7 @@ function markStepAll(cid,mk,si){
   const k='s'+si;if(!c.produccion[mk][k])c.produccion[mk][k]={};
   const reels=c.reels[mk]||[];
   reels.forEach(r=>{c.produccion[mk][k][r.id]=true;c.produccion[mk][k][r.id+'_d']=today();});
-  saveClients();refreshProd(c,mk);showToast('Paso completado ✓','ok');
+  saveClient_doc(c);refreshProd(c,mk);showToast('Paso completado ✓','ok');
 }
 
 function markAllProd(cid,mk){
@@ -2569,7 +2583,7 @@ function markAllProd(cid,mk){
     const k='s'+si;if(!c.produccion[mk][k])c.produccion[mk][k]={};
     reels.forEach(r=>{c.produccion[mk][k][r.id]=true;c.produccion[mk][k][r.id+'_d']=today();});
   });
-  saveClients();refreshProd(c,mk);showToast('¡Todo marcado! ✓','ok');
+  saveClient_doc(c);refreshProd(c,mk);showToast('¡Todo marcado! ✓','ok');
 }
 
 function refreshProd(c,mk){
@@ -2594,7 +2608,7 @@ async function toggleProdReel(cid,mk,si,rid){
   const k='s'+si;if(!c.produccion[mk][k])c.produccion[mk][k]={};
   c.produccion[mk][k][rid]=!c.produccion[mk][k][rid];
   if(c.produccion[mk][k][rid])c.produccion[mk][k][rid+'_d']=today();
-  saveClients();refreshProd(c,mk);
+  saveClient_doc(c);refreshProd(c,mk);
 }
 function switchProdMonth(cid,mk){
   const c=clients.find(c=>c.id===cid);if(!c)return;refreshProd(c,mk);
@@ -2621,7 +2635,7 @@ function deleteReel(cid,mk,i){
   c.reels[mk].splice(i,1);
   // Renumber
   c.reels[mk].forEach((r,idx)=>{r.id=idx+1;r.label='Reel '+(idx+1);});
-  switchReelMonth(cid,mk);saveClients();showToast('Reel eliminado ✓','ok');
+  switchReelMonth(cid,mk);saveClient_doc(c);showToast('Reel eliminado ✓','ok');
 }
 function addReelMonth(cid){
   const c=clients.find(c=>c.id===cid);if(!c)return;
@@ -2633,13 +2647,13 @@ function addReelMonth(cid){
   // Use numReels from contract
   const n=c.numReels||5;
   c.reels[next]=Array.from({length:n},(_,i)=>({id:i+1,label:'Reel '+(i+1),month:next,grabado:false,fechaGrab:'',editado:false,fechaEdit:'',subido:false,editor:'',notas:''}));
-  switchReelMonth(cid,next);saveClients();showToast('Mes añadido: '+monthLabel(next),'ok');
+  switchReelMonth(cid,next);saveClient_doc(c);showToast('Mes añadido: '+monthLabel(next),'ok');
 }
 function addReel(cid,mk){
   const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
   const n=c.reels[mk].length+1;
   c.reels[mk].push({id:n,label:'Reel '+n,month:mk,grabado:false,fechaGrab:'',editado:false,fechaEdit:'',subido:false,editor:'',notas:''});
-  switchReelMonth(cid,mk);saveClients();showToast('Reel '+n+' añadido ✓','ok');
+  switchReelMonth(cid,mk);saveClient_doc(c);showToast('Reel '+n+' añadido ✓','ok');
 }
 async function toggleReel(cid,mk,i,field){
   const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
@@ -2669,21 +2683,21 @@ async function toggleReel(cid,mk,i,field){
   }
   switchReelMonth(cid,mk); // Instant UI feedback
   showToast('Guardado ✓','ok');
-  await saveClients(); // Persist to Firebase - this triggers the realtime listener for all users
+  await saveClient_doc(c); // Save only this client - fast and avoids blocking on unrelated clients
 }
 function updateReel(cid,mk,i,field,val){
   const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
-  c.reels[mk][i][field]=val;saveClients();
+  c.reels[mk][i][field]=val;saveClient_doc(c);
 }
-async function toggleFase0(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.fase0[i].done=!c.fase0[i].done;renderProfile(c);saveClients();}
-function markAllFase0(cid,val){const c=clients.find(c=>c.id===cid);if(!c)return;c.fase0.forEach(f=>f.done=val);renderProfile(c);saveClients();showToast(val?'Todo marcado ✓':'Todo desmarcado','ok');}
-async function setPhase(id,phase){const c=clients.find(c=>c.id===id);if(!c)return;c.phase=phase;renderProfile(c);renderDash();saveClients();showToast('Fase → '+PHASES[phase],'ok');}
+async function toggleFase0(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.fase0[i].done=!c.fase0[i].done;renderProfile(c);saveClient_doc(c);}
+function markAllFase0(cid,val){const c=clients.find(c=>c.id===cid);if(!c)return;c.fase0.forEach(f=>f.done=val);renderProfile(c);saveClient_doc(c);showToast(val?'Todo marcado ✓':'Todo desmarcado','ok');}
+async function setPhase(id,phase){const c=clients.find(c=>c.id===id);if(!c)return;c.phase=phase;renderProfile(c);renderDash();saveClient_doc(c);showToast('Fase → '+PHASES[phase],'ok');}
 async function toggleEditor(cid,ed){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(!c.editors)c.editors=[];
   if(c.editors.includes(ed))c.editors=c.editors.filter(e=>e!==ed);
   else c.editors.push(ed);
-  saveClients();renderProfile(c);renderSB();showToast('Editores actualizados ✓','ok');
+  saveClient_doc(c);renderProfile(c);renderSB();showToast('Editores actualizados ✓','ok');
 }
 async function saveInternalNotes(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
@@ -2691,7 +2705,7 @@ async function saveInternalNotes(id){
   if(!c.notesHistory)c.notesHistory=[];
   if(text&&text!==c.internalNotes)c.notesHistory.push({text,date:new Date().toLocaleDateString('es-ES'),by:CU?.name||'Equipo'});
   c.internalNotes=text;
-  saveClients();showToast('Notas guardadas ✓','ok');
+  saveClient_doc(c);showToast('Notas guardadas ✓','ok');
 }
 function renderPubCalTab(c){
   const hasReels=(Array.isArray(c.services)?c.services:[]).some(s=>['content_5','content_8_cm','podcast_reels_edit'].includes(s));
@@ -2770,7 +2784,7 @@ function updatePeakHour(cid,day,val){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(!c.peakHours)c.peakHours={};
   c.peakHours[day]=val;
-  saveClients();
+  saveClient_doc(c);
 }
 
 function generatePubCal(cid,mk){
@@ -2805,7 +2819,7 @@ function generatePubCal(cid,mk){
     if(nets.includes('tiktok')){c.pubCal[mk][r.id].tiktok=pubDateStr;c.pubCal[mk][r.id].tiktokTime=pubTime;}
     if(nets.includes('youtube')){c.pubCal[mk][r.id].youtube=pubDateStr;c.pubCal[mk][r.id].youtubeTime=pubTime;}
   });
-  saveClients();switchPubCalMonth(cid,mk);showToast('Calendario generado ✓','ok');
+  saveClient_doc(c);switchPubCalMonth(cid,mk);showToast('Calendario generado ✓','ok');
 }
 
 async function savePubDate(cid,mk,rid,field,val){
@@ -2826,7 +2840,7 @@ async function savePubDate(cid,mk,rid,field,val){
     if(nets.includes('youtube')&&!c.pubCal[mk][rid].youtube)c.pubCal[mk][rid].youtube=pubDate;
     setTimeout(()=>switchPubCalMonth(cid,mk),100);
   }
-  saveClients();
+  saveClient_doc(c);
 }
 
 async function togglePubDone(cid,mk,rid,field){
@@ -2835,7 +2849,7 @@ async function togglePubDone(cid,mk,rid,field){
   if(!c.pubCal[mk])c.pubCal[mk]={};
   if(!c.pubCal[mk][rid])c.pubCal[mk][rid]={};
   c.pubCal[mk][rid][field]=!c.pubCal[mk][rid][field];
-  saveClients();
+  saveClient_doc(c);
   document.getElementById('tc-pubcal').innerHTML=renderPubCalTab(c);
 }
 
@@ -2881,14 +2895,14 @@ async function saveMetricSnapshot(cid){
     reach:parseInt(document.getElementById('m-reach')?.value)||0,
     peakHours:hours,
   });
-  closeModal();saveClients();renderProfile(c);showToast('Métricas guardadas ✓','ok');
+  closeModal();saveClient_doc(c);renderProfile(c);showToast('Métricas guardadas ✓','ok');
 }
 async function toggleSocialNet(cid,net){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(!c.socialNets)c.socialNets=['instagram'];
   if(c.socialNets.includes(net))c.socialNets=c.socialNets.filter(n=>n!==net);
   else c.socialNets.push(net);
-  saveClients();renderProfile(c);showToast(net+' '+(c.socialNets.includes(net)?'activado':'desactivado')+' ✓','ok');
+  saveClient_doc(c);renderProfile(c);showToast(net+' '+(c.socialNets.includes(net)?'activado':'desactivado')+' ✓','ok');
 }
 function renderOwnerSiblings(c){
   if(!c.owner)return'';
@@ -2898,39 +2912,39 @@ function renderOwnerSiblings(c){
 }
 function toggleClientCM(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
-  saveClients();renderProfile(c);showToast('CM '+(c.showCM?'visible':'oculto')+' para el cliente ✓','ok');
+  saveClient_doc(c);renderProfile(c);showToast('CM '+(c.showCM?'visible':'oculto')+' para el cliente ✓','ok');
 }
-function toggleCM(cid,cm){const c=clients.find(c=>c.id===cid);if(!c)return;c.cm=c.cm===cm?'':cm;saveClients();renderProfile(c);showToast('CM actualizado ✓','ok');}
+function toggleCM(cid,cm){const c=clients.find(c=>c.id===cid);if(!c)return;c.cm=c.cm===cm?'':cm;saveClient_doc(c);renderProfile(c);showToast('CM actualizado ✓','ok');}
 async function toggleService(cid,svcId){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(!Array.isArray(c.services))c.services=[];
   if(c.services.includes(svcId))c.services=c.services.filter(s=>s!==svcId);
   else c.services.push(svcId);
-  saveClients();renderProfile(c);showToast('Servicios actualizados ✓','ok');
+  saveClient_doc(c);renderProfile(c);showToast('Servicios actualizados ✓','ok');
 }
 async function saveDrive(cid,key,val){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(key==='main'){c.driveMain=val;}else{if(!c.drive)c.drive={};c.drive[key]=val;}
-  saveClients();showToast('Link guardado ✓','ok');
+  saveClient_doc(c);showToast('Link guardado ✓','ok');
 }
 function addDriveDoc(cid){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   const name=prompt('Nombre del documento:');if(!name)return;
   const url=prompt('Link del documento:');if(!url)return;
   if(!c.driveDocs)c.driveDocs=[];
-  c.driveDocs.push({name,url});renderProfile(c);saveClients();showToast('Documento añadido ✓','ok');
+  c.driveDocs.push({name,url});renderProfile(c);saveClient_doc(c);showToast('Documento añadido ✓','ok');
 }
-function delDriveDoc(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.driveDocs.splice(i,1);renderProfile(c);saveClients();}
+function delDriveDoc(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.driveDocs.splice(i,1);renderProfile(c);saveClient_doc(c);}
 function addCred(cid){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   if(!c.credentials)c.credentials=[];
   c.credentials.push({platform:'Instagram',user:'',pass:'',notes:''});
-  saveClients();renderProfile(c);
+  saveClient_doc(c);renderProfile(c);
 }
-function delCred(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.credentials.splice(i,1);renderProfile(c);saveClients();}
-function updateCred(cid,i,field,val){const c=clients.find(c=>c.id===cid);if(!c||!c.credentials[i])return;c.credentials[i][field]=val;saveClients();}
+function delCred(cid,i){const c=clients.find(c=>c.id===cid);if(!c)return;c.credentials.splice(i,1);renderProfile(c);saveClient_doc(c);}
+function updateCred(cid,i,field,val){const c=clients.find(c=>c.id===cid);if(!c||!c.credentials[i])return;c.credentials[i][field]=val;saveClient_doc(c);}
 function togglePassVis(id){const inp=document.getElementById(id);if(!inp)return;inp.type=inp.type==='password'?'text':'password';}
-function uploadContract(id){const c=clients.find(c=>c.id===id);if(!c)return;c.contract='Contrato_'+c.name.replace(/\s+/g,'_')+'.pdf';renderProfile(c);saveClients();showToast('Contrato subido ✓','ok');}
+function uploadContract(id){const c=clients.find(c=>c.id===id);if(!c)return;c.contract='Contrato_'+c.name.replace(/\s+/g,'_')+'.pdf';renderProfile(c);saveClient_doc(c);showToast('Contrato subido ✓','ok');}
 async function delClient(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
   if(!confirm('¿Eliminar a '+c.name+'? Esta acción no se puede deshacer.'))return;
@@ -3116,17 +3130,17 @@ async function saveGrowth(id){
     monthlyNow:parseInt(document.getElementById('g-monthly-now')?.value)||0,
     bestReel:document.getElementById('g-best')?.value||'',
   };
-  closeModal();saveClients();renderProfile(c);showToast('Estadísticas guardadas ✓','ok');
+  closeModal();saveClient_doc(c);renderProfile(c);showToast('Estadísticas guardadas ✓','ok');
 }
 function updateClientField(id,field,val){
   const c=clients.find(c=>c.id===id);if(!c)return;
-  c[field]=val;saveClients();
+  c[field]=val;saveClient_doc(c);
 }
 async function saveEditClient(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
   c.name=document.getElementById('ec-name').value.trim()||c.name;
   c.type=document.getElementById('ec-type').value.trim()||c.type;
-  closeModal();renderProfile(c);renderSB();renderDash();saveClients();showToast('Cliente actualizado ✓','ok');
+  closeModal();renderProfile(c);renderSB();renderDash();saveClient_doc(c);showToast('Cliente actualizado ✓','ok');
 }
 async function saveContract(id){
   const c=clients.find(c=>c.id===id);if(!c)return;
@@ -3152,7 +3166,7 @@ async function saveContract(id){
       }
     });
   }
-  closeModal();renderProfile(c);saveClients();showToast('Contrato actualizado ✓','ok');
+  closeModal();renderProfile(c);saveClient_doc(c);showToast('Contrato actualizado ✓','ok');
 }
 async function saveTask(){
   const titleEl=document.getElementById('nt-title');
@@ -3486,7 +3500,7 @@ async function saveMeetingRequest(){
   closeModal();
   activePortalClient?.msgs.push({from:'team',text:`✅ ¡Solicitud de reunión recibida! Te confirmamos la cita para el **${fmtDate(fecha)} a las ${hora}** lo antes posible. Adri o Alan te contactarán para confirmar. 📅`,time:new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}),who:'Mentedoras'});
   renderPortalMsgs(activePortalClient);
-  saveClients();
+  saveClient_doc(activePortalClient);
   showToast('Solicitud enviada ✓','ok');
 }
 function showSuggestions(){
@@ -3510,7 +3524,7 @@ function sendPortalMsg(){
   const el=document.getElementById('portal-suggestions');if(el)el.innerHTML='';
   activePortalClient.msgs.push({from:'client',text:txt,time:new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}),who:activePortalClient.name});
   renderPortalMsgs(activePortalClient);
-  saveClients();
+  saveClient_doc(activePortalClient);
   // Typing indicator
   const msgs=document.getElementById('portal-msgs');
   const typing=document.createElement('div');
@@ -3523,7 +3537,7 @@ function sendPortalMsg(){
     const resp=getBotResponse(txt,activePortalClient);
     activePortalClient.msgs.push({from:'team',text:resp,time:new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}),who:'Mentedoras'});
     renderPortalMsgs(activePortalClient);
-    saveClients();
+    saveClient_doc(activePortalClient);
     setTimeout(showSuggestions,500);
   },800+Math.random()*600);
 }
