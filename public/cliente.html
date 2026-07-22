@@ -33,6 +33,12 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
 .loading-logo{font-size:32px;font-weight:600;color:var(--c);font-style:italic;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 .notfound{display:none;min-height:100vh;align-items:center;justify-content:center;flex-direction:column;gap:12px;text-align:center;padding:20px}
+.lockscreen{display:none;min-height:100vh;align-items:center;justify-content:center;padding:20px}
+.lock-box{background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--rxl,16px);padding:32px;width:100%;max-width:320px;box-shadow:var(--s3,0 8px 32px rgba(0,0,0,.6));text-align:center}
+.lock-box h1{font-size:20px;font-weight:600;color:var(--c);font-style:italic;margin-bottom:4px}
+.lock-box p{font-size:12px;color:var(--tx3);margin-bottom:18px}
+.lock-box input{text-align:center;font-size:18px;letter-spacing:.2em;margin-bottom:10px}
+.lock-err{font-size:12px;color:var(--err);margin-top:8px;display:none}
 .app{display:none;flex-direction:column;min-height:100vh}
 .app.on{display:flex}
 .hdr{background:var(--bg2);border-bottom:1px solid var(--bd);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
@@ -163,6 +169,16 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
   <div style="font-size:14px;color:var(--tx3)">El link no es válido. Contacta con tu equipo de Mentedoras.</div>
 </div>
 
+<div class="lockscreen" id="lockscreen">
+  <div class="lock-box">
+    <h1>Mentedoras</h1>
+    <p>Introduce tu código de acceso para ver tu portal</p>
+    <input type="text" id="lock-pin" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="off">
+    <button style="width:100%;padding:11px;background:var(--c);color:var(--bg);border:none;border-radius:var(--r);font-size:14px;font-weight:600" onclick="checkPin()">Entrar</button>
+    <div class="lock-err" id="lock-err">Código incorrecto. Inténtalo de nuevo.</div>
+  </div>
+</div>
+
 <div class="app" id="app">
   <div class="hdr">
     <div>
@@ -185,6 +201,8 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
     <div class="nav-tab" onclick="showTab('modif')" id="nt-modif"><i class="ti ti-edit"></i><span id="tx-modif">Modificaciones</span></div>
     <div class="nav-tab" onclick="showTab('crecimiento')" id="nt-crecimiento"><i class="ti ti-trending-up"></i><span id="tx-crecimiento">Crecimiento</span></div>
     <div class="nav-tab" onclick="showTab('chat')" id="nt-chat"><i class="ti ti-message-2"></i><span id="tx-chat">Chat</span></div>
+    <div class="nav-tab" onclick="showTab('conversaciones')" id="nt-conversaciones"><i class="ti ti-video"></i><span id="tx-conversaciones">Conversaciones</span></div>
+    <div class="nav-tab" onclick="showTab('peticiones')" id="nt-peticiones"><i class="ti ti-clipboard-list"></i><span id="tx-peticiones">Peticiones</span></div>
     <div class="nav-tab" onclick="showTab('ideas')" id="nt-ideas"><i class="ti ti-bulb"></i><span id="tx-ideas">Ideas</span></div>
     <div class="nav-tab" onclick="showTab('ajustes')" id="nt-ajustes"><i class="ti ti-settings"></i><span id="tx-ajustes">Ajustes</span></div>
   </div>
@@ -204,6 +222,10 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
     <div class="view" id="view-crecimiento"></div>
     <!-- CHAT -->
     <div class="view" id="view-chat"></div>
+    <!-- CONVERSACIONES -->
+    <div class="view" id="view-conversaciones"></div>
+    <!-- PETICIONES -->
+    <div class="view" id="view-peticiones"></div>
     <!-- IDEAS -->
     <div class="view" id="view-ideas"></div>
     <!-- AJUSTES -->
@@ -379,6 +401,8 @@ const TX={
   modif:['Modificaciones','Changes'],
   crecimiento:['Crecimiento','Growth'],
   chat:['Chat','Chat'],
+  conversaciones:['Conversaciones','Conversations'],
+  peticiones:['Peticiones','Requests'],
   ajustes:['Ajustes','Settings'],
   // Dashboard
   hola:['Hola','Hello'],
@@ -518,6 +542,8 @@ function renderTab(name){
   if(name==='modif')renderModif();
   if(name==='crecimiento')renderCrecimiento();
   if(name==='chat')renderChat();
+  if(name==='conversaciones')renderConversaciones();
+  if(name==='peticiones')renderPeticiones();
   if(name==='ideas')renderIdeas();
   if(name==='ajustes')renderAjustes();
 }
@@ -555,6 +581,46 @@ function renderIdeas(){
     </div>`:''}`;
 }
 
+function renderConversaciones(){
+  const convs=(client.conversations||[]).slice().reverse();
+  const typeIcons={meet:'📹',llamada:'📞',whatsapp:'💬',presencial:'🤝'};
+  document.getElementById('view-conversaciones').innerHTML=`
+    <div style="margin-bottom:16px">
+      <div style="font-size:18px;font-weight:600;margin-bottom:4px">🎥 ${t('Conversaciones con tu equipo','Conversations with your team')}</div>
+      <div style="font-size:13px;color:var(--tx3)">${t('Aquí guardamos el resumen de nuestras reuniones y llamadas.','Here we keep a record of our meetings and calls.')}</div>
+    </div>
+    ${convs.length?convs.map(cv=>`<div class="card" style="margin-bottom:10px">
+      <div class="card-t">${typeIcons[cv.type]||'🎥'} ${cv.title}<span style="font-size:11px;color:var(--tx3);margin-left:auto;font-weight:400">${fmtDate(cv.date)}</span></div>
+      ${cv.driveLink?`<a href="${cv.driveLink}" target="_blank" style="font-size:12px;color:var(--c);display:inline-block;margin-bottom:8px"><i class="ti ti-external-link"></i> ${t('Ver documento','View document')}</a>`:''}
+      ${cv.transcriptText?`<div style="font-size:12px;color:var(--tx2);white-space:pre-wrap;background:var(--bg3);border-radius:var(--r);padding:8px">${cv.transcriptText}</div>`:''}
+    </div>`).join(''):`<div style="text-align:center;padding:30px;color:var(--tx3)">${t('Todavía no hay conversaciones registradas.','No conversations recorded yet.')}</div>`}`;
+}
+function renderPeticiones(){
+  const reqs=(client.requests||[]).slice().reverse();
+  document.getElementById('view-peticiones').innerHTML=`
+    <div style="margin-bottom:16px">
+      <div style="font-size:18px;font-weight:600;margin-bottom:4px">📋 ${t('Tus peticiones','Your requests')}</div>
+      <div style="font-size:13px;color:var(--tx3)">${t('Escribe aquí cualquier cosa que nos hayas pedido, para que quede constancia.','Write here anything you\'ve asked us for, so it\'s on record.')}</div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <textarea id="req-client-text" rows="3" placeholder="${t('ej. Quiero que el próximo reel hable de...','e.g. I want the next reel to talk about...')}"></textarea>
+      <button class="btn btn-p btn-block" style="margin-top:8px" onclick="addClientRequest()">${t('Enviar petición 🚀','Send request 🚀')}</button>
+    </div>
+    ${reqs.length?reqs.map(r=>`<div class="card" style="margin-bottom:10px;${r.status==='atendida'?'opacity:.6':''}">
+      <div style="font-size:13px">${r.text}</div>
+      <div style="font-size:11px;color:var(--tx3);margin-top:6px">${fmtDate(r.date)}${r.status==='atendida'?' · ✅ '+t('Atendida','Handled'):' · ⏳ '+t('Pendiente','Pending')}</div>
+    </div>`).join(''):`<div style="text-align:center;padding:20px;color:var(--tx3)">${t('Todavía no has enviado peticiones.','You haven\'t sent any requests yet.')}</div>`}`;
+}
+async function addClientRequest(){
+  const text=document.getElementById('req-client-text')?.value.trim();
+  if(!text)return showToast(t('Escribe tu petición','Write your request'),'ok');
+  if(!client.requests)client.requests=[];
+  client.requests.push({id:Date.now()+'-'+Math.floor(Math.random()*1000),text,date:new Date().toISOString().split('T')[0],status:'abierta',addedBy:client.name});
+  await saveClientData();
+  await notifyTeam(`📋 ${client.name} tiene una nueva petición: "${text}"`);
+  renderPeticiones();
+  showToast(t('¡Petición enviada! 🚀','Request sent! 🚀'),'ok');
+}
 async function sendIdeas(){
   const text=document.getElementById('idea-text')?.value.trim();
   const days=document.getElementById('idea-days')?.value.trim();
@@ -1504,16 +1570,12 @@ Puedes ver en qué paso está tu contenido en la sección **Reels** 👀`;
 async function notifyTeam(title){
   if(!db)return;
   try{
-    const d=await db.collection('crm').doc('board').get();
-    if(d.exists){
-      const data=d.data();
-      const cols=data.cols||[];
-      const adri=cols.find(c=>c.id==='adri');const alan=cols.find(c=>c.id==='alan');
-      const task={id:Date.now(),title,client:client.name,date:today(),done:false,labels:[0]};
-      if(adri)adri.tasks.unshift({...task});
-      if(alan)alan.tasks.unshift({...task,id:Date.now()+1});
-      await db.collection('crm').doc('board').set({cols,updatedAt:new Date().toISOString()});
-    }
+    const now=new Date().toISOString();
+    const idAdri=Date.now();
+    const idAlan=idAdri+1;
+    const base={title,client:client.name,date:today(),done:false,labels:[0]};
+    await db.collection('board_tasks').doc(String(idAdri)).set({...base,id:idAdri,colId:'adri',u:now});
+    await db.collection('board_tasks').doc(String(idAlan)).set({...base,id:idAlan,colId:'alan',u:now});
   }catch(e){console.warn(e);}
 }
 
@@ -1672,6 +1734,30 @@ loadTheme();
   }
 
   client=c;
+
+  // PIN gate: if this client has an access code and it hasn't been
+  // unlocked yet in this browser session, show the lockscreen first.
+  const pinKey='mt_pin_'+cid;
+  if(client.accessCode&&sessionStorage.getItem(pinKey)!==client.accessCode){
+    document.getElementById('loading').style.display='none';
+    document.getElementById('lockscreen').style.display='flex';
+    window.checkPin=function(){
+      const val=(document.getElementById('lock-pin').value||'').trim();
+      if(val===client.accessCode){
+        sessionStorage.setItem(pinKey,val);
+        document.getElementById('lockscreen').style.display='none';
+        enterPortal();
+      }else{
+        document.getElementById('lock-err').style.display='block';
+      }
+    };
+    document.getElementById('lock-pin').addEventListener('keydown',e=>{if(e.key==='Enter')checkPin();});
+    return;
+  }
+
+  enterPortal();
+
+  function enterPortal(){
   document.getElementById('loading').style.display='none';
   document.getElementById('app').classList.add('on');
   document.getElementById('hdr-name').textContent=client.name;
@@ -1695,6 +1781,7 @@ loadTheme();
 
   // Service worker
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
 })();
 </script>
 </body>
