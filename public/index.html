@@ -1684,7 +1684,7 @@ function createAutoTask(title,cmName,date,client){
   // If not found by exact match, try partial
   if(!col)col=boardCols.find(c=>c.name.toLowerCase().includes(cmName.toLowerCase()));
   // If still not found, don't create - we don't want it in random columns
-  if(!col){console.log('No column found for CM:',cmName);return;}
+  if(!col)return;
   // Avoid duplicates
   if(col.tasks.some(t=>t.title===title&&t.date===date))return;
   const newAutoTask={id:Date.now()+Math.random(),title,client:client?.name||'',date,done:false,createdBy:'Sistema',autoTask:true};
@@ -1695,14 +1695,13 @@ function createAutoTask(title,cmName,date,client){
 }
 function autoAddDriveLink(colId,taskId,clientName){
   const c=clients.find(c=>c.name===clientName);
-  console.log('autoAddDriveLink called:', {colId, taskId, clientName, driveMain: c?.driveMain});
   if(!c)return;
   const driveUrl=c.driveMain||(c.drive||{}).reelsEdit||'';
-  if(!driveUrl){console.log('No driveUrl found for', clientName);return;}
+  if(!driveUrl)return;
   const col=boardCols.find(col=>col.id===colId);
-  if(!col){console.log('Col not found:', colId);return;}
+  if(!col)return;
   const t=col.tasks.find(t=>t.id==taskId||t.id===taskId);
-  if(!t){console.log('Task not found:', taskId, 'available:', col.tasks.map(t=>t.id));return;}
+  if(!t)return;
   if(!t.links)t.links=[];
   if(t.links.some(l=>l.url===driveUrl))return;
   t.links.push({url:driveUrl,label:'📁 Drive — '+clientName});
