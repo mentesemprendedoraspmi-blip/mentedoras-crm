@@ -784,7 +784,7 @@ async function loadAll(){
     if(su&&su.users){
       USERS={...USERS,...su.users};
       // Re-render board if open so column visibility updates with new users
-      if(CU&&document.querySelector('.nav-item.on')?.dataset?.view==='board')renderBoard();
+      if(CU&&document.getElementById('view-board')?.classList.contains('on'))renderBoard();
     }
 
     await loadClients();
@@ -802,7 +802,7 @@ async function loadAll(){
     if(!CU)return;
     try{
       await loadBoard();
-      if(document.querySelector('.nav-item.on')?.dataset?.view==='board')renderBoard();
+      if(document.getElementById('view-board')?.classList.contains('on'))renderBoard();
     }catch(e){}
     try{
       await loadClients();
@@ -847,6 +847,43 @@ async function loadAll(){
         if(document.getElementById('view-ideas')?.classList.contains('on'))renderIdeasBoard();
       });
     }catch(e){console.warn('improvement_ideas listener:',e);}
+    try{
+      db.collection('board_tasks').onSnapshot(snap=>{
+        if(!snap)return;
+        const allTasks={};
+        snap.forEach(doc=>{const d=doc.data();if(d&&d.colId){if(!allTasks[d.colId])allTasks[d.colId]=[];allTasks[d.colId].push(d);}});
+        boardCols.forEach(col=>{
+          const imgs={};(col.tasks||[]).forEach(t=>{if(t.images)imgs[t.id]=t.images;});
+          col.tasks=(allTasks[col.id]||[]).map(t=>({...t,images:imgs[t.id]||[]}));
+        });
+        if(document.getElementById('view-board')?.classList.contains('on'))renderBoard();
+        renderBoardBadge();
+      });
+    }catch(e){console.warn('board_tasks listener:',e);}
+    try{
+      db.collection('crm').doc('board_index').onSnapshot(snap=>{
+        if(!snap||!snap.exists)return;
+        const d=snap.data();if(!d||!d.cols)return;
+        const existingTasks={};
+        boardCols.forEach(col=>{existingTasks[col.id]=col.tasks||[];});
+        boardCols=d.cols.map(meta=>({...meta,tasks:existingTasks[meta.id]||[]}));
+        if(document.getElementById('view-board')?.classList.contains('on'))renderBoard();
+      });
+    }catch(e){console.warn('board_index listener:',e);}
+    try{
+      db.collection('crm_notifications').orderBy('u','desc').limit(20).onSnapshot(snap=>{
+        if(!snap)return;
+        const notifs=[];
+        snap.forEach(doc=>notifs.push(doc.data()));
+        const notifEl=document.getElementById('dash-notifs');
+        if(notifEl&&document.getElementById('view-dash')?.classList.contains('on')){
+          notifEl.innerHTML=notifs.slice(0,5).map(n=>`<div style="display:flex;gap:10px;padding:8px;background:var(--bg3);border-radius:var(--r);margin-bottom:6px;border-left:3px solid var(--c);${n.read?'opacity:0.6':''}">
+            <div style="flex:1"><div style="font-size:12px;font-weight:500">${n.title}</div>${n.desc?`<div style="font-size:11px;color:var(--tx3);margin-top:2px">"${n.desc}"</div>`:''}</div>
+            <button onclick="markNotifRead('${n.id}')" style="font-size:10px;background:none;border:none;color:var(--tx3);cursor:pointer;padding:0">✓</button>
+          </div>`).join('');
+        }
+      });
+    }catch(e){console.warn('crm_notifications listener:',e);}
   }
 }
 async function loadIdeas(){
@@ -2809,6 +2846,7 @@ function switchTab(tab){
   activeTab=tab;
   if(activeClient)renderProfile(activeClient);
   window.scrollTo(0,scrollY);
+  document.querySelector('.tab.on')?.scrollIntoView({inline:'nearest',block:'nearest'});
 }
 function switchReelMonth(cid,mk){
   activeReelMonth=mk;
