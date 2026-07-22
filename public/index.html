@@ -417,6 +417,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
     <div class="cnt" id="cnt">
       <div class="view on" id="view-dash"></div>
       <div class="view" id="view-board"></div>
+      <div class="view" id="view-ideas"></div>
       <div class="view" id="view-cal"></div>
       <div class="view" id="view-payments"></div>
       <div class="view" id="view-finance"></div>
@@ -635,6 +636,8 @@ let boardCols=[
 let calEvents=[];
 let paymentsList=[];
 let cobrosList=[];
+let ideas=[];
+const IDEA_COLS=[{id:'buzon',name:'💡 Buzón de ideas'},{id:'planificado',name:'📌 Planificado'},{id:'en_progreso',name:'🚧 En progreso'},{id:'hecho',name:'✅ Hecho'}];
 
 // ============================================================
 // STATE
@@ -786,6 +789,7 @@ async function loadAll(){
 
     await loadClients();
     await loadBoard();
+    await loadIdeas();
     const se=await fbGet('crm','events');
     if(se&&se.list)calEvents=se.list;
     const sp=await fbGet('crm','payments');
@@ -835,7 +839,75 @@ async function loadAll(){
         }
       });
     }catch(e){console.warn('client_docs listener:',e);}
+    try{
+      db.collection('improvement_ideas').onSnapshot(snap=>{
+        if(!snap)return;
+        ideas=[];
+        snap.forEach(doc=>ideas.push(doc.data()));
+        if(document.getElementById('view-ideas')?.classList.contains('on'))renderIdeasBoard();
+      });
+    }catch(e){console.warn('improvement_ideas listener:',e);}
   }
+}
+async function loadIdeas(){
+  try{
+    if(!fbReady)await initFB();
+    const snap=await db.collection('improvement_ideas').get();
+    ideas=[];
+    snap.forEach(doc=>ideas.push(doc.data()));
+  }catch(e){console.warn('loadIdeas:',e);}
+}
+async function saveIdea_doc(idea){
+  try{if(!fbReady)await initFB();await db.collection('improvement_ideas').doc(String(idea.id)).set(idea);}catch(e){console.warn('saveIdea_doc:',e);}
+}
+async function saveIdeaNew(){
+  const text=document.getElementById('idea-text').value.trim();
+  if(!text)return showToast('Escribe la idea','err');
+  const idea={id:Date.now()+'-'+Math.floor(Math.random()*1000),text,category:document.getElementById('idea-cat').value,detail:document.getElementById('idea-detail').value.trim(),status:'buzon',createdBy:CU.name,createdAt:new Date().toISOString(),comments:[]};
+  ideas.push(idea);
+  closeModal();renderIdeasBoard();showToast('Idea añadida ✓','ok');
+  await saveIdea_doc(idea);
+}
+function moveIdea(id,status){
+  const idea=ideas.find(i=>i.id===id);if(!idea)return;
+  idea.status=status;renderIdeasBoard();saveIdea_doc(idea);
+}
+async function addIdeaComment(id){
+  const idea=ideas.find(i=>i.id===id);if(!idea)return;
+  const inp=document.getElementById('idea-cm-txt');
+  const text=inp.value.trim();if(!text)return;
+  if(!idea.comments)idea.comments=[];
+  idea.comments.push({text,by:CU.name,date:new Date().toISOString()});
+  inp.value='';
+  openModal('idea-detail',id);
+  await saveIdea_doc(idea);
+}
+async function deleteIdea(id){
+  if(!confirm('¿Eliminar esta idea?'))return;
+  ideas=ideas.filter(i=>i.id!==id);
+  closeModal();renderIdeasBoard();showToast('Idea eliminada','ok');
+  try{if(!fbReady)await initFB();await db.collection('improvement_ideas').doc(String(id)).delete();}catch(e){}
+}
+function renderIdeasBoard(){
+  const el=document.getElementById('view-ideas');
+  el.innerHTML=`<div class="bw" style="overflow-x:auto;padding-bottom:8px"><div class="bcols">
+    ${IDEA_COLS.map(col=>{
+      const colIdeas=ideas.filter(i=>i.status===col.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+      return`<div class="bcol">
+        <div class="bch" style="cursor:default"><span class="bcn">${col.name}</span><span class="bcc">${colIdeas.length}</span></div>
+        <div class="bcol-body">
+          ${colIdeas.map(idea=>`<div class="bcard" style="cursor:pointer" onclick="openModal('idea-detail','${idea.id}')">
+            <div class="bc-top"><div class="bc-title">${idea.text}</div></div>
+            <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">
+              <span style="font-size:10px;background:var(--cdim);color:var(--c);padding:2px 6px;border-radius:20px">${({proceso:'⚙️ Proceso',cliente:'🤝 Cliente',herramienta:'🛠️ Herramienta',otro:'📌 Otro'})[idea.category]||idea.category}</span>
+              ${idea.comments&&idea.comments.length?`<span style="font-size:10px;background:var(--bg4);color:var(--tx3);padding:2px 6px;border-radius:20px"><i class="ti ti-message" style="font-size:9px"></i> ${idea.comments.length}</span>`:''}
+            </div>
+            <div style="font-size:11px;color:var(--tx3);margin-top:6px">${idea.createdBy} · ${fmtDate(idea.createdAt.slice(0,10))}</div>
+          </div>`).join('')||'<div style="text-align:center;padding:16px;color:var(--tx3);font-size:12px">Vacío</div>'}
+        </div>
+      </div>`;
+    }).join('')}
+  </div></div>`;
 }
 
 // ============================================================
@@ -911,6 +983,7 @@ function buildSBNav(){
   let html='<div class="nl">Panel</div>';
   html+=nav('dash','ti-layout-dashboard','Resumen');
   html+=nav('board','ti-layout-kanban','Tablero','<span class="nbadge" id="bbadge">0</span>');
+  html+=nav('ideas','ti-bulb','Mejoras');
   if(isCMup())html+=nav('cal','ti-calendar','Calendario');
   if(isCEO())html+=nav('payments','ti-coin','Pagos equipo');
   if(isPMup())html+=nav('finance','ti-chart-bar','Facturación');
@@ -974,14 +1047,15 @@ function showView(name){
   document.getElementById('view-'+name)?.classList.add('on');
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('ni-'+name)?.classList.add('on');
-  const icons={dash:'ti-layout-dashboard',pipeline:'ti-columns',board:'ti-layout-kanban',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',config:'ti-settings',profile:'ti-user'};
-  const titles={dash:'Resumen general',pipeline:'Pipeline de contenido',board:'Tablero del equipo',cal:'Calendario',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
+  const icons={dash:'ti-layout-dashboard',pipeline:'ti-columns',board:'ti-layout-kanban',ideas:'ti-bulb',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',config:'ti-settings',profile:'ti-user'};
+  const titles={dash:'Resumen general',pipeline:'Pipeline de contenido',board:'Tablero del equipo',ideas:'Ideas de mejora',cal:'Calendario',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
   document.getElementById('tb-ic').className='ti '+(icons[name]||'ti-layout-dashboard');
   document.getElementById('tb-t').textContent=titles[name]||'';
-  const acts={dash:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,profile:''};
+  const acts={dash:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,profile:'',ideas:`<button class="btn btn-s btn-p" onclick="openModal('idea')"><i class="ti ti-plus"></i>Nueva idea</button>`};
   document.getElementById('top-acts').innerHTML=acts[name]||'';
   if(name==='dash')renderDash();
   if(name==='board')renderBoard();
+  if(name==='ideas')renderIdeasBoard();
   if(name==='cal')renderCal();
   if(name==='payments')renderPayments();
   if(name==='finance')renderFinance();
@@ -1031,6 +1105,46 @@ function renderDash(){
       </div>`).join('')}
       ${todayTasks.length>5?`<div style="font-size:11px;color:var(--tx3);margin-top:6px">+${todayTasks.length-5} más en el tablero</div>`:''}
     </div>`;
+  }
+  if(CU?.level==='cm'){
+    const upcoming=[];
+    const limitDate=new Date(Date.now()+7*864e5).toISOString().split('T')[0];
+    clients.filter(c=>c.cm===CU.name).forEach(c=>{
+      Object.keys(c.pubCal||{}).forEach(mk2=>{
+        Object.entries(c.pubCal[mk2]).forEach(([rid,pd])=>{
+          const reel=(c.reels[mk2]||[]).find(r=>r.id===rid||String(r.id)===String(rid));
+          if(!reel)return;
+          [['pub','📸 Instagram'],['tiktok','🎵 TikTok'],['youtube','▶️ YouTube']].forEach(([key,label])=>{
+            if(pd[key]&&pd[key]>=today()&&pd[key]<=limitDate&&!reel.subido){
+              upcoming.push({client:c.name,reel:reel.label,date:pd[key],label});
+            }
+          });
+        });
+      });
+    });
+    if(upcoming.length){
+      upcoming.sort((a,b)=>a.date.localeCompare(b.date));
+      html+=`<div class="card" style="margin-bottom:14px">
+        <div class="card-t"><i class="ti ti-calendar-event"></i>📅 Qué publicar y cuándo (próximos 7 días)</div>
+        ${upcoming.map(u=>`<div class="pf"><span style="font-size:12px">${u.label} — <strong>${u.reel}</strong> (${u.client})</span><span class="badge ${u.date===today()?'badge-warn':''}" style="font-size:10px">${fmtDate(u.date)}</span></div>`).join('')}
+      </div>`;
+    }
+  }
+  if(CU?.level==='editor'){
+    const pending=[];
+    mc.forEach(c=>{
+      Object.keys(c.reels||{}).forEach(mk2=>{
+        (c.reels[mk2]||[]).forEach(r=>{
+          if(r.editor===CU.name&&r.grabado&&!r.editado)pending.push({client:c.name,reel:r.label,fechaGrab:r.fechaGrab});
+        });
+      });
+    });
+    if(pending.length){
+      html+=`<div class="card" style="margin-bottom:14px">
+        <div class="card-t"><i class="ti ti-scissors"></i>✂️ Reels pendientes de editar</div>
+        ${pending.map(p=>`<div class="pf"><span style="font-size:12px"><strong>${p.reel}</strong> — ${p.client}</span>${p.fechaGrab?`<span style="font-size:11px;color:var(--tx3)">Grabado ${fmtDate(p.fechaGrab)}</span>`:''}</div>`).join('')}
+      </div>`;
+    }
   }
   if(isPMup()){
     const pendingEnvio=[];
@@ -1390,6 +1504,22 @@ async function toggleTask(colId,taskId){
   const t=col?.tasks.find(t=>String(t.id)===String(taskId));
   if(!t)return;
   t.done=!t.done;
+  // Automatización: si esta tarjeta está enlazada a un reel, sincronizar su estado en la ficha del cliente
+  if(t.linkedClientId&&t.linkedReelId&&t.linkedProdStep){
+    const lc=clients.find(c=>c.id===t.linkedClientId);
+    if(lc){
+      for(const mk of Object.keys(lc.reels||{})){
+        const r=(lc.reels[mk]||[]).find(r=>r.id===t.linkedReelId);
+        if(r){
+          r[t.linkedProdStep]=t.done;
+          if(t.done&&t.linkedProdStep==='subido')r.fechaSubidoTS=new Date().toISOString();
+          await saveClient_doc(lc);
+          if(activeClient?.id===lc.id&&document.getElementById('view-profile')?.classList.contains('on'))renderProfile(lc);
+          break;
+        }
+      }
+    }
+  }
   // Update UI instantly
   renderBoard();
   // If marked done, move to finalized column if one is set
@@ -1678,20 +1808,22 @@ function checkAutoTasksForCM(){
   saveClients();
 }
 
-function createAutoTask(title,cmName,date,client){
+function createAutoTask(title,cmName,date,client,linked=null){
   // Find the column with the CM's name
   let col=boardCols.find(c=>c.name.toLowerCase()===cmName.toLowerCase());
   // If not found by exact match, try partial
   if(!col)col=boardCols.find(c=>c.name.toLowerCase().includes(cmName.toLowerCase()));
   // If still not found, don't create - we don't want it in random columns
-  if(!col){console.log('No column found for CM:',cmName);return;}
+  if(!col)return null;
   // Avoid duplicates
-  if(col.tasks.some(t=>t.title===title&&t.date===date))return;
-  const newAutoTask={id:Date.now()+Math.random(),title,client:client?.name||'',date,done:false,createdBy:'Sistema',autoTask:true};
+  if(col.tasks.some(t=>t.title===title&&t.date===date))return null;
+  const newAutoTask={id:Date.now()+Math.random(),title,client:client?.name||'',date,done:false,createdBy:'Sistema',autoTask:true,
+    ...(linked?{linkedClientId:linked.linkedClientId,linkedReelId:linked.linkedReelId,linkedProdStep:linked.linkedProdStep}:{})};
   col.tasks.unshift(newAutoTask);
   saveBoardTask(newAutoTask,col.id);saveIndex();
   renderBoard();
   showToast(`📋 Tarea para ${cmName} creada`,'ok');
+  return newAutoTask;
 }
 function autoAddDriveLink(colId,taskId,clientName){
   const c=clients.find(c=>c.name===clientName);
@@ -1797,7 +1929,7 @@ function renderBoardBadge(){
   const count=myCol?myCol.tasks.filter(t=>!t.done).length:boardCols.reduce((s,c)=>s+c.tasks.filter(t=>!t.done).length,0);
   const el=document.getElementById('bbadge');if(el)el.textContent=count;
 }
-function createAutoTask(title){
+function createPortalAutoTask(title){
   const adriCol=boardCols.find(c=>c.id==='adri');
   const alanCol=boardCols.find(c=>c.id==='alan');
   const baseId=Date.now();
@@ -2142,11 +2274,17 @@ function openProfile(id){
     ${isCEO()?`<button class="btn btn-s btn-danger" onclick="delClient('${c.id}')"><i class="ti ti-trash"></i>Eliminar</button>`:''}`;
   renderProfile(c);renderSB();
 }
+function genAccessCode(){return String(Math.floor(100000+Math.random()*900000));}
+function regenAccessCode(id){
+  const c=clients.find(c=>c.id===id);if(!c)return;
+  c.accessCode=genAccessCode();saveClient_doc(c);renderProfile(c);showToast('Código regenerado ✓','ok');
+}
 function renderProfile(c){
   const mk=activeReelMonth||monthKey();
   const reelMonths=Object.keys(c.reels||{}).sort();
   const fase0done=c.fase0.filter(f=>f.done).length;
   const link=location.origin+location.pathname.replace('index.html','')+'cliente.html?id='+c.id;
+  if(!c.accessCode){c.accessCode=genAccessCode();saveClient_doc(c);}
   const editorNames=Object.values(USERS).filter(u=>u.level==='editor'||u.role==='Editor').map(u=>u.name);
   const cmNames=['Laura'];
   document.getElementById('view-profile').innerHTML=`
@@ -2167,6 +2305,8 @@ function renderProfile(c){
       <div class="tab${activeTab==='pubcal'?' on':''}" onclick="switchTab('pubcal')">📅 Cal. Publicación</div>
       ${isCMup()?`<div class="tab${activeTab==='crecimiento'?' on':''}" onclick="switchTab('crecimiento')">Crecimiento</div>`:''}
       <div class="tab${activeTab==='notas'?' on':''}" onclick="switchTab('notas')">📝 Notas internas</div>
+      <div class="tab${activeTab==='conversaciones'?' on':''}" onclick="switchTab('conversaciones')">🎥 Conversaciones</div>
+      <div class="tab${activeTab==='peticiones'?' on':''}" onclick="switchTab('peticiones')">📋 Peticiones${(c.requests||[]).filter(r=>r.status==='abierta').length?` <span class="nbadge" style="margin-left:2px">${(c.requests||[]).filter(r=>r.status==='abierta').length}</span>`:''}</div>
     </div>
 
     <div class="tc${activeTab==='info'?' on':''}" id="tc-info">
@@ -2203,6 +2343,13 @@ function renderProfile(c){
               <button class="btn btn-s btn-p" onclick="updateClientField('${c.id}','contractNotes',this.previousElementSibling.previousElementSibling.value);saveClient_doc(c);showToast('Guardado ✓','ok')" style="align-self:flex-end"><i class="ti ti-check"></i>Guardar</button>
             </div>
             <div class="pf"><span class="pf-l">Link cliente</span><div class="link-pill" onclick="copyLinkStr('${link}')"><i class="ti ti-copy" style="font-size:10px"></i>/cliente/${c.id}</div></div>
+            <div class="pf" style="align-items:center">
+              <span class="pf-l">Código de acceso</span>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span class="link-pill" onclick="copyLinkStr('${c.accessCode||''}')" title="Copiar código" style="font-family:'DM Mono',monospace;letter-spacing:.05em">${c.accessCode||'—'}</span>
+                <button class="btn btn-s" style="padding:4px 8px" onclick="regenAccessCode('${c.id}')" title="Generar nuevo código"><i class="ti ti-refresh"></i></button>
+              </div>
+            </div>
           </div>
           <div class="card" style="margin-top:14px">
             <div class="card-t"><i class="ti ti-users"></i>Equipo asignado</div>
@@ -2398,6 +2545,50 @@ function renderProfile(c){
           <span style="font-size:12px">${n.text}</span>
         </div>`).join('')}
       </div>`:''}
+    </div>
+    <div class="tc${activeTab==='conversaciones'?' on':''}" id="tc-conversaciones">
+      <div class="card">
+        <div class="card-t"><i class="ti ti-video"></i>Añadir conversación
+          <span style="font-size:10px;color:var(--tx3);margin-left:auto;font-weight:400">El cliente puede verla</span>
+        </div>
+        <div class="fg2">
+          <div class="f"><label>Título</label><input id="conv-title" placeholder="ej. Reunión mensual de seguimiento"></div>
+          <div class="f"><label>Fecha</label><input id="conv-date" type="date" value="${today()}"></div>
+        </div>
+        <div class="f"><label>Tipo</label><select id="conv-type">
+          <option value="meet">📹 Google Meet</option><option value="llamada">📞 Llamada</option><option value="whatsapp">💬 WhatsApp</option><option value="presencial">🤝 Presencial</option>
+        </select></div>
+        <div class="f"><label>Link de Drive/Doc (opcional)</label><input id="conv-link" placeholder="https://docs.google.com/..."></div>
+        <div class="f"><label>Transcripción o resumen (opcional)</label><textarea id="conv-transcript" rows="4" placeholder="Pega aquí el texto de la transcripción de Meet, o escribe un resumen de lo hablado..."></textarea></div>
+        <button class="btn btn-s btn-p" style="margin-top:8px" onclick="addConversation('${c.id}')"><i class="ti ti-plus"></i>Guardar conversación</button>
+      </div>
+      ${(c.conversations||[]).length?(c.conversations||[]).slice().reverse().map(cv=>`<div class="card">
+        <div class="card-t">${({meet:'📹',llamada:'📞',whatsapp:'💬',presencial:'🤝'})[cv.type]||'🎥'} ${cv.title}
+          <span style="font-size:11px;color:var(--tx3);margin-left:auto">${fmtDate(cv.date)}</span>
+          <div class="dot-btn" style="margin-left:8px" onclick="deleteConversation('${c.id}','${cv.id}')"><i class="ti ti-trash" style="font-size:12px"></i></div>
+        </div>
+        ${cv.driveLink?`<div class="link-pill" onclick="window.open('${cv.driveLink}','_blank')" style="margin-bottom:8px;display:inline-flex"><i class="ti ti-external-link" style="font-size:10px"></i>Ver documento</div>`:''}
+        ${cv.transcriptText?`<div style="font-size:12px;color:var(--tx2);white-space:pre-wrap;max-height:140px;overflow-y:auto;background:var(--bg3);border-radius:var(--r);padding:8px">${cv.transcriptText}</div>`:''}
+        <div style="font-size:10px;color:var(--tx3);margin-top:6px">Añadido por ${cv.addedBy}</div>
+      </div>`).join(''):'<div style="text-align:center;padding:20px;color:var(--tx3);font-size:13px">Sin conversaciones registradas todavía.</div>'}
+    </div>
+    <div class="tc${activeTab==='peticiones'?' on':''}" id="tc-peticiones">
+      <div class="card">
+        <div class="card-t"><i class="ti ti-clipboard-list"></i>Añadir petición
+          <span style="font-size:10px;color:var(--tx3);margin-left:auto;font-weight:400">El cliente la verá</span>
+        </div>
+        <textarea id="req-text" rows="2" placeholder="¿Qué pidió o comentó el cliente?"></textarea>
+        <button class="btn btn-s btn-p" style="margin-top:8px" onclick="addRequest('${c.id}')"><i class="ti ti-plus"></i>Añadir petición</button>
+      </div>
+      ${(c.requests||[]).length?(c.requests||[]).slice().reverse().map(r=>`<div class="card" style="${r.status==='atendida'?'opacity:.6':''}">
+        <div class="pf" style="align-items:flex-start">
+          <div style="flex:1">
+            <div style="font-size:13px">${r.text}</div>
+            <div style="font-size:10px;color:var(--tx3);margin-top:4px">${fmtDate(r.date)} · ${r.addedBy}${r.status==='atendida'?' · ✅ Atendida':''}</div>
+          </div>
+          <button class="btn btn-s${r.status==='atendida'?'':' btn-p'}" onclick="toggleRequestStatus('${c.id}','${r.id}')">${r.status==='atendida'?'Reabrir':'Marcar atendida'}</button>
+        </div>
+      </div>`).join(''):'<div style="text-align:center;padding:20px;color:var(--tx3);font-size:13px">Sin peticiones registradas.</div>'}
     </div>
     <div class="tc${activeTab==='pubcal'?' on':''}" id="tc-pubcal">
       ${renderPubCalTab(c)}
@@ -2678,6 +2869,17 @@ async function toggleReel(cid,mk,i,field){
       const nets=c.socialNets||['instagram'];
       if(nets.includes('tiktok')&&!pd.tiktok)pd.tiktok=fmt(pubDate);
       if(nets.includes('youtube')&&!pd.youtube)pd.youtube=fmt(pubDate);
+      // Automatización: crear tarea de edición para el editor asignado a este reel
+      const editorName=c.reels[mk][i].editor||(c.editors||[])[0];
+      if(editorName){
+        const t=createAutoTask(`✂️ Editar: ${c.reels[mk][i].label} — ${c.name}`,editorName,today(),c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'editado'});
+        if(t)autoAddDriveLink(boardCols.find(col=>col.name.toLowerCase()===editorName.toLowerCase()||col.name.toLowerCase().includes(editorName.toLowerCase()))?.id,t.id,c.name);
+      }
+    }
+    if(field==='editado'&&c.cm){
+      const rid=c.reels[mk][i].id;
+      const pubDate=(c.pubCal?.[mk]?.[rid]?.pub)||today();
+      createAutoTask(`📤 Publicar: ${c.reels[mk][i].label} — ${c.name}`,c.cm,pubDate,c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'subido'});
     }
     if(field==='enviado')c.reels[mk][i].fechaEnviadoTS=new Date().toISOString();
   }
@@ -2706,6 +2908,45 @@ async function saveInternalNotes(id){
   if(text&&text!==c.internalNotes)c.notesHistory.push({text,date:new Date().toLocaleDateString('es-ES'),by:CU?.name||'Equipo'});
   c.internalNotes=text;
   saveClient_doc(c);showToast('Notas guardadas ✓','ok');
+}
+async function addConversation(id){
+  const c=clients.find(c=>c.id===id);if(!c)return;
+  const title=document.getElementById('conv-title').value.trim();
+  if(!title)return showToast('Escribe un título','err');
+  if(!c.conversations)c.conversations=[];
+  c.conversations.push({
+    id:Date.now()+'-'+Math.floor(Math.random()*1000),
+    title,date:document.getElementById('conv-date').value||today(),
+    type:document.getElementById('conv-type').value,
+    driveLink:document.getElementById('conv-link').value.trim(),
+    transcriptText:document.getElementById('conv-transcript').value.trim(),
+    addedBy:CU?.name||'Equipo'
+  });
+  renderProfile(c);showToast('Conversación guardada ✓','ok');
+  await saveClient_doc(c);
+}
+async function deleteConversation(id,convId){
+  const c=clients.find(c=>c.id===id);if(!c)return;
+  if(!confirm('¿Eliminar esta conversación?'))return;
+  c.conversations=(c.conversations||[]).filter(cv=>cv.id!==convId);
+  renderProfile(c);showToast('Conversación eliminada','ok');
+  await saveClient_doc(c);
+}
+async function addRequest(id){
+  const c=clients.find(c=>c.id===id);if(!c)return;
+  const text=document.getElementById('req-text').value.trim();
+  if(!text)return showToast('Escribe la petición','err');
+  if(!c.requests)c.requests=[];
+  c.requests.push({id:Date.now()+'-'+Math.floor(Math.random()*1000),text,date:today(),status:'abierta',addedBy:CU?.name||'Equipo'});
+  renderProfile(c);showToast('Petición añadida ✓','ok');
+  await saveClient_doc(c);
+}
+async function toggleRequestStatus(id,reqId){
+  const c=clients.find(c=>c.id===id);if(!c)return;
+  const r=(c.requests||[]).find(r=>r.id===reqId);if(!r)return;
+  r.status=r.status==='atendida'?'abierta':'atendida';
+  renderProfile(c);
+  await saveClient_doc(c);
 }
 function renderPubCalTab(c){
   const hasReels=(Array.isArray(c.services)?c.services:[]).some(s=>['content_5','content_8_cm','podcast_reels_edit'].includes(s));
@@ -2974,6 +3215,37 @@ function openModal(type,extra='',extra2=null){
       </div>
       <div class="f"><label>Fase inicial</label><select id="nc-phase">${PHASES.map((p,i)=>`<option value="${i}">${i+1}. ${p}</option>`).join('')}</select></div>
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveClient()">Añadir</button></div>`;
+  }else if(type==='idea'){
+    c.innerHTML=`<div class="modal-t">💡 Nueva idea de mejora</div>
+      <div class="f"><label>¿Qué está yendo mal o qué se podría mejorar?</label><input id="idea-text" placeholder="ej. No sabemos qué reels hay que subir cada día"></div>
+      <div class="f"><label>Categoría</label><select id="idea-cat">
+        <option value="proceso">⚙️ Proceso interno</option>
+        <option value="cliente">🤝 Relación con clientes</option>
+        <option value="herramienta">🛠️ Herramienta/CRM</option>
+        <option value="otro">📌 Otro</option>
+      </select></div>
+      <div class="f"><label>Detalle (opcional)</label><textarea id="idea-detail" rows="3" placeholder="Explica un poco más si hace falta..."></textarea></div>
+      <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveIdeaNew()">Añadir</button></div>`;
+  }else if(type==='idea-detail'){
+    const idea=ideas.find(i=>i.id===extra);if(!idea)return;
+    const canManage=isPMup()||idea.createdBy===CU.name;
+    c.innerHTML=`<div class="modal-t">💡 ${idea.text}</div>
+      <div style="font-size:12px;color:var(--tx3);margin-bottom:10px">Por ${idea.createdBy} · ${fmtDate(idea.createdAt.slice(0,10))}</div>
+      ${idea.detail?`<div style="font-size:13px;color:var(--tx2);background:var(--bg3);border-radius:var(--r);padding:10px;margin-bottom:12px;white-space:pre-wrap">${idea.detail}</div>`:''}
+      <div class="f"><label>Estado</label><select onchange="moveIdea('${idea.id}',this.value)">
+        ${IDEA_COLS.map(col=>`<option value="${col.id}"${idea.status===col.id?' selected':''}>${col.name}</option>`).join('')}
+      </select></div>
+      <div style="margin-top:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:8px">Comentarios (${(idea.comments||[]).length})</div>
+        <div style="max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
+          ${(idea.comments||[]).map(cm=>`<div style="font-size:12px;background:var(--bg3);border-radius:var(--r);padding:7px 10px"><b>${cm.by}:</b> ${cm.text}</div>`).join('')||'<div style="font-size:12px;color:var(--tx3)">Sin comentarios todavía.</div>'}
+        </div>
+        <div style="display:flex;gap:6px">
+          <input id="idea-cm-txt" placeholder="Escribe un comentario..." style="flex:1">
+          <button class="btn btn-s btn-p" onclick="addIdeaComment('${idea.id}')"><i class="ti ti-send"></i></button>
+        </div>
+      </div>
+      <div class="modal-acts">${canManage?`<button class="btn btn-s" style="color:var(--err)" onclick="deleteIdea('${idea.id}')"><i class="ti ti-trash"></i>Eliminar</button>`:'<div></div>'}<button class="btn btn-s btn-p" onclick="closeModal()">Cerrar</button></div>`;
   }else if(type==='edit-client'){
     const cl=clients.find(c=>c.id===extra);if(!cl)return;
     c.innerHTML=`<div class="modal-t">Editar — ${cl.name}</div>
@@ -3115,7 +3387,7 @@ async function saveClient(){
   if(!name)return showToast('Escribe un nombre','err');
   const id=name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
   if(clients.find(c=>c.id===id))return showToast('Ese cliente ya existe','err');
-  clients.push({id,name,type:type||'Sin clasificar',phase,services:[],editors:[],cm:'',delivery:'',msgs:[],contract:null,contractStart:'',contractEnd:'',contractType:'Mensual',price,numReels,reels:mkMonths(numReels),fase0:mkFase0(),produccion:{},driveMain:'',drive:{},driveDocs:[],credentials:[{platform:'Instagram',user:'',pass:'',notes:''}]});
+  clients.push({id,name,type:type||'Sin clasificar',phase,services:[],editors:[],cm:'',delivery:'',msgs:[],contract:null,contractStart:'',contractEnd:'',contractType:'Mensual',price,numReels,reels:mkMonths(numReels),fase0:mkFase0(),produccion:{},driveMain:'',drive:{},driveDocs:[],credentials:[{platform:'Instagram',user:'',pass:'',notes:''}],accessCode:genAccessCode()});
   closeModal();render();showToast('Cliente añadido ✓','ok');
   await saveClients(); // Wait for Firebase confirmation before the realtime listener can safely sync
 }
@@ -3496,7 +3768,7 @@ async function saveMeetingRequest(){
   const notas=document.getElementById('mt-notas').value;
   if(!motivo||!fecha)return showToast('Añade motivo y fecha','err');
   const title=`📅 ${activePortalClient?.name} solicita reunión: "${motivo}" — ${fmtDate(fecha)} ${hora}${notas?' · '+notas:''}`;
-  createAutoTask(title);
+  createPortalAutoTask(title);
   closeModal();
   activePortalClient?.msgs.push({from:'team',text:`✅ ¡Solicitud de reunión recibida! Te confirmamos la cita para el **${fmtDate(fecha)} a las ${hora}** lo antes posible. Adri o Alan te contactarán para confirmar. 📅`,time:new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}),who:'Mentedoras'});
   renderPortalMsgs(activePortalClient);
@@ -3650,7 +3922,7 @@ function getBotResponse(txt,c){
   if(tl.includes('reunión')||tl.includes('reunion')||tl.includes('meeting')||tl.includes('llamada')||tl.includes('hablar')||tl.includes('agendar')){
     const nextMeet=calEvents.filter(e=>e.type==='meet'&&e.client===c.name&&e.date>=today()).sort((a,b)=>a.date.localeCompare(b.date))[0];
     if(nextMeet)return`📞 Tienes una reunión con nosotros el **${fmtDate(nextMeet.date)}**: "${nextMeet.title}"\n\n¿Necesitas cambiarla o tienes alguna pregunta?`;
-    createAutoTask(c.name+' quiere agendar una reunión: "'+txt+'"');
+    createPortalAutoTask(c.name+' quiere agendar una reunión: "'+txt+'"');
     return`¡Claro! Puedes solicitar una reunión directamente desde el botón **"Agendar reunión"** que tienes arriba. También le avisaré al equipo ahora mismo 👋`;
   }
   // GUIONES / SCRIPTS
@@ -3664,7 +3936,7 @@ function getBotResponse(txt,c){
     return`Para conocer los detalles de tu contrato, contacta con Adri o Alan.`;
   }
   // NO SABE → tarjeta automática
-  createAutoTask(c.name+' pregunta: "'+txt+'"');
+  createPortalAutoTask(c.name+' pregunta: "'+txt+'"');
   return`Hmm, esa pregunta se escapa de lo que sé 😅 Pero no te preocupes — le acabo de avisar a Adri y Alan con tu mensaje y te responderán lo antes posible. También puedes escribirles directamente si es urgente. 👋`;
 }
 
