@@ -369,6 +369,16 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
   .topbar{padding:10px 14px}
   .cnt{padding:14px}
 }
+/* SHORT SCREENS (portátiles pequeños): comprimir la barra lateral para dejar más sitio a la lista de clientes */
+@media(max-height:850px){
+  .sb-top{padding:10px 14px 8px}
+  .sb-u{margin-top:6px;padding:5px 8px}
+  .sb-nav{padding:4px 8px 0}
+  .nl{padding:4px 8px 2px}
+  .ni{padding:6px 10px;font-size:12px;margin-bottom:0}
+  .sb-bot{margin:6px 8px}
+  .theme-row{padding:4px 0 0}
+}
 </style>
 </head>
 <body>
@@ -2102,11 +2112,7 @@ function calChangeView(v){calView=v;renderCal();}
 // PAYMENTS
 // ============================================================
 function renderPayments(){
-  const payees=[
-    {name:'Dani',role:'Editor'},{name:'Darwin',role:'Editor'},
-    {name:'Dante',role:'Editor'},{name:'Oscar',role:'Editor'},
-    {name:'Laura',role:'CM'},{name:'Yumara',role:'PM'},
-  ];
+  const payees=Object.values(USERS).filter(u=>u.level!=='ceo').map(u=>({name:u.name,role:u.role})).sort((a,b)=>a.name.localeCompare(b.name));
   const totalPend=paymentsList.filter(p=>!p.paid).reduce((s,p)=>s+p.importe,0);
   const totalPaid=paymentsList.filter(p=>p.paid).reduce((s,p)=>s+p.importe,0);
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
