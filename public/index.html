@@ -1570,6 +1570,7 @@ async function toggleTask(colId,taskId){
   const t=col?.tasks.find(t=>String(t.id)===String(taskId));
   if(!t)return;
   t.done=!t.done;
+  if(t.done)t.doneAt=today();
   // Automatización: si esta tarjeta está enlazada a un reel, sincronizar su estado en la ficha del cliente
   if(t.linkedClientId&&t.linkedReelId&&t.linkedProdStep){
     const lc=clients.find(c=>c.id===t.linkedClientId);
@@ -1701,10 +1702,21 @@ function sortCol(id,by){
   renderBoard();showToast('Ordenado ✓','ok');
 }
 
+function taskCurrentType(t){
+  if(t.network==='trial_ig')return'trial_ig';
+  if(t.network==='ig'&&t.linkedProdStep==='subido')return'subir_ig';
+  if(t.network==='tiktok'&&t.linkedProdStep==='subido')return'subir_tiktok';
+  if(!t.network&&t.linkedProdStep==='subido')return'subir_yt';
+  if(!t.network&&t.linkedProdStep==='editado')return'editar';
+  return'normal';
+}
 function openTaskDetail(colId,taskId){
   const col=boardCols.find(c=>c.id===colId);const t=col?.tasks.find(t=>t.id==taskId);if(!t)return;
   if(!t.checklist)t.checklist=[];
   if(!t.links)t.links=[];
+  const curType=taskCurrentType(t);
+  const tdC=clients.find(cl=>cl.name===t.client);
+  const tdReels=(tdC?.reels||{})[monthKey()]||[];
   const mc=document.getElementById('modal-c');
   mc.style.maxWidth='560px';
   mc.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -1720,13 +1732,26 @@ function openTaskDetail(colId,taskId){
     <div class="f"><label>Fecha límite</label><input id="td-date" type="date" value="${t.date||''}"></div>
   </div>
   <div class="f"><label>Cliente</label>
-    <select id="td-cl" onchange="autoAddDriveLink('${colId}','${taskId}',this.value)">
+    <select id="td-cl" onchange="autoAddDriveLink('${colId}','${taskId}',this.value);tdClientChanged('${colId}','${taskId}')">
       <option value="">— Sin cliente —</option>${clients.map(c=>`<option${t.client===c.name?' selected':''}>${c.name}</option>`).join('')}
     </select>
     ${t.client?(()=>{const cl=clients.find(c=>c.name===t.client);const url=cl?.driveMain||(cl?.drive||{}).reelsEdit||'';const megaUrl=(cl?.drive||{}).mega||'';return`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
       ${url?`<a href="${url}" target="_blank" class="btn btn-s btn-p" style="text-decoration:none;display:inline-flex"><i class="ti ti-folder"></i>Abrir Drive de ${t.client}</a>`:''}
       ${megaUrl?`<a href="${megaUrl}" target="_blank" class="btn btn-s btn-mega" style="text-decoration:none;display:inline-flex"><i class="ti ti-cloud-upload"></i>Abrir Mega de ${t.client}</a>`:''}
     </div>`;})():''}
+  </div>
+  <div class="f"><label>Tipo de tarea</label><select id="td-type" onchange="tdTypeChanged('${colId}','${taskId}')">
+    <option value="normal"${curType==='normal'?' selected':''}>📝 Normal (texto libre)</option>
+    <option value="editar"${curType==='editar'?' selected':''}>✂️ Editar contenido</option>
+    <option value="trial_ig"${curType==='trial_ig'?' selected':''}>📲 Subir a Trial Instagram</option>
+    <option value="subir_ig"${curType==='subir_ig'?' selected':''}>📸 Subir a Instagram</option>
+    <option value="subir_tiktok"${curType==='subir_tiktok'?' selected':''}>🎵 Subir a TikTok</option>
+    <option value="subir_yt"${curType==='subir_yt'?' selected':''}>▶️ Subir a YouTube</option>
+  </select></div>
+  <div class="f" id="td-reel-wrap" style="display:${curType!=='normal'?'block':'none'}"><label>Reel de este mes</label>
+    <select id="td-reel">
+      ${tdReels.length?tdReels.map(r=>`<option value="${r.id}"${String(r.id)===String(t.linkedReelId)?' selected':''}>${r.label}${r.subido?' (ya subido)':r.editado?' (editado)':r.grabado?' (grabado)':''}</option>`).join(''):`<option value="">— Este cliente no tiene reels este mes —</option>`}
+    </select>
   </div>
   <div class="f"><label>Etiquetas</label><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${LABELS.map((l,i)=>`<span id="lc-${i}" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;background:${(t.labels||[]).includes(i)?l.bg:'var(--bg3)'};color:${(t.labels||[]).includes(i)?l.c:'var(--tx3)'}" onclick="toggleLabel(${i},'${colId}','${taskId}')" data-sel="${(t.labels||[]).includes(i)?'1':''}">${l.n}</span>`).join('')}</div></div>
   <div class="f"><label>Descripción</label><textarea id="td-desc" rows="3" placeholder="Añade más detalles..." style="resize:vertical">${t.desc||''}</textarea></div>
@@ -1848,6 +1873,7 @@ function showBoardTaskCreator(t){
   return`<div style="font-size:10px;color:var(--tx3);margin-top:4px">✍️ ${t.createdBy}${t.movedFrom?` · ← ${t.movedFrom}`:''}</div>`;
 }
 function checkAutoTasksForCM(){
+  const todayStr=today();
   clients.forEach(c=>{
     if(!c.cm||!c.pubCal)return;
     const mk=monthKey();
@@ -1857,19 +1883,19 @@ function checkAutoTasksForCM(){
       const pd=pubCalMonth[r.id]||{};
       // Check trial date
       if(pd.trial===todayStr&&!pd.trialTaskCreated){
-        createAutoTask(`📤 Trial Instagram — ${r.label} (${c.name})`,c.cm,todayStr,c);
+        createAutoTask(`📤 Trial Instagram — ${r.label} (${c.name})`,c.cm,todayStr,c,{linkedClientId:c.id,linkedReelId:r.id,network:'trial_ig'});
         pd.trialTaskCreated=true;
       }
       // Check pub date
       if(pd.pub===todayStr&&!pd.pubTaskCreated){
         const timeStr=pd.pubTime?` a las ${pd.pubTime}`:'';
-        createAutoTask(`📸 Publicar Instagram${timeStr} — ${r.label} (${c.name})`,c.cm,todayStr,c);
+        createAutoTask(`📸 Publicar Instagram${timeStr} — ${r.label} (${c.name})`,c.cm,todayStr,c,{linkedClientId:c.id,linkedReelId:r.id,linkedProdStep:'subido',network:'ig'});
         pd.pubTaskCreated=true;
       }
       // Check tiktok
       if(pd.tiktok===todayStr&&!pd.tiktokTaskCreated){
         const timeStr=pd.tiktokTime?` a las ${pd.tiktokTime}`:'';
-        createAutoTask(`🎵 Publicar TikTok${timeStr} — ${r.label} (${c.name})`,c.cm,todayStr,c);
+        createAutoTask(`🎵 Publicar TikTok${timeStr} — ${r.label} (${c.name})`,c.cm,todayStr,c,{linkedClientId:c.id,linkedReelId:r.id,linkedProdStep:'subido',network:'tiktok'});
         pd.tiktokTaskCreated=true;
       }
     });
@@ -1887,7 +1913,7 @@ function createAutoTask(title,cmName,date,client,linked=null){
   // Avoid duplicates
   if(col.tasks.some(t=>t.title===title&&t.date===date))return null;
   const newAutoTask={id:Date.now()+Math.random(),title,client:client?.name||'',date,done:false,createdBy:'Sistema',autoTask:true,
-    ...(linked?{linkedClientId:linked.linkedClientId,linkedReelId:linked.linkedReelId,linkedProdStep:linked.linkedProdStep}:{})};
+    ...(linked?{linkedClientId:linked.linkedClientId,linkedReelId:linked.linkedReelId,linkedProdStep:linked.linkedProdStep??null,network:linked.network??null}:{})};
   col.tasks.unshift(newAutoTask);
   saveBoardTask(newAutoTask,col.id);saveIndex();
   renderBoard();
@@ -1919,6 +1945,17 @@ async function saveTaskDetail(colId,taskId){
   t.client=document.getElementById('td-cl')?.value||'';
   t.desc=document.getElementById('td-desc')?.value||'';
   t.labels=[...document.querySelectorAll('[id^="lc-"]')].filter(el=>el.dataset.sel==='1').map(el=>parseInt(el.id.replace('lc-','')));
+  const tdType=document.getElementById('td-type')?.value||'normal';
+  if(tdType==='normal'){
+    t.linkedClientId=null;t.linkedReelId=null;t.linkedProdStep=null;t.network=null;
+  }else{
+    const meta=NT_TYPE_META[tdType];
+    const tc=clients.find(cl=>cl.name===t.client);
+    const reelId=document.getElementById('td-reel')?.value;
+    const reel=((tc?.reels||{})[monthKey()]||[]).find(r=>String(r.id)===String(reelId));
+    if(!tc||!reel)return showToast('Elige un cliente y un reel para este tipo de tarea','err');
+    t.linkedClientId=tc.id;t.linkedReelId=reel.id;t.linkedProdStep=meta.step;t.network=meta.network;
+  }
   // checklist already saved live via addCheck/toggleCheck/removeCheck
   // Save task to Firebase BEFORE closing
   await saveBoardTask(t,colId);
@@ -2014,22 +2051,29 @@ function renderPublicaciones(){
   const mc=myClients().filter(c=>c.cm&&(CU?.level!=='cm'||c.cm===CU.name));
   const todayD=today();
   const daysSince=d=>d?Math.max(0,Math.floor((new Date(todayD+'T12:00:00')-new Date(d+'T12:00:00'))/864e5)):null;
-  const rows=mc.map(c=>{
-    let lastIG=null,lastTT=null;
-    const hasTikTok=(c.socialNets||['instagram']).includes('tiktok');
-    Object.keys(c.pubCal||{}).forEach(mk=>{
-      const reels=c.reels[mk]||[];
-      Object.entries(c.pubCal[mk]).forEach(([rid,pd])=>{
-        const reel=reels.find(r=>String(r.id)===String(rid));
-        if(!reel||!reel.subido)return;
-        if(pd.pub&&(!lastIG||pd.pub>lastIG))lastIG=pd.pub;
-        if(pd.tiktok&&(!lastTT||pd.tiktok>lastTT))lastTT=pd.tiktok;
-      });
+  // Recorre TODAS las tarjetas del tablero: para cada una marcada como hecha y con una red asociada,
+  // guarda por cliente+red la fecha de completado (doneAt) más reciente. El cliente se resuelve por
+  // linkedClientId si la tarjeta está enlazada, o si no por coincidencia de nombre (tarjetas antiguas/manuales).
+  const last={};
+  boardCols.forEach(col=>{
+    (col.tasks||[]).forEach(t=>{
+      if(!t.done||!t.network||!t.doneAt)return;
+      let cid=t.linkedClientId;
+      if(!cid){const found=clients.find(cl=>cl.name===t.client);cid=found?.id;}
+      if(!cid)return;
+      if(!last[cid])last[cid]={};
+      if(!last[cid][t.network]||t.doneAt>last[cid][t.network])last[cid][t.network]=t.doneAt;
     });
-    const igDays=daysSince(lastIG);
-    const ttDays=hasTikTok?daysSince(lastTT):null;
-    const urgency=Math.max(igDays===null?9999:igDays,hasTikTok?(ttDays===null?9999:ttDays):-1);
-    return{c,lastIG,lastTT,igDays,ttDays,hasTikTok,urgency};
+  });
+  const rows=mc.map(c=>{
+    const l=last[c.id]||{};
+    const hasTikTok=(c.socialNets||['instagram']).includes('tiktok');
+    const hasTrial=c.trialsEnabled!==false&&(c.socialNets||['instagram']).includes('instagram');
+    const trialDays=hasTrial?daysSince(l.trial_ig):null;
+    const igDays=daysSince(l.ig);
+    const ttDays=hasTikTok?daysSince(l.tiktok):null;
+    const urgency=Math.max(igDays===null?9999:igDays,hasTikTok?(ttDays===null?9999:ttDays):-1,hasTrial?(trialDays===null?9999:trialDays):-1);
+    return{c,trialDays,igDays,ttDays,hasTikTok,hasTrial,urgency};
   }).sort((a,b)=>b.urgency-a.urgency);
   const fmtAgo=days=>{
     if(days===null)return`<span style="color:var(--err);font-weight:600">Nunca</span>`;
@@ -2041,15 +2085,17 @@ function renderPublicaciones(){
   document.getElementById('view-publicaciones').innerHTML=`
     <div class="card">
       <div class="card-t"><i class="ti ti-chart-line"></i>Última publicación por cliente</div>
-      <div style="font-size:11px;color:var(--tx3);margin-bottom:10px">Ordenado por más tiempo sin publicar primero — basado en las fechas marcadas en el Calendario de publicación</div>
+      <div style="font-size:11px;color:var(--tx3);margin-bottom:10px">Ordenado por más tiempo sin publicar primero — se calcula con las tarjetas del tablero marcadas como hechas (Subir a Trial Instagram / Subir a Instagram / Subir a TikTok)</div>
       <table style="width:100%;font-size:13px;border-collapse:collapse">
         <tr style="color:var(--tx3);font-size:11px;text-transform:uppercase">
           <th style="text-align:left;padding:6px;font-weight:500">Cliente</th>
+          <th style="text-align:right;padding:6px;font-weight:500">📲 Trial Instagram</th>
           <th style="text-align:right;padding:6px;font-weight:500"><i class="ti ti-brand-instagram"></i> Instagram</th>
           <th style="text-align:right;padding:6px;font-weight:500"><i class="ti ti-brand-tiktok"></i> TikTok</th>
         </tr>
         ${rows.map(r=>`<tr style="border-top:1px solid var(--bd)">
           <td style="padding:8px 6px;font-weight:500">${r.c.name}</td>
+          <td style="padding:8px 6px;text-align:right">${r.hasTrial?fmtAgo(r.trialDays):'<span style="color:var(--tx3)">—</span>'}</td>
           <td style="padding:8px 6px;text-align:right">${fmtAgo(r.igDays)}</td>
           <td style="padding:8px 6px;text-align:right">${r.hasTikTok?fmtAgo(r.ttDays):'<span style="color:var(--tx3)">—</span>'}</td>
         </tr>`).join('')}
@@ -3002,10 +3048,10 @@ async function toggleReel(cid,mk,i,field){
     if(field==='editado'&&c.cm){
       const rid=c.reels[mk][i].id;
       const pubDate=(c.pubCal?.[mk]?.[rid]?.pub)||today();
-      createAutoTask(`📤 Publicar: ${c.reels[mk][i].label} — ${c.name}`,c.cm,pubDate,c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'subido'});
+      createAutoTask(`📤 Publicar: ${c.reels[mk][i].label} — ${c.name}`,c.cm,pubDate,c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'subido',network:'ig'});
       // Automatización: aviso inmediato de subir a Trial, solo si el cliente tiene Trials activados
       if(c.trialsEnabled!==false&&(c.socialNets||['instagram']).includes('instagram')){
-        createAutoTask(`📲 Subir a Trial: ${c.reels[mk][i].label} — ${c.name}`,c.cm,today(),c);
+        createAutoTask(`📲 Subir a Trial: ${c.reels[mk][i].label} — ${c.name}`,c.cm,today(),c,{linkedClientId:c.id,linkedReelId:rid,network:'trial_ig'});
       }
     }
     if(field==='enviado')c.reels[mk][i].fechaEnviadoTS=new Date().toISOString();
@@ -3407,6 +3453,7 @@ function openModal(type,extra='',extra2=null){
       <div class="f"><label>Tipo de tarea</label><select id="nt-type" onchange="ntTypeChanged()">
         <option value="normal">📝 Normal (texto libre)</option>
         <option value="editar">✂️ Editar contenido</option>
+        <option value="trial_ig">📲 Subir a Trial Instagram</option>
         <option value="subir_ig">📸 Subir a Instagram</option>
         <option value="subir_tiktok">🎵 Subir a TikTok</option>
         <option value="subir_yt">▶️ Subir a YouTube</option>
@@ -3583,10 +3630,11 @@ async function saveContract(id){
   closeModal();renderProfile(c);saveClient_doc(c);showToast('Contrato actualizado ✓','ok');
 }
 const NT_TYPE_META={
-  editar:{emoji:'✂️',label:'Editar',step:'editado',c:'var(--ok2, #4ADE80)',bg:'rgba(74,222,128,.14)'},
-  subir_ig:{emoji:'📸',label:'Subir a Instagram',step:'subido',c:'var(--p, #A855F7)',bg:'var(--pdim, rgba(168,85,247,.14))'},
-  subir_tiktok:{emoji:'🎵',label:'Subir a TikTok',step:'subido',c:'#06B6D4',bg:'rgba(6,182,212,.14)'},
-  subir_yt:{emoji:'▶️',label:'Subir a YouTube',step:'subido',c:'#F97316',bg:'rgba(249,115,22,.14)'},
+  editar:{emoji:'✂️',label:'Editar',step:'editado',network:null,c:'var(--ok2, #4ADE80)',bg:'rgba(74,222,128,.14)'},
+  trial_ig:{emoji:'📲',label:'Subir a Trial Instagram',step:null,network:'trial_ig',c:'#E1306C',bg:'rgba(225,48,108,.14)'},
+  subir_ig:{emoji:'📸',label:'Subir a Instagram',step:'subido',network:'ig',c:'var(--p, #A855F7)',bg:'var(--pdim, rgba(168,85,247,.14))'},
+  subir_tiktok:{emoji:'🎵',label:'Subir a TikTok',step:'subido',network:'tiktok',c:'#06B6D4',bg:'rgba(6,182,212,.14)'},
+  subir_yt:{emoji:'▶️',label:'Subir a YouTube',step:'subido',network:null,c:'#F97316',bg:'rgba(249,115,22,.14)'},
 };
 function ntTypeChanged(){
   const type=document.getElementById('nt-type').value;
@@ -3620,6 +3668,23 @@ function ntUpdateTitlePreview(){
   if(!c||!reel)return;
   titleEl.value=`${meta.emoji} ${meta.label}: ${reel.label} — ${c.name}`;
 }
+function tdTypeChanged(colId,taskId){
+  const type=document.getElementById('td-type').value;
+  document.getElementById('td-reel-wrap').style.display=type!=='normal'?'block':'none';
+  if(type!=='normal')tdClientChanged(colId,taskId);
+}
+function tdClientChanged(colId,taskId){
+  const type=document.getElementById('td-type')?.value;
+  const reelSel=document.getElementById('td-reel');
+  if(!reelSel)return;
+  if(type==='normal'){reelSel.innerHTML='';return;}
+  const clientName=document.getElementById('td-cl').value;
+  const c=clients.find(cl=>cl.name===clientName);
+  const reels=(c?.reels||{})[monthKey()]||[];
+  if(!c)reelSel.innerHTML=`<option value="">— Elige un cliente primero —</option>`;
+  else if(!reels.length)reelSel.innerHTML=`<option value="">— Este cliente no tiene reels este mes —</option>`;
+  else reelSel.innerHTML=reels.map(r=>`<option value="${r.id}">${r.label}${r.subido?' (ya subido)':r.editado?' (editado)':r.grabado?' (grabado)':''}</option>`).join('');
+}
 async function saveTask(){
   const type=document.getElementById('nt-type')?.value||'normal';
   const titleEl=document.getElementById('nt-title');
@@ -3637,7 +3702,7 @@ async function saveTask(){
     const reel=((c.reels||{})[monthKey()]||[]).find(r=>String(r.id)===String(reelId));
     if(!reel)return showToast('Elige un reel de este mes','err');
     if(!title)title=`${meta.emoji} ${meta.label}: ${reel.label} — ${c.name}`;
-    linked={linkedClientId:c.id,linkedReelId:reel.id,linkedProdStep:meta.step};
+    linked={linkedClientId:c.id,linkedReelId:reel.id,linkedProdStep:meta.step,network:meta.network};
   }
   if(!title)return showToast('Escribe una descripción','err');
   const nt={id:Date.now(),title,client:c?.name||'',date,done:false,createdBy:CU?.name||'',...(linked||{})};
