@@ -2150,8 +2150,9 @@ function openPubClientDetail(clientId){
         if(!byReel[t.linkedReelId])byReel[t.linkedReelId]={};
         if(!byReel[t.linkedReelId][net]||d>byReel[t.linkedReelId][net])byReel[t.linkedReelId][net]=d;
       }else{
+        if(!t.date)return;
         if(!pending[t.linkedReelId])pending[t.linkedReelId]={};
-        pending[t.linkedReelId][net]=true;
+        if(!pending[t.linkedReelId][net]||t.date<pending[t.linkedReelId][net])pending[t.linkedReelId][net]=t.date;
       }
     });
   });
@@ -2174,7 +2175,8 @@ function openPubClientDetail(clientId){
   const cell=(reelId,key)=>{
     const done=byReel[reelId]?.[key];
     if(done)return`<span style="color:var(--ok2)">${fmtDate(done)}</span>`;
-    if(pending[reelId]?.[key])return`<span style="color:var(--warn)">Pendiente</span>`;
+    const pend=pending[reelId]?.[key];
+    if(pend)return`<span style="color:var(--warn)">${fmtDate(pend)} <span style="font-size:11px">(pendiente)</span></span>`;
     return`<span style="color:var(--tx3)">—</span>`;
   };
   const mc=document.getElementById('modal-c');
