@@ -2046,23 +2046,50 @@ function createPortalAutoTask(title){
 // ============================================================
 // PUBLICACIONES (última publicación IG/TikTok por cliente)
 // ============================================================
+function inferNetworkFromTitle(title){
+  if(!title)return null;
+  if(/^📤 Trial Instagram|^📲 Subir a Trial/.test(title))return'trial_ig';
+  if(/^📸 Publicar Instagram|^📤 Publicar:/.test(title))return'ig';
+  if(/^🎵 Publicar TikTok/.test(title))return'tiktok';
+  return null;
+}
 function renderPublicaciones(){
   // Solo clientes con un CM asignado (a los que sí les subimos contenido), y si soy CM, solo los míos
   const mc=myClients().filter(c=>c.cm&&(CU?.level!=='cm'||c.cm===CU.name));
   const todayD=today();
   const daysSince=d=>d?Math.max(0,Math.floor((new Date(todayD+'T12:00:00')-new Date(d+'T12:00:00'))/864e5)):null;
   // Recorre TODAS las tarjetas del tablero: para cada una marcada como hecha y con una red asociada,
-  // guarda por cliente+red la fecha de completado (doneAt) más reciente. El cliente se resuelve por
+  // guarda por cliente+red la fecha de completado más reciente. El cliente se resuelve por
   // linkedClientId si la tarjeta está enlazada, o si no por coincidencia de nombre (tarjetas antiguas/manuales).
+  // Se usa doneAt si existe, y si no la fecha puesta en la propia tarjeta (tarjetas completadas antes de
+  // que existiera doneAt) — así una tarjeta ya marcada como hecha no aparece como "Nunca" por falta de dato.
+  // La red se lee de t.network si existe, y si no se infiere del título (tarjetas creadas antes de que
+  // existiera ese campo) para que el histórico ya en el tablero cuente desde ya.
   const last={};
+  const bumpLast=(cid,net,d)=>{if(!cid||!net||!d)return;if(!last[cid])last[cid]={};if(!last[cid][net]||d>last[cid][net])last[cid][net]=d;};
   boardCols.forEach(col=>{
     (col.tasks||[]).forEach(t=>{
-      if(!t.done||!t.network||!t.doneAt)return;
+      if(!t.done)return;
+      const net=t.network||inferNetworkFromTitle(t.title);
+      if(!net)return;
+      const d=t.doneAt||t.date;
       let cid=t.linkedClientId;
       if(!cid){const found=clients.find(cl=>cl.name===t.client);cid=found?.id;}
-      if(!cid)return;
-      if(!last[cid])last[cid]={};
-      if(!last[cid][t.network]||t.doneAt>last[cid][t.network])last[cid][t.network]=t.doneAt;
+      bumpLast(cid,net,d);
+    });
+  });
+  // Respaldo: mucho contenido se marca "subido" directamente en la ficha del cliente sin pasar por
+  // una tarjeta del tablero. En ese caso usamos la fecha de publicación del Calendario (se calcula
+  // sola al marcar un reel como grabado) para que no salga "Nunca" cuando sí hay una fecha real.
+  mc.forEach(c=>{
+    Object.keys(c.pubCal||{}).forEach(mk=>{
+      const reels=c.reels[mk]||[];
+      Object.entries(c.pubCal[mk]).forEach(([rid,pd])=>{
+        const reel=reels.find(r=>String(r.id)===String(rid));
+        if(!reel||!reel.subido)return;
+        bumpLast(c.id,'ig',pd.pub);
+        bumpLast(c.id,'tiktok',pd.tiktok);
+      });
     });
   });
   const rows=mc.map(c=>{
@@ -2085,7 +2112,7 @@ function renderPublicaciones(){
   document.getElementById('view-publicaciones').innerHTML=`
     <div class="card">
       <div class="card-t"><i class="ti ti-chart-line"></i>Última publicación por cliente</div>
-      <div style="font-size:11px;color:var(--tx3);margin-bottom:10px">Ordenado por más tiempo sin publicar primero — se calcula con las tarjetas del tablero marcadas como hechas (Subir a Trial Instagram / Subir a Instagram / Subir a TikTok)</div>
+      <div style="font-size:11px;color:var(--tx3);margin-bottom:10px">Ordenado por más tiempo sin publicar primero — se calcula con las tarjetas del tablero marcadas como hechas (Subir a Trial Instagram / Subir a Instagram / Subir a TikTok). Haz clic en un cliente para ver el detalle por reel.</div>
       <table style="width:100%;font-size:13px;border-collapse:collapse">
         <tr style="color:var(--tx3);font-size:11px;text-transform:uppercase">
           <th style="text-align:left;padding:6px;font-weight:500">Cliente</th>
@@ -2093,7 +2120,7 @@ function renderPublicaciones(){
           <th style="text-align:right;padding:6px;font-weight:500"><i class="ti ti-brand-instagram"></i> Instagram</th>
           <th style="text-align:right;padding:6px;font-weight:500"><i class="ti ti-brand-tiktok"></i> TikTok</th>
         </tr>
-        ${rows.map(r=>`<tr style="border-top:1px solid var(--bd)">
+        ${rows.map(r=>`<tr style="border-top:1px solid var(--bd);cursor:pointer" onclick="openPubClientDetail('${r.c.id}')">
           <td style="padding:8px 6px;font-weight:500">${r.c.name}</td>
           <td style="padding:8px 6px;text-align:right">${r.hasTrial?fmtAgo(r.trialDays):'<span style="color:var(--tx3)">—</span>'}</td>
           <td style="padding:8px 6px;text-align:right">${fmtAgo(r.igDays)}</td>
@@ -2102,6 +2129,69 @@ function renderPublicaciones(){
       </table>
       ${!rows.length?`<div style="text-align:center;padding:30px;color:var(--tx3)">Sin clientes para mostrar.</div>`:''}
     </div>`;
+}
+function openPubClientDetail(clientId){
+  const c=clients.find(cl=>cl.id===clientId);if(!c)return;
+  const mk=monthKey();
+  const reels=(c.reels||{})[mk]||[];
+  const hasTikTok=(c.socialNets||['instagram']).includes('tiktok');
+  const hasTrial=c.trialsEnabled!==false&&(c.socialNets||['instagram']).includes('instagram');
+  // Recorre las tarjetas del tablero enlazadas a este cliente: fecha de subida (hechas) o "Pendiente" (creadas, sin marcar)
+  const byReel={},pending={};
+  boardCols.forEach(col=>{
+    (col.tasks||[]).forEach(t=>{
+      const net=t.network||inferNetworkFromTitle(t.title);
+      if(!net||!t.linkedReelId)return;
+      let cid=t.linkedClientId;
+      if(!cid){const found=clients.find(cl=>cl.name===t.client);cid=found?.id;}
+      if(cid!==clientId)return;
+      if(t.done){
+        const d=t.doneAt||t.date;if(!d)return;
+        if(!byReel[t.linkedReelId])byReel[t.linkedReelId]={};
+        if(!byReel[t.linkedReelId][net]||d>byReel[t.linkedReelId][net])byReel[t.linkedReelId][net]=d;
+      }else{
+        if(!pending[t.linkedReelId])pending[t.linkedReelId]={};
+        pending[t.linkedReelId][net]=true;
+      }
+    });
+  });
+  // Respaldo: reels marcados "subido" directamente en la ficha, sin tarjeta de por medio
+  Object.keys(c.pubCal||{}).forEach(pmk=>{
+    const pReels=c.reels[pmk]||[];
+    Object.entries(c.pubCal[pmk]).forEach(([rid,pd])=>{
+      const reel=pReels.find(r=>String(r.id)===String(rid));
+      if(!reel||!reel.subido)return;
+      if(!byReel[rid])byReel[rid]={};
+      if(pd.pub&&(!byReel[rid].ig||pd.pub>byReel[rid].ig))byReel[rid].ig=pd.pub;
+      if(pd.tiktok&&(!byReel[rid].tiktok||pd.tiktok>byReel[rid].tiktok))byReel[rid].tiktok=pd.tiktok;
+    });
+  });
+  const netCols=[
+    ...(hasTrial?[{key:'trial_ig',label:'Trial IG'}]:[]),
+    {key:'ig',label:'Instagram'},
+    ...(hasTikTok?[{key:'tiktok',label:'TikTok'}]:[]),
+  ];
+  const cell=(reelId,key)=>{
+    const done=byReel[reelId]?.[key];
+    if(done)return`<span style="color:var(--ok2)">${fmtDate(done)}</span>`;
+    if(pending[reelId]?.[key])return`<span style="color:var(--warn)">Pendiente</span>`;
+    return`<span style="color:var(--tx3)">—</span>`;
+  };
+  const mc=document.getElementById('modal-c');
+  mc.style.maxWidth='560px';
+  mc.innerHTML=`<div class="modal-t">${c.name} — Reels de ${monthLabel(mk)}</div>
+    <table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:8px">
+      <tr style="color:var(--tx3);font-size:11px;text-transform:uppercase">
+        <th style="text-align:left;padding:6px;font-weight:500">Reel</th>
+        ${netCols.map(nc=>`<th style="text-align:right;padding:6px;font-weight:500">${nc.label}</th>`).join('')}
+      </tr>
+      ${reels.length?reels.map(r=>`<tr style="border-top:1px solid var(--bd)">
+        <td style="padding:8px 6px;font-weight:500">${r.label}</td>
+        ${netCols.map(nc=>`<td style="padding:8px 6px;text-align:right">${cell(r.id,nc.key)}</td>`).join('')}
+      </tr>`).join(''):`<tr><td colspan="${netCols.length+1}" style="text-align:center;padding:20px;color:var(--tx3)">Sin reels este mes.</td></tr>`}
+    </table>
+    <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cerrar</button></div>`;
+  document.getElementById('mo').classList.add('open');
 }
 
 // ============================================================
