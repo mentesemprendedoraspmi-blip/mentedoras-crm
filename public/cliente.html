@@ -650,6 +650,34 @@ async function sendIdeas(){
 // ============================================================
 // INICIO
 // ============================================================
+function renderLastPubCard(){
+  const hasTikTok=(client.socialNets||['instagram']).includes('tiktok');
+  const hasTrial=client.trialsEnabled!==false&&(client.socialNets||['instagram']).includes('instagram');
+  let lastIG=null,lastTT=null,lastTrial=null;
+  Object.keys(client.pubCal||{}).forEach(mk=>{
+    const reels=(client.reels||{})[mk]||[];
+    Object.entries(client.pubCal[mk]).forEach(([rid,pd])=>{
+      const reel=reels.find(r=>String(r.id)===String(rid));
+      if(!reel)return;
+      if(reel.subido){
+        if(pd.pub&&(!lastIG||pd.pub>lastIG))lastIG=pd.pub;
+        if(pd.tiktok&&(!lastTT||pd.tiktok>lastTT))lastTT=pd.tiktok;
+      }
+      if(reel.trialSubido&&pd.trial&&(!lastTrial||pd.trial>lastTrial))lastTrial=pd.trial;
+    });
+  });
+  const pill=(bg,c,txt)=>`<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:11px;font-weight:600;background:${bg};color:${c}">${txt}</span>`;
+  const row=(label,date,bg,c)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0">
+    <span style="font-size:13px;color:var(--tx2)">${label}</span>
+    ${date?pill(bg,c,fmtDate(date)):pill('var(--bg3)','var(--tx3)',t('Aún no','Not yet'))}
+  </div>`;
+  return `<div class="card">
+    <div class="card-t"><i class="ti ti-send"></i>${t('Tus últimas publicaciones','Your latest posts')}</div>
+    ${hasTrial?row('📲 Trial Instagram',lastTrial,'rgba(225,48,108,.14)','#E1306C'):''}
+    ${row('<i class="ti ti-brand-instagram"></i> Instagram',lastIG,'rgba(168,85,247,.14)','var(--p)')}
+    ${hasTikTok?row('<i class="ti ti-brand-tiktok"></i> TikTok',lastTT,'rgba(6,182,212,.14)','#06B6D4'):''}
+  </div>`;
+}
 function renderInicio(){
   const mk=monthKey();
   const reels=client.reels?.[mk]||[];
@@ -719,6 +747,9 @@ function renderInicio(){
       <div class="stat"><div class="stat-v" style="color:var(--c)">${client.contractStart?Math.max(0,Math.round((new Date()-new Date(client.contractStart+'T12:00:00'))/864e5/30)):0}</div><div class="stat-l">📅 ${tx('mesesJuntos')}</div></div>
     </div>
   </div>`;
+
+  // Última publicación por red
+  html+=renderLastPubCard();
 
   // Acciones rápidas
   html+=`<div class="card">

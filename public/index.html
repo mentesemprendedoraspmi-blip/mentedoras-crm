@@ -2097,9 +2097,12 @@ function renderPublicaciones(){
       const reels=c.reels[mk]||[];
       Object.entries(c.pubCal[mk]).forEach(([rid,pd])=>{
         const reel=reels.find(r=>String(r.id)===String(rid));
-        if(!reel||!reel.subido)return;
-        bumpLast(c.id,'ig',pd.pub);
-        bumpLast(c.id,'tiktok',pd.tiktok);
+        if(!reel)return;
+        if(reel.subido){
+          bumpLast(c.id,'ig',pd.pub);
+          bumpLast(c.id,'tiktok',pd.tiktok);
+        }
+        if(reel.trialSubido)bumpLast(c.id,'trial_ig',pd.trial);
       });
     });
   });
@@ -2169,15 +2172,18 @@ function openPubClientDetail(clientId){
       }
     });
   });
-  // Respaldo: reels marcados "subido" directamente en la ficha, sin tarjeta de por medio
+  // Respaldo: reels marcados "subido"/"trial" directamente en la ficha, sin tarjeta de por medio
   Object.keys(c.pubCal||{}).forEach(pmk=>{
     const pReels=c.reels[pmk]||[];
     Object.entries(c.pubCal[pmk]).forEach(([rid,pd])=>{
       const reel=pReels.find(r=>String(r.id)===String(rid));
-      if(!reel||!reel.subido)return;
+      if(!reel)return;
       if(!byReel[rid])byReel[rid]={};
-      if(pd.pub&&(!byReel[rid].ig||pd.pub>byReel[rid].ig))byReel[rid].ig=pd.pub;
-      if(pd.tiktok&&(!byReel[rid].tiktok||pd.tiktok>byReel[rid].tiktok))byReel[rid].tiktok=pd.tiktok;
+      if(reel.subido){
+        if(pd.pub&&(!byReel[rid].ig||pd.pub>byReel[rid].ig))byReel[rid].ig=pd.pub;
+        if(pd.tiktok&&(!byReel[rid].tiktok||pd.tiktok>byReel[rid].tiktok))byReel[rid].tiktok=pd.tiktok;
+      }
+      if(reel.trialSubido&&pd.trial&&(!byReel[rid].trial_ig||pd.trial>byReel[rid].trial_ig))byReel[rid].trial_ig=pd.trial;
     });
   });
   const netCols=[
@@ -2958,6 +2964,7 @@ function renderReelTable(c,mk){
   const reels=c.reels[mk]||[];
   const grabados=reels.filter(r=>r.grabado).length;
   const subidos=reels.filter(r=>r.subido).length;
+  const hasTrial=c.trialsEnabled!==false&&(c.socialNets||['instagram']).includes('instagram');
   const header=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:8px 12px;background:var(--bg3);border-radius:var(--r);border-left:3px solid var(--c)">
     <div style="font-size:14px;font-weight:600">📅 ${monthLabel(mk)}</div>
     <div style="font-size:11px;color:var(--tx3)">${reels.length} reel${reels.length!==1?'s':''} · ${grabados} grabado${grabados!==1?'s':''} · ${subidos} subido${subidos!==1?'s':''}</div>
@@ -2965,7 +2972,7 @@ function renderReelTable(c,mk){
   if(!reels.length)return header+`<div style="text-align:center;padding:30px;color:var(--tx3)">Sin reels para este mes</div>`;
   return header+`<div class="card">
     <table class="rtable" style="width:100%">
-      <tr><th>Reel</th><th>Grabado</th><th>F.Grab.</th><th>📤 Enviado</th><th>Editado</th><th>F.Entrega</th><th>Subido</th><th>Editor</th><th>Notas</th><th></th></tr>
+      <tr><th>Reel</th><th>Grabado</th><th>F.Grab.</th><th>📤 Enviado</th><th>Editado</th><th>F.Entrega</th><th><span style="color:#E1306C">📲 Trial</span></th><th>Subido</th><th>Editor</th><th>Notas</th><th></th></tr>
       ${reels.map((r,i)=>`<tr>
         <td style="font-weight:600;color:var(--tx)">${r.label}</td>
         <td><div class="chk${r.grabado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'grabado')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'grabado')">${r.grabado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
@@ -2978,6 +2985,7 @@ function renderReelTable(c,mk){
         </td>
         <td><div class="chk${r.editado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'editado')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'editado')">${r.editado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
         <td><input type="date" value="${r.fechaEdit||''}" style="width:130px;padding:3px 6px;font-size:11px" onchange="updateReel('${c.id}','${mk}',${i},'fechaEdit',this.value)"></td>
+        <td>${hasTrial?`<div class="chk${r.trialSubido?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'trialSubido')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'trialSubido')">${r.trialSubido?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div>`:'<span style="color:var(--tx3);font-size:11px">—</span>'}</td>
         <td><div class="chk${r.subido?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'subido')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'subido')">${r.subido?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
         <td><select style="width:88px;padding:3px 5px;font-size:11px" onchange="updateReel('${c.id}','${mk}',${i},'editor',this.value)">
           <option value="">—</option>${Object.values(USERS).filter(u=>u.level==='editor'||u.role==='Editor').map(u=>`<option${r.editor===u.name?' selected':''}>${u.name}</option>`).join('')}
@@ -3161,6 +3169,14 @@ async function toggleReel(cid,mk,i,field){
       }
     }
     if(field==='enviado')c.reels[mk][i].fechaEnviadoTS=new Date().toISOString();
+    if(field==='trialSubido'){
+      const rid=c.reels[mk][i].id;
+      c.reels[mk][i].fechaTrialSubidoTS=new Date().toISOString();
+      if(!c.pubCal)c.pubCal={};
+      if(!c.pubCal[mk])c.pubCal[mk]={};
+      if(!c.pubCal[mk][rid])c.pubCal[mk][rid]={};
+      if(!c.pubCal[mk][rid].trial)c.pubCal[mk][rid].trial=today();
+    }
   }
   switchReelMonth(cid,mk); // Instant UI feedback
   showToast('Guardado ✓','ok');
