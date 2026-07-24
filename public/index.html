@@ -1575,7 +1575,8 @@ async function toggleTask(colId,taskId){
   if(t.linkedClientId&&t.linkedReelId&&t.linkedProdStep){
     const lc=clients.find(c=>c.id===t.linkedClientId);
     if(lc){
-      for(const mk of Object.keys(lc.reels||{})){
+      const monthsToCheck=t.linkedMonth?[t.linkedMonth]:Object.keys(lc.reels||{});
+      for(const mk of monthsToCheck){
         const r=(lc.reels[mk]||[]).find(r=>r.id===t.linkedReelId);
         if(r){
           r[t.linkedProdStep]=t.done;
@@ -1716,7 +1717,9 @@ function openTaskDetail(colId,taskId){
   if(!t.links)t.links=[];
   const curType=taskCurrentType(t);
   const tdC=clients.find(cl=>cl.name===t.client);
-  const tdReels=(tdC?.reels||{})[monthKey()]||[];
+  const tdMonth=t.linkedMonth||monthKey();
+  const tdMonths=Object.keys(tdC?.reels||{}).sort();
+  const tdReels=(tdC?.reels||{})[tdMonth]||[];
   const mc=document.getElementById('modal-c');
   mc.style.maxWidth='560px';
   mc.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -1748,10 +1751,15 @@ function openTaskDetail(colId,taskId){
     <option value="subir_tiktok"${curType==='subir_tiktok'?' selected':''}>🎵 Subir a TikTok</option>
     <option value="subir_yt"${curType==='subir_yt'?' selected':''}>▶️ Subir a YouTube</option>
   </select></div>
-  <div class="f" id="td-reel-wrap" style="display:${curType!=='normal'?'block':'none'}"><label>Reel de este mes</label>
-    <select id="td-reel">
-      ${tdReels.length?tdReels.map(r=>`<option value="${r.id}"${String(r.id)===String(t.linkedReelId)?' selected':''}>${r.label}${r.subido?' (ya subido)':r.editado?' (editado)':r.grabado?' (grabado)':''}</option>`).join(''):`<option value="">— Este cliente no tiene reels este mes —</option>`}
-    </select>
+  <div class="f" id="td-reel-wrap" style="display:${curType!=='normal'?'block':'none'}">
+    <div class="fg2">
+      <div class="f"><label>Mes</label><select id="td-month" onchange="tdMonthChanged('${colId}','${taskId}')">
+        ${tdMonths.length?tdMonths.map(mk=>`<option value="${mk}"${mk===tdMonth?' selected':''}>${monthLabel(mk)}</option>`).join(''):`<option value="">— Sin meses —</option>`}
+      </select></div>
+      <div class="f"><label>Reel</label><select id="td-reel">
+        ${tdReels.length?tdReels.map(r=>`<option value="${r.id}"${String(r.id)===String(t.linkedReelId)?' selected':''}>${r.label}${r.subido?' (ya subido)':r.editado?' (editado)':r.grabado?' (grabado)':''}</option>`).join(''):`<option value="">— Este cliente no tiene reels ese mes —</option>`}
+      </select></div>
+    </div>
   </div>
   <div class="f"><label>Etiquetas</label><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${LABELS.map((l,i)=>`<span id="lc-${i}" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;background:${(t.labels||[]).includes(i)?l.bg:'var(--bg3)'};color:${(t.labels||[]).includes(i)?l.c:'var(--tx3)'}" onclick="toggleLabel(${i},'${colId}','${taskId}')" data-sel="${(t.labels||[]).includes(i)?'1':''}">${l.n}</span>`).join('')}</div></div>
   <div class="f"><label>Descripción</label><textarea id="td-desc" rows="3" placeholder="Añade más detalles..." style="resize:vertical">${t.desc||''}</textarea></div>
@@ -1883,19 +1891,19 @@ function checkAutoTasksForCM(){
       const pd=pubCalMonth[r.id]||{};
       // Check trial date
       if(pd.trial===todayStr&&!pd.trialTaskCreated){
-        createAutoTask(`📤 Trial Instagram — ${r.label} (${c.name})`,c.cm,todayStr,c,{linkedClientId:c.id,linkedReelId:r.id,network:'trial_ig'});
+        createAutoTask(`📤 Trial Instagram — ${r.label} (${c.name})`,c.cm,todayStr,c,{linkedClientId:c.id,linkedReelId:r.id,network:'trial_ig',linkedMonth:mk});
         pd.trialTaskCreated=true;
       }
       // Check pub date
       if(pd.pub===todayStr&&!pd.pubTaskCreated){
         const timeStr=pd.pubTime?` a las ${pd.pubTime}`:'';
-        createAutoTask(`📸 Publicar Instagram${timeStr} — ${r.label} (${c.name})`,c.cm,todayStr,c,{linkedClientId:c.id,linkedReelId:r.id,linkedProdStep:'subido',network:'ig'});
+        createAutoTask(`📸 Publicar Instagram${timeStr} — ${r.label} (${c.name})`,c.cm,todayStr,c,{linkedClientId:c.id,linkedReelId:r.id,linkedProdStep:'subido',network:'ig',linkedMonth:mk});
         pd.pubTaskCreated=true;
       }
       // Check tiktok
       if(pd.tiktok===todayStr&&!pd.tiktokTaskCreated){
         const timeStr=pd.tiktokTime?` a las ${pd.tiktokTime}`:'';
-        createAutoTask(`🎵 Publicar TikTok${timeStr} — ${r.label} (${c.name})`,c.cm,todayStr,c,{linkedClientId:c.id,linkedReelId:r.id,linkedProdStep:'subido',network:'tiktok'});
+        createAutoTask(`🎵 Publicar TikTok${timeStr} — ${r.label} (${c.name})`,c.cm,todayStr,c,{linkedClientId:c.id,linkedReelId:r.id,linkedProdStep:'subido',network:'tiktok',linkedMonth:mk});
         pd.tiktokTaskCreated=true;
       }
     });
@@ -1913,7 +1921,7 @@ function createAutoTask(title,cmName,date,client,linked=null){
   // Avoid duplicates
   if(col.tasks.some(t=>t.title===title&&t.date===date))return null;
   const newAutoTask={id:Date.now()+Math.random(),title,client:client?.name||'',date,done:false,createdBy:'Sistema',autoTask:true,
-    ...(linked?{linkedClientId:linked.linkedClientId,linkedReelId:linked.linkedReelId,linkedProdStep:linked.linkedProdStep??null,network:linked.network??null}:{})};
+    ...(linked?{linkedClientId:linked.linkedClientId,linkedReelId:linked.linkedReelId,linkedProdStep:linked.linkedProdStep??null,network:linked.network??null,linkedMonth:linked.linkedMonth??null}:{})};
   col.tasks.unshift(newAutoTask);
   saveBoardTask(newAutoTask,col.id);saveIndex();
   renderBoard();
@@ -1947,14 +1955,15 @@ async function saveTaskDetail(colId,taskId){
   t.labels=[...document.querySelectorAll('[id^="lc-"]')].filter(el=>el.dataset.sel==='1').map(el=>parseInt(el.id.replace('lc-','')));
   const tdType=document.getElementById('td-type')?.value||'normal';
   if(tdType==='normal'){
-    t.linkedClientId=null;t.linkedReelId=null;t.linkedProdStep=null;t.network=null;
+    t.linkedClientId=null;t.linkedReelId=null;t.linkedProdStep=null;t.network=null;t.linkedMonth=null;
   }else{
     const meta=NT_TYPE_META[tdType];
     const tc=clients.find(cl=>cl.name===t.client);
+    const mk=document.getElementById('td-month')?.value||monthKey();
     const reelId=document.getElementById('td-reel')?.value;
-    const reel=((tc?.reels||{})[monthKey()]||[]).find(r=>String(r.id)===String(reelId));
+    const reel=((tc?.reels||{})[mk]||[]).find(r=>String(r.id)===String(reelId));
     if(!tc||!reel)return showToast('Elige un cliente y un reel para este tipo de tarea','err');
-    t.linkedClientId=tc.id;t.linkedReelId=reel.id;t.linkedProdStep=meta.step;t.network=meta.network;
+    t.linkedClientId=tc.id;t.linkedReelId=reel.id;t.linkedProdStep=meta.step;t.network=meta.network;t.linkedMonth=mk;
   }
   // checklist already saved live via addCheck/toggleCheck/removeCheck
   // Save task to Firebase BEFORE closing
@@ -2145,6 +2154,7 @@ function openPubClientDetail(clientId){
       let cid=t.linkedClientId;
       if(!cid){const found=clients.find(cl=>cl.name===t.client);cid=found?.id;}
       if(cid!==clientId)return;
+      if(t.linkedMonth&&t.linkedMonth!==mk)return; // pertenece a otro mes, no mezclar con los reels de este mes
       if(t.done){
         const d=t.doneAt||t.date;if(!d)return;
         if(!byReel[t.linkedReelId])byReel[t.linkedReelId]={};
@@ -3133,17 +3143,17 @@ async function toggleReel(cid,mk,i,field){
       // Automatización: crear tarea de edición para el editor asignado a este reel
       const editorName=c.reels[mk][i].editor||(c.editors||[])[0];
       if(editorName){
-        const t=createAutoTask(`✂️ Editar: ${c.reels[mk][i].label} — ${c.name}`,editorName,today(),c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'editado'});
+        const t=createAutoTask(`✂️ Editar: ${c.reels[mk][i].label} — ${c.name}`,editorName,today(),c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'editado',linkedMonth:mk});
         if(t)autoAddDriveLink(boardCols.find(col=>col.name.toLowerCase()===editorName.toLowerCase()||col.name.toLowerCase().includes(editorName.toLowerCase()))?.id,t.id,c.name);
       }
     }
     if(field==='editado'&&c.cm){
       const rid=c.reels[mk][i].id;
       const pubDate=(c.pubCal?.[mk]?.[rid]?.pub)||today();
-      createAutoTask(`📤 Publicar: ${c.reels[mk][i].label} — ${c.name}`,c.cm,pubDate,c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'subido',network:'ig'});
+      createAutoTask(`📤 Publicar: ${c.reels[mk][i].label} — ${c.name}`,c.cm,pubDate,c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'subido',network:'ig',linkedMonth:mk});
       // Automatización: aviso inmediato de subir a Trial, solo si el cliente tiene Trials activados
       if(c.trialsEnabled!==false&&(c.socialNets||['instagram']).includes('instagram')){
-        createAutoTask(`📲 Subir a Trial: ${c.reels[mk][i].label} — ${c.name}`,c.cm,today(),c,{linkedClientId:c.id,linkedReelId:rid,network:'trial_ig'});
+        createAutoTask(`📲 Subir a Trial: ${c.reels[mk][i].label} — ${c.name}`,c.cm,today(),c,{linkedClientId:c.id,linkedReelId:rid,network:'trial_ig',linkedMonth:mk});
       }
     }
     if(field==='enviado')c.reels[mk][i].fechaEnviadoTS=new Date().toISOString();
@@ -3557,7 +3567,10 @@ function openModal(type,extra='',extra2=null){
         <div class="f"><label>Fecha límite</label><input id="nt-date" type="date"></div>
       </div>
       <div class="f"><label>Cliente (opcional)</label><select id="nt-cl" onchange="ntClientChanged()"><option value="">— Sin cliente —</option>${clients.map(cl=>`<option value="${cl.id}">${cl.name}</option>`).join('')}</select></div>
-      <div class="f" id="nt-reel-wrap" style="display:none"><label>Reel de este mes</label><select id="nt-reel" onchange="ntUpdateTitlePreview()"></select></div>
+      <div class="fg2" id="nt-reel-wrap" style="display:none">
+        <div class="f"><label>Mes</label><select id="nt-month" onchange="ntMonthChanged()"></select></div>
+        <div class="f"><label>Reel</label><select id="nt-reel" onchange="ntUpdateTitlePreview()"></select></div>
+      </div>
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveTask()">Añadir</button></div>`;
     // Focus at end of input
     setTimeout(()=>{const el=document.getElementById('nt-title');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}},50);
@@ -3739,13 +3752,24 @@ function ntTypeChanged(){
 }
 function ntClientChanged(){
   const type=document.getElementById('nt-type').value;
+  const monthSel=document.getElementById('nt-month');
   const reelSel=document.getElementById('nt-reel');
-  if(type==='normal'){reelSel.innerHTML='';return;}
+  if(type==='normal'){reelSel.innerHTML='';monthSel.innerHTML='';return;}
   const clientId=document.getElementById('nt-cl').value;
   const c=clients.find(cl=>cl.id===clientId);
-  const reels=(c?.reels||{})[monthKey()]||[];
+  const months=Object.keys(c?.reels||{}).sort();
+  const curMk=monthKey();
+  monthSel.innerHTML=months.length?months.map(mk=>`<option value="${mk}"${mk===curMk?' selected':''}>${monthLabel(mk)}</option>`).join(''):`<option value="">— Sin meses —</option>`;
+  ntMonthChanged();
+}
+function ntMonthChanged(){
+  const clientId=document.getElementById('nt-cl').value;
+  const c=clients.find(cl=>cl.id===clientId);
+  const mk=document.getElementById('nt-month').value;
+  const reelSel=document.getElementById('nt-reel');
+  const reels=(c?.reels||{})[mk]||[];
   if(!c)reelSel.innerHTML=`<option value="">— Elige un cliente primero —</option>`;
-  else if(!reels.length)reelSel.innerHTML=`<option value="">— Este cliente no tiene reels este mes —</option>`;
+  else if(!reels.length)reelSel.innerHTML=`<option value="">— Este cliente no tiene reels ese mes —</option>`;
   else reelSel.innerHTML=reels.map(r=>`<option value="${r.id}">${r.label}${r.subido?' (ya subido)':r.editado?' (editado)':r.grabado?' (grabado)':''}</option>`).join('');
   ntUpdateTitlePreview();
 }
@@ -3755,8 +3779,9 @@ function ntUpdateTitlePreview(){
   const meta=NT_TYPE_META[type];
   if(!meta||!titleEl)return;
   const c=clients.find(cl=>cl.id===document.getElementById('nt-cl')?.value);
+  const mk=document.getElementById('nt-month')?.value||monthKey();
   const reelId=document.getElementById('nt-reel')?.value;
-  const reel=((c?.reels||{})[monthKey()]||[]).find(r=>String(r.id)===String(reelId));
+  const reel=((c?.reels||{})[mk]||[]).find(r=>String(r.id)===String(reelId));
   if(!c||!reel)return;
   titleEl.value=`${meta.emoji} ${meta.label}: ${reel.label} — ${c.name}`;
 }
@@ -3767,14 +3792,27 @@ function tdTypeChanged(colId,taskId){
 }
 function tdClientChanged(colId,taskId){
   const type=document.getElementById('td-type')?.value;
+  const monthSel=document.getElementById('td-month');
   const reelSel=document.getElementById('td-reel');
-  if(!reelSel)return;
-  if(type==='normal'){reelSel.innerHTML='';return;}
+  if(!reelSel||!monthSel)return;
+  if(type==='normal'){reelSel.innerHTML='';monthSel.innerHTML='';return;}
   const clientName=document.getElementById('td-cl').value;
   const c=clients.find(cl=>cl.name===clientName);
-  const reels=(c?.reels||{})[monthKey()]||[];
+  const months=Object.keys(c?.reels||{}).sort();
+  const curMk=monthKey();
+  monthSel.innerHTML=months.length?months.map(mk=>`<option value="${mk}"${mk===curMk?' selected':''}>${monthLabel(mk)}</option>`).join(''):`<option value="">— Sin meses —</option>`;
+  tdMonthChanged(colId,taskId);
+}
+function tdMonthChanged(colId,taskId){
+  const monthSel=document.getElementById('td-month');
+  const reelSel=document.getElementById('td-reel');
+  if(!reelSel||!monthSel)return;
+  const clientName=document.getElementById('td-cl')?.value;
+  const c=clients.find(cl=>cl.name===clientName);
+  const mk=monthSel.value;
+  const reels=(c?.reels||{})[mk]||[];
   if(!c)reelSel.innerHTML=`<option value="">— Elige un cliente primero —</option>`;
-  else if(!reels.length)reelSel.innerHTML=`<option value="">— Este cliente no tiene reels este mes —</option>`;
+  else if(!reels.length)reelSel.innerHTML=`<option value="">— Este cliente no tiene reels ese mes —</option>`;
   else reelSel.innerHTML=reels.map(r=>`<option value="${r.id}">${r.label}${r.subido?' (ya subido)':r.editado?' (editado)':r.grabado?' (grabado)':''}</option>`).join('');
 }
 async function saveTask(){
@@ -3790,11 +3828,12 @@ async function saveTask(){
   if(type!=='normal'){
     const meta=NT_TYPE_META[type];
     if(!c)return showToast('Elige un cliente para este tipo de tarea','err');
+    const mk=document.getElementById('nt-month')?.value||monthKey();
     const reelId=document.getElementById('nt-reel')?.value;
-    const reel=((c.reels||{})[monthKey()]||[]).find(r=>String(r.id)===String(reelId));
-    if(!reel)return showToast('Elige un reel de este mes','err');
+    const reel=((c.reels||{})[mk]||[]).find(r=>String(r.id)===String(reelId));
+    if(!reel)return showToast('Elige un reel de ese mes','err');
     if(!title)title=`${meta.emoji} ${meta.label}: ${reel.label} — ${c.name}`;
-    linked={linkedClientId:c.id,linkedReelId:reel.id,linkedProdStep:meta.step,network:meta.network};
+    linked={linkedClientId:c.id,linkedReelId:reel.id,linkedProdStep:meta.step,network:meta.network,linkedMonth:mk};
   }
   if(!title)return showToast('Escribe una descripción','err');
   const nt={id:Date.now(),title,client:c?.name||'',date,done:false,createdBy:CU?.name||'',...(linked||{})};
