@@ -1916,6 +1916,8 @@ function createAutoTask(title,cmName,date,client,linked=null){
   let col=boardCols.find(c=>c.name.toLowerCase()===cmName.toLowerCase());
   // If not found by exact match, try partial
   if(!col)col=boardCols.find(c=>c.name.toLowerCase().includes(cmName.toLowerCase()));
+  // Última opción: comparar solo el primer nombre (ej. "Marina López" -> columna "Marina")
+  if(!col)col=boardCols.find(c=>c.name.trim().toLowerCase().split(/\s+/)[0]===cmName.trim().toLowerCase().split(/\s+/)[0]);
   // If still not found, don't create - we don't want it in random columns
   if(!col)return null;
   // Avoid duplicates
@@ -2111,12 +2113,13 @@ function renderPublicaciones(){
     const urgency=Math.max(igDays===null?9999:igDays,hasTikTok?(ttDays===null?9999:ttDays):-1,hasTrial?(trialDays===null?9999:trialDays):-1);
     return{c,trialDays,igDays,ttDays,hasTikTok,hasTrial,urgency};
   }).sort((a,b)=>b.urgency-a.urgency);
+  const pill=(bg,c,txt)=>`<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:11px;font-weight:600;background:${bg};color:${c}">${txt}</span>`;
   const fmtAgo=days=>{
-    if(days===null)return`<span style="color:var(--err);font-weight:600">Nunca</span>`;
-    if(days===0)return`<span style="color:var(--ok2)">Hoy</span>`;
-    if(days<=3)return`<span style="color:var(--tx2)">Hace ${days}d</span>`;
-    if(days<=10)return`<span style="color:var(--warn)">Hace ${days}d</span>`;
-    return`<span style="color:var(--err);font-weight:600">Hace ${days}d</span>`;
+    if(days===null)return pill('rgba(239,68,68,.14)','var(--err)','Nunca');
+    if(days===0)return pill('rgba(74,222,128,.14)','var(--ok2)','Hoy');
+    if(days<=3)return pill('var(--bg4)','var(--tx2)',`Hace ${days}d`);
+    if(days<=10)return pill('rgba(245,158,11,.14)','var(--warn)',`Hace ${days}d`);
+    return pill('rgba(239,68,68,.14)','var(--err)',`Hace ${days}d`);
   };
   document.getElementById('view-publicaciones').innerHTML=`
     <div class="card">
@@ -2125,12 +2128,12 @@ function renderPublicaciones(){
       <table style="width:100%;font-size:13px;border-collapse:collapse">
         <tr style="color:var(--tx3);font-size:11px;text-transform:uppercase">
           <th style="text-align:left;padding:6px;font-weight:500">Cliente</th>
-          <th style="text-align:right;padding:6px;font-weight:500">📲 Trial Instagram</th>
-          <th style="text-align:right;padding:6px;font-weight:500"><i class="ti ti-brand-instagram"></i> Instagram</th>
-          <th style="text-align:right;padding:6px;font-weight:500"><i class="ti ti-brand-tiktok"></i> TikTok</th>
+          <th style="text-align:right;padding:6px;font-weight:500"><span style="color:#E1306C">📲 Trial Instagram</span></th>
+          <th style="text-align:right;padding:6px;font-weight:500"><i class="ti ti-brand-instagram" style="color:var(--p)"></i> Instagram</th>
+          <th style="text-align:right;padding:6px;font-weight:500"><i class="ti ti-brand-tiktok" style="color:#06B6D4"></i> TikTok</th>
         </tr>
-        ${rows.map(r=>`<tr style="border-top:1px solid var(--bd);cursor:pointer" onclick="openPubClientDetail('${r.c.id}')">
-          <td style="padding:8px 6px;font-weight:500">${r.c.name}</td>
+        ${rows.map(r=>`<tr class="pub-row" style="border-top:1px solid var(--bd);cursor:pointer;transition:background .15s" onclick="openPubClientDetail('${r.c.id}')" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='transparent'">
+          <td style="padding:8px 6px;font-weight:500"><div style="display:flex;align-items:center;gap:8px"><div class="cc-av" style="width:26px;height:26px;font-size:10px;flex-shrink:0">${ini(r.c.name)}</div>${r.c.name}</div></td>
           <td style="padding:8px 6px;text-align:right">${r.hasTrial?fmtAgo(r.trialDays):'<span style="color:var(--tx3)">—</span>'}</td>
           <td style="padding:8px 6px;text-align:right">${fmtAgo(r.igDays)}</td>
           <td style="padding:8px 6px;text-align:right">${r.hasTikTok?fmtAgo(r.ttDays):'<span style="color:var(--tx3)">—</span>'}</td>
@@ -2178,24 +2181,25 @@ function openPubClientDetail(clientId){
     });
   });
   const netCols=[
-    ...(hasTrial?[{key:'trial_ig',label:'Trial IG'}]:[]),
-    {key:'ig',label:'Instagram'},
-    ...(hasTikTok?[{key:'tiktok',label:'TikTok'}]:[]),
+    ...(hasTrial?[{key:'trial_ig',label:'Trial IG',c:'#E1306C'}]:[]),
+    {key:'ig',label:'Instagram',c:'var(--p)'},
+    ...(hasTikTok?[{key:'tiktok',label:'TikTok',c:'#06B6D4'}]:[]),
   ];
+  const pubPill=(bg,c,txt)=>`<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:11px;font-weight:600;background:${bg};color:${c}">${txt}</span>`;
   const cell=(reelId,key)=>{
     const done=byReel[reelId]?.[key];
-    if(done)return`<span style="color:var(--ok2)">${fmtDate(done)}</span>`;
+    if(done)return pubPill('rgba(74,222,128,.14)','var(--ok2)',fmtDate(done));
     const pend=pending[reelId]?.[key];
-    if(pend)return`<span style="color:var(--warn)">${fmtDate(pend)} <span style="font-size:11px">(pendiente)</span></span>`;
+    if(pend)return pubPill('rgba(245,158,11,.14)','var(--warn)',`${fmtDate(pend)} · pendiente`);
     return`<span style="color:var(--tx3)">—</span>`;
   };
   const mc=document.getElementById('modal-c');
   mc.style.maxWidth='560px';
-  mc.innerHTML=`<div class="modal-t">${c.name} — Reels de ${monthLabel(mk)}</div>
+  mc.innerHTML=`<div class="modal-t" style="display:flex;align-items:center;gap:10px"><div class="cc-av" style="width:32px;height:32px;font-size:11px;flex-shrink:0">${ini(c.name)}</div>${c.name} — Reels de ${monthLabel(mk)}</div>
     <table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:8px">
       <tr style="color:var(--tx3);font-size:11px;text-transform:uppercase">
         <th style="text-align:left;padding:6px;font-weight:500">Reel</th>
-        ${netCols.map(nc=>`<th style="text-align:right;padding:6px;font-weight:500">${nc.label}</th>`).join('')}
+        ${netCols.map(nc=>`<th style="text-align:right;padding:6px;font-weight:500"><span style="color:${nc.c}">${nc.label}</span></th>`).join('')}
       </tr>
       ${reels.length?reels.map(r=>`<tr style="border-top:1px solid var(--bd)">
         <td style="padding:8px 6px;font-weight:500">${r.label}</td>
