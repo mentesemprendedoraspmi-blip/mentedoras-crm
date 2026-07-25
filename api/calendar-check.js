@@ -13,13 +13,16 @@ export default async function handler(req, res) {
     return;
   }
 
-  let names;
+  let body;
   try {
-    names = Array.isArray(req.body?.names) ? req.body.names : JSON.parse(req.body).names;
+    body = typeof req.body === 'object' && req.body ? req.body : JSON.parse(req.body);
   } catch (e) {
-    names = null;
+    body = null;
   }
-  if (!Array.isArray(names) || !names.length) {
+  const names = Array.isArray(body?.names) ? body.names : null;
+  const owners = Array.isArray(body?.owners) ? body.owners : [];
+  const mode = body?.mode === 'calendar' ? 'calendar' : 'grabado';
+  if (!names || !names.length) {
     res.status(400).json({ error: 'Falta la lista de nombres de clientes' });
     return;
   }
@@ -36,29 +39,36 @@ export default async function handler(req, res) {
 
   const events = parseIcs(icsText);
 
-  // Solo eventos de los ultimos 10 dias hasta hoy (no futuros, no muy antiguos)
+  // modo "grabado" (deteccion automatica): solo ultimos 10 dias, requiere "grab" en el titulo.
+  // modo "calendar" (vista de calendario): rango explicito from/to, cualquier evento que coincida con un cliente.
   const now = Date.now();
-  const tenDaysMs = 10 * 24 * 60 * 60 * 1000;
-  const recent = events.filter(e => {
-    if (!e.date) return false;
-    const t = e.date.getTime();
-    return t <= now && (now - t) <= tenDaysMs;
-  });
+  let from, to;
+  if (mode === 'calendar') {
+    from = body?.from ? new Date(body.from).getTime() : now - 30 * 24 * 60 * 60 * 1000;
+    to = body?.to ? new Date(body.to).getTime() : now + 60 * 24 * 60 * 60 * 1000;
+  } else {
+    from = now - 10 * 24 * 60 * 60 * 1000;
+    to = now;
+  }
+  const inRange = events.filter(e => e.date && e.date.getTime() >= from && e.date.getTime() <= to);
 
   // Quita acentos/diacriticos para comparar sin distinguir "grabacion" de "grabación"
   const DIACRITICS = /[̀-ͯ]/g;
   const norm = s => (s || '').toLowerCase().normalize('NFD').replace(DIACRITICS, '').trim();
   const recKeyword = /grab/i; // "grabar" / "grabacion" / "GRABACION" etc.
 
+  // Pares [nombreDevuelto, textoABuscar] — cada cliente aporta su nombre de negocio y, si lo tiene, el del dueño.
+  const candidates = names.map((n, idx) => ({ client: n, needle: norm(n) }))
+    .concat(owners.map((o, idx) => ({ client: names[idx], needle: norm(o) })).filter(c => c.needle));
+
   const matches = [];
-  recent.forEach(e => {
-    if (!recKeyword.test(e.title)) return;
+  inRange.forEach(e => {
+    if (mode === 'grabado' && !recKeyword.test(e.title)) return;
     const t = norm(e.title);
-    for (const name of names) {
-      const n = norm(name);
-      if (n.length < 3) continue;
-      if (t.includes(n)) {
-        matches.push({ client: name, title: e.title, date: e.date.toISOString() });
+    for (const cand of candidates) {
+      if (cand.needle.length < 3) continue;
+      if (t.includes(cand.needle)) {
+        matches.push({ client: cand.client, title: e.title, date: e.date.toISOString() });
         break;
       }
     }

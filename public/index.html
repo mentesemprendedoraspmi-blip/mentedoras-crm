@@ -676,6 +676,10 @@ let activeReelMonth='';
 let activePortalMonth='';
 let activePortalClient=null;
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth(),calView='month';
+let gcalEvents=null; // eventos de Google Calendar ya filtrados por cliente (null = aún no cargados)
+let gcalLoading=false;
+let calShowGcal=true,calShowPub=true;
+let calClientFilter=null; // Set de nombres de cliente visibles (null = todos)
 
 // ============================================================
 // UTILS
@@ -2220,7 +2224,99 @@ function openPubClientDetail(clientId){
 // ============================================================
 // CALENDAR
 // ============================================================
+// Clientes con contenido activo (los que tienen CM asignado)
+function calContentClients(){return clients.filter(c=>c.cm);}
+// Carga (una vez por sesión, o al forzar) los eventos de Google Calendar que coinciden
+// con algún cliente (por nombre de negocio o de dueño). No expone eventos personales.
+async function loadGCalEvents(force){
+  if(gcalLoading)return;
+  if(gcalEvents!==null&&!force)return;
+  gcalLoading=true;
+  try{
+    const cc=calContentClients();
+    const names=cc.map(c=>c.name);
+    const owners=cc.map(c=>c.owner||'');
+    const from=new Date(calYear,calMonth-1,1).toISOString();
+    const to=new Date(calYear,calMonth+2,0).toISOString();
+    const resp=await fetch('/api/calendar-check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'calendar',names,owners,from,to})});
+    if(resp.ok){
+      const{matches}=await resp.json();
+      gcalEvents=(matches||[]).map(m=>({title:'📅 '+m.title,date:m.date.slice(0,10),client:m.client,color:'#F59E0B',source:'gcal'}));
+    }else{
+      gcalEvents=[];
+    }
+  }catch(e){console.warn('loadGCalEvents:',e);gcalEvents=[];}
+  gcalLoading=false;
+  if(document.getElementById('view-cal')?.classList.contains('on'))renderCal();
+}
+// Calendario de publicación: sintetiza eventos a partir de las fechas ya calculadas en c.pubCal
+// (Trial/Instagram/TikTok) para poder verlas de un vistazo, tanto pasadas como futuras.
+function pubScheduleEvents(){
+  const evs=[];
+  calContentClients().forEach(c=>{
+    const hasTikTok=(c.socialNets||['instagram']).includes('tiktok');
+    const hasTrial=c.trialsEnabled!==false&&(c.socialNets||['instagram']).includes('instagram');
+    Object.keys(c.pubCal||{}).forEach(mk=>{
+      const reels=c.reels[mk]||[];
+      Object.entries(c.pubCal[mk]).forEach(([rid,pd])=>{
+        const reel=reels.find(r=>String(r.id)===String(rid));
+        const label=reel?reel.label:('Reel '+rid);
+        if(hasTrial&&pd.trial)evs.push({title:`📲 Trial: ${c.name} — ${label}`,date:pd.trial,client:c.name,color:'#E1306C',source:'pub'});
+        if(pd.pub)evs.push({title:`📸 IG: ${c.name} — ${label}`,date:pd.pub,client:c.name,color:'var(--p)',source:'pub'});
+        if(hasTikTok&&pd.tiktok)evs.push({title:`🎵 TikTok: ${c.name} — ${label}`,date:pd.tiktok,client:c.name,color:'#06B6D4',source:'pub'});
+      });
+    });
+  });
+  return evs;
+}
+// Une eventos de Google Calendar + calendario de publicación, respetando los toggles de capa y el filtro de clientes
+function calExtraEvents(){
+  let evs=[];
+  if(calShowGcal&&gcalEvents)evs=evs.concat(gcalEvents);
+  if(calShowPub)evs=evs.concat(pubScheduleEvents());
+  if(calClientFilter)evs=evs.filter(e=>!e.client||calClientFilter.has(e.client));
+  return evs;
+}
+function calToggleLayer(layer){
+  if(layer==='gcal')calShowGcal=!calShowGcal;
+  if(layer==='pub')calShowPub=!calShowPub;
+  renderCal();
+}
+function calToggleClient(name){
+  if(!calClientFilter)calClientFilter=new Set(calContentClients().map(c=>c.name));
+  if(calClientFilter.has(name))calClientFilter.delete(name);else calClientFilter.add(name);
+  renderCal();
+}
+function calToggleAllClients(on){
+  calClientFilter=on?null:new Set();
+  renderCal();
+}
+function calFilterPanelHtml(){
+  const cc=calContentClients();
+  const allOn=!calClientFilter;
+  const isOn=name=>allOn||calClientFilter.has(name);
+  return`<div class="card" style="margin-bottom:14px">
+    <div class="card-t"><i class="ti ti-adjustments"></i>Filtros del calendario</div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:12px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${calShowGcal?'checked':''} onchange="calToggleLayer('gcal')"><span style="color:#F59E0B">📅 Google Calendar (clientes)</span></label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${calShowPub?'checked':''} onchange="calToggleLayer('pub')"><span style="color:var(--p)">📸 Calendario de publicación</span></label>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Clientes</span>
+      <span style="font-size:11px">
+        <a href="javascript:void(0)" onclick="calToggleAllClients(true)" style="color:var(--c)">Todos</a> ·
+        <a href="javascript:void(0)" onclick="calToggleAllClients(false)" style="color:var(--tx3)">Ninguno</a>
+      </span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;max-height:110px;overflow-y:auto">
+      ${cc.map(c=>`<label style="display:flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:20px;background:${isOn(c.name)?'var(--bg3)':'transparent'};border:1px solid var(--bd);cursor:pointer">
+        <input type="checkbox" ${isOn(c.name)?'checked':''} onchange="calToggleClient('${c.name.replace(/'/g,"\\'")}')" style="margin:0">${c.name}
+      </label>`).join('')}
+    </div>
+  </div>`;
+}
 function renderCal(){
+  loadGCalEvents();
   if(calView==='week'){renderCalWeek();return;}
   const first=new Date(calYear,calMonth,1);
   const last=new Date(calYear,calMonth+1,0);
@@ -2237,12 +2333,13 @@ function renderCal(){
     </select>
     <button class="btn btn-s btn-p" onclick="openModal('event')"><i class="ti ti-plus"></i>Evento</button>
   </div>`;
+  const extra=calExtraEvents();
   let grid=`<div class="cal-grid">${days.map(d=>`<div class="cal-day-hdr">${d}</div>`).join('')}`;
   for(let i=1;i<startDay;i++)grid+=`<div class="cal-day om"></div>`;
   for(let d=1;d<=last.getDate();d++){
     const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isT=ds===today();
-    const evs=[...calEvents.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds).map(t=>({title:t.title,type:'task',date:ds,color:'#C084FC',time:t.time||''}))];
+    const evs=[...calEvents.filter(e=>e.date===ds),...extra.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds).map(t=>({title:t.title,type:'task',date:ds,color:'#C084FC',time:t.time||''}))];
     evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
     const typeColors={grab:'var(--warn)',del:'var(--c)',meet:'#4ADE80',task:'#C084FC'};
     const visible=evs.slice(0,3);
@@ -2259,11 +2356,11 @@ function renderCal(){
     </div>`;
   }
   grid+='</div><div id="cal-day-detail" style="margin-top:8px"></div>';
-  document.getElementById('view-cal').innerHTML=nav2+grid;
+  document.getElementById('view-cal').innerHTML=nav2+calFilterPanelHtml()+grid;
 }
 function showCalDay(ds,evt){
   evt&&evt.stopPropagation();
-  const evs=[...calEvents.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds).map(t=>({title:'📋 '+t.title,type:'task',date:ds,color:'#C084FC'}))];
+  const evs=[...calEvents.filter(e=>e.date===ds),...calExtraEvents().filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds).map(t=>({title:'📋 '+t.title,type:'task',date:ds,color:'#C084FC'}))];
   evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
   const el=document.getElementById('cal-day-detail');if(!el)return;
   const[y,m,d]=ds.split('-');
@@ -3140,8 +3237,9 @@ async function checkCalendarRecordings(){
     const todayStr2=today();
     if(localStorage.getItem('calCheckDate')===todayStr2)return; // ya se comprobó hoy
     const names=clients.map(c=>c.name);
+    const owners=clients.map(c=>c.owner||'');
     if(!names.length)return;
-    const resp=await fetch('/api/calendar-check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({names})});
+    const resp=await fetch('/api/calendar-check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'grabado',names,owners})});
     localStorage.setItem('calCheckDate',todayStr2);
     if(!resp.ok)return;
     const{matches}=await resp.json();
