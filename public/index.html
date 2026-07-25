@@ -2301,11 +2301,12 @@ function calFilterPanelHtml(){
   const cc=calContentClients();
   const allOn=!calClientFilter;
   const isOn=name=>allOn||calClientFilter.has(name);
-  return`<div class="card" style="width:220px;flex-shrink:0;align-self:flex-start;position:sticky;top:0">
+  const chk='width:14px;height:14px;flex-shrink:0;margin:0;accent-color:var(--c)'; // pisa el input{width:100%} global
+  return`<div class="card" style="width:180px;flex-shrink:0;align-self:flex-start;position:sticky;top:0">
     <div class="card-t"><i class="ti ti-adjustments"></i>Filtros</div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;font-size:12px">
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" ${calShowGcal?'checked':''} onchange="calToggleLayer('gcal')"><span style="color:#F59E0B">📅 Google Calendar</span></label>
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" ${calShowPub?'checked':''} onchange="calToggleLayer('pub')"><span style="color:var(--p)">📸 Calendario de publicación</span></label>
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" style="${chk}" ${calShowGcal?'checked':''} onchange="calToggleLayer('gcal')"><span style="color:#F59E0B">📅 Google Calendar</span></label>
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" style="${chk}" ${calShowPub?'checked':''} onchange="calToggleLayer('pub')"><span style="color:var(--p)">📸 Publicación</span></label>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
       <span style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Clientes</span>
@@ -2316,8 +2317,8 @@ function calFilterPanelHtml(){
     </div>
     <div style="display:flex;flex-direction:column;gap:2px;max-height:280px;overflow-y:auto">
       ${cc.map(c=>`<label style="display:flex;align-items:center;gap:7px;font-size:12px;padding:4px 6px;border-radius:var(--r);cursor:pointer" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='transparent'">
-        <input type="checkbox" ${isOn(c.name)?'checked':''} onchange="calToggleClient('${c.name.replace(/'/g,"\\'")}')" style="margin:0;flex-shrink:0">
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
+        <input type="checkbox" style="${chk}" ${isOn(c.name)?'checked':''} onchange="calToggleClient('${c.name.replace(/'/g,"\\'")}')">
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
       </label>`).join('')}
     </div>
   </div>`;
@@ -2363,7 +2364,7 @@ function renderCal(){
     </div>`;
   }
   grid+='</div><div id="cal-day-detail" style="margin-top:8px"></div>';
-  document.getElementById('view-cal').innerHTML=`<div style="display:flex;gap:16px;align-items:flex-start">${calFilterPanelHtml()}<div style="flex:1;min-width:0">${nav2}${grid}</div></div>`;
+  document.getElementById('view-cal').innerHTML=`<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">${calFilterPanelHtml()}<div style="flex:1;min-width:320px">${nav2}${grid}</div></div>`;
 }
 function showCalDay(ds,evt){
   evt&&evt.stopPropagation();
