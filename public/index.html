@@ -2269,13 +2269,19 @@ function pubScheduleEvents(){
   });
   return evs;
 }
+// Cuando hay un filtro de clientes activo (calClientFilter no es null), solo pasan los eventos
+// de esos clientes exactos — incluidos los que no tienen cliente asignado, que también se ocultan.
+// Con "Todos" (calClientFilter===null) no se filtra nada.
+function calPassesFilter(client){
+  if(!calClientFilter)return true;
+  return !!client&&calClientFilter.has(client);
+}
 // Une eventos de Google Calendar + calendario de publicación, respetando los toggles de capa y el filtro de clientes
 function calExtraEvents(){
   let evs=[];
   if(calShowGcal&&gcalEvents)evs=evs.concat(gcalEvents);
   if(calShowPub)evs=evs.concat(pubScheduleEvents());
-  if(calClientFilter)evs=evs.filter(e=>!e.client||calClientFilter.has(e.client));
-  return evs;
+  return evs.filter(e=>calPassesFilter(e.client));
 }
 function calToggleLayer(layer){
   if(layer==='gcal')calShowGcal=!calShowGcal;
@@ -2295,11 +2301,11 @@ function calFilterPanelHtml(){
   const cc=calContentClients();
   const allOn=!calClientFilter;
   const isOn=name=>allOn||calClientFilter.has(name);
-  return`<div class="card" style="margin-bottom:14px">
-    <div class="card-t"><i class="ti ti-adjustments"></i>Filtros del calendario</div>
-    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:12px">
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${calShowGcal?'checked':''} onchange="calToggleLayer('gcal')"><span style="color:#F59E0B">📅 Google Calendar (clientes)</span></label>
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${calShowPub?'checked':''} onchange="calToggleLayer('pub')"><span style="color:var(--p)">📸 Calendario de publicación</span></label>
+  return`<div class="card" style="width:220px;flex-shrink:0;align-self:flex-start;position:sticky;top:0">
+    <div class="card-t"><i class="ti ti-adjustments"></i>Filtros</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;font-size:12px">
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" ${calShowGcal?'checked':''} onchange="calToggleLayer('gcal')"><span style="color:#F59E0B">📅 Google Calendar</span></label>
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" ${calShowPub?'checked':''} onchange="calToggleLayer('pub')"><span style="color:var(--p)">📸 Calendario de publicación</span></label>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
       <span style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Clientes</span>
@@ -2308,9 +2314,10 @@ function calFilterPanelHtml(){
         <a href="javascript:void(0)" onclick="calToggleAllClients(false)" style="color:var(--tx3)">Ninguno</a>
       </span>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;max-height:110px;overflow-y:auto">
-      ${cc.map(c=>`<label style="display:flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:20px;background:${isOn(c.name)?'var(--bg3)':'transparent'};border:1px solid var(--bd);cursor:pointer">
-        <input type="checkbox" ${isOn(c.name)?'checked':''} onchange="calToggleClient('${c.name.replace(/'/g,"\\'")}')" style="margin:0">${c.name}
+    <div style="display:flex;flex-direction:column;gap:2px;max-height:280px;overflow-y:auto">
+      ${cc.map(c=>`<label style="display:flex;align-items:center;gap:7px;font-size:12px;padding:4px 6px;border-radius:var(--r);cursor:pointer" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='transparent'">
+        <input type="checkbox" ${isOn(c.name)?'checked':''} onchange="calToggleClient('${c.name.replace(/'/g,"\\'")}')" style="margin:0;flex-shrink:0">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
       </label>`).join('')}
     </div>
   </div>`;
@@ -2339,7 +2346,7 @@ function renderCal(){
   for(let d=1;d<=last.getDate();d++){
     const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isT=ds===today();
-    const evs=[...calEvents.filter(e=>e.date===ds),...extra.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds).map(t=>({title:t.title,type:'task',date:ds,color:'#C084FC',time:t.time||''}))];
+    const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...extra.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>({title:t.title,type:'task',date:ds,color:'#C084FC',time:t.time||''}))];
     evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
     const typeColors={grab:'var(--warn)',del:'var(--c)',meet:'#4ADE80',task:'#C084FC'};
     const visible=evs.slice(0,3);
@@ -2356,11 +2363,11 @@ function renderCal(){
     </div>`;
   }
   grid+='</div><div id="cal-day-detail" style="margin-top:8px"></div>';
-  document.getElementById('view-cal').innerHTML=nav2+calFilterPanelHtml()+grid;
+  document.getElementById('view-cal').innerHTML=`<div style="display:flex;gap:16px;align-items:flex-start">${calFilterPanelHtml()}<div style="flex:1;min-width:0">${nav2}${grid}</div></div>`;
 }
 function showCalDay(ds,evt){
   evt&&evt.stopPropagation();
-  const evs=[...calEvents.filter(e=>e.date===ds),...calExtraEvents().filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds).map(t=>({title:'📋 '+t.title,type:'task',date:ds,color:'#C084FC'}))];
+  const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...calExtraEvents().filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>({title:'📋 '+t.title,type:'task',date:ds,color:'#C084FC'}))];
   evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
   const el=document.getElementById('cal-day-detail');if(!el)return;
   const[y,m,d]=ds.split('-');
