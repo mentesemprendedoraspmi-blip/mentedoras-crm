@@ -1511,9 +1511,14 @@ function boardColDrop(e,targetColId){
     const toCol=boardCols.find(c=>c.id===targetColId);
     if(!fromCol||!toCol)return;
     const ti=fromCol.tasks.findIndex(t=>String(t.id)===String(dragTaskId));
-    if(ti>=0){const[task]=fromCol.tasks.splice(ti,1);toCol.tasks.unshift(task);}
+    let task=null;
+    if(ti>=0){[task]=fromCol.tasks.splice(ti,1);toCol.tasks.unshift(task);}
     dragTaskColId=null;dragTaskId=null;
-    const movedT=toCol.tasks.find(t=>String(t.id)===String(task?.id));if(movedT)saveBoardTask(movedT,toCol.id);saveIndex();renderBoard();showToast('Tarea movida ✓','ok');
+    if(task){
+      const movedT=toCol.tasks.find(t=>String(t.id)===String(task.id));
+      if(movedT)saveBoardTask(movedT,toCol.id);
+      saveIndex();renderBoard();showToast('Tarea movida ✓','ok');
+    }
   }
 }
 
@@ -1547,18 +1552,10 @@ function taskDragOver(e,colId,taskIndex){
     if(!fromCol||!toCol)return;
     const fromIdx=fromCol.tasks.findIndex(t=>String(t.id)===String(dragTaskId));
     if(fromIdx<0)return;
-    if(dragTaskColId===colId){
-      // Reorder within same column
-      const[task]=fromCol.tasks.splice(fromIdx,1);
-      const insertAt=taskIndex>fromIdx?taskIndex:taskIndex;
-      toCol.tasks.splice(insertAt,0,task);
-    }else{
-      // Move to different column at position
-      const[task]=fromCol.tasks.splice(fromIdx,1);
-      toCol.tasks.splice(taskIndex,0,task);
-    }
+    const[task]=fromCol.tasks.splice(fromIdx,1);
+    toCol.tasks.splice(taskIndex,0,task);
     dragTaskColId=null;dragTaskId=null;
-    const movedT2=toCol.tasks.find(t=>String(t.id)===String(task?.id));if(movedT2)saveBoardTask(movedT2,toCol.id);saveIndex();renderBoard();showToast('Tarea movida ✓','ok');
+    const movedT2=toCol.tasks.find(t=>String(t.id)===String(task.id));if(movedT2)saveBoardTask(movedT2,toCol.id);saveIndex();renderBoard();showToast('Tarea movida ✓','ok');
   };
 }
 function setupBoardAutoScroll(){
