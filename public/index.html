@@ -1746,7 +1746,7 @@ function openTaskDetail(colId,taskId){
     </select>
     ${t.client?(()=>{const cl=clients.find(c=>c.name===t.client);const url=cl?.driveMain||(cl?.drive||{}).reelsEdit||'';const megaUrl=(cl?.drive||{}).mega||'';const scriptsUrl=(cl?.drive||{}).scripts||'';return`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
       ${url?`<a href="${url}" target="_blank" class="btn btn-s btn-p" style="text-decoration:none;display:inline-flex"><i class="ti ti-folder"></i>Abrir Drive de ${t.client}</a>`:''}
-      ${scriptsUrl?`<a href="${scriptsUrl}" target="_blank" class="btn btn-s" style="text-decoration:none;display:inline-flex;background:linear-gradient(135deg,var(--p),var(--pd));color:#fff;border-color:transparent"><i class="ti ti-pencil"></i>Abrir Guiones de ${t.client}</a>`:''}
+      ${scriptsUrl?`<a href="${scriptsUrl}" target="_blank" class="btn btn-s" style="text-decoration:none;display:inline-flex;background:linear-gradient(135deg,#0F4C2E,#4ADE80 45%,#22C55E 55%,#0F4C2E);color:#fff;border-color:transparent;text-shadow:0 1px 1px rgba(0,0,0,.3)"><i class="ti ti-pencil"></i>Abrir Guiones de ${t.client}</a>`:''}
       ${megaUrl?`<a href="${megaUrl}" target="_blank" class="btn btn-s btn-mega" style="text-decoration:none;display:inline-flex"><i class="ti ti-cloud-upload"></i>Abrir Mega de ${t.client}</a>`:''}
     </div>`;})():''}
   </div>
