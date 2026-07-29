@@ -66,7 +66,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
 .sb-u{display:flex;align-items:center;gap:8px;margin-top:10px;background:var(--bg3);border-radius:var(--r);padding:7px 9px;border:1px solid var(--bd)}
 .sb-av{width:28px;height:28px;border-radius:50%;background:var(--cdim);border:1px solid rgba(0,229,229,.2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--c);flex-shrink:0}
 .sb-uname{font-size:12px;font-weight:500}
-.sb-nav{padding:8px 8px 0;flex-shrink:0}
+.sb-nav{padding:8px 8px 0;flex:1;overflow-y:auto}
 .nl{font-size:10px;color:var(--tx3);padding:6px 8px 3px;text-transform:uppercase;letter-spacing:.07em;font-weight:500}
 .ni{position:relative;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--tx2);transition:all .15s;margin-bottom:1px}
 .ni:hover{background:var(--bg3);color:var(--tx)}
@@ -74,17 +74,14 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
 .ni.on::before{content:'';position:absolute;left:-8px;top:2px;bottom:2px;width:3px;border-radius:0 3px 3px 0;background:var(--c)}
 .ni i{font-size:15px;flex-shrink:0}
 .nbadge{margin-left:auto;background:var(--err);color:#fff;font-size:10px;padding:1px 6px;border-radius:20px;font-weight:600}
-.sb-clients{padding:0 8px;overflow-y:auto;flex:1}
-.sb-cl-hdr{display:flex;align-items:center;gap:6px;padding:6px 0 6px}
-.sb-cl-hdr input{font-size:12px;padding:5px 9px;flex:1}
-.sb-cl-hdr .btn-icon{width:28px;height:28px;border-radius:var(--r);background:var(--c);color:var(--bg);border:none;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.sci{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--r);cursor:pointer;transition:background .15s}
-.sci:hover{background:var(--bg3)}
-.sci.on{background:var(--cdim)}
-.sc-av{width:24px;height:24px;border-radius:50%;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:var(--c);flex-shrink:0}
-.sc-n{font-size:12px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sci.on .sc-n{color:var(--c)}
-.sb-bot{margin:8px;flex-shrink:0}
+.sb-bot{margin:8px;flex-shrink:0;margin-top:auto}
+.cli-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.cli-card{display:flex;align-items:center;gap:10px;padding:12px;border-radius:var(--r);background:var(--bg2);border:1px solid var(--bd);cursor:pointer;transition:all .15s}
+.cli-card:hover{background:var(--bg3);border-color:var(--c)}
+.cli-av{width:36px;height:36px;border-radius:50%;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--c);flex-shrink:0}
+.cli-info{min-width:0}
+.cli-name{font-size:13px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cli-type{font-size:11px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sb-out{width:100%;padding:8px 12px;border-radius:var(--r);background:transparent;border:1px solid var(--bd);color:var(--tx3);font-size:12px;display:flex;align-items:center;gap:7px;transition:all .15s}
 .sb-out:hover{background:var(--bg3);color:var(--tx2)}
 .theme-row{display:flex;gap:5px;padding:8px 0 0;align-items:center}
@@ -413,13 +410,6 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
       <div class="sb-u"><div class="sb-av" id="sb-av">AD</div><div class="sb-uname" id="sb-un">Adri · CEO</div></div>
     </div>
     <div class="sb-nav" id="sb-nav"></div>
-    <div class="sb-clients" id="sb-cl">
-      <div class="sb-cl-hdr">
-        <input type="text" placeholder="🔍 Buscar..." id="cl-search" oninput="filterCL(this.value)">
-        <button class="btn-icon" onclick="openModal('client')" title="Nuevo cliente"><i class="ti ti-plus"></i></button>
-      </div>
-      <div id="cl-list"></div>
-    </div>
     <div class="sb-bot">
       <button class="sb-out" onclick="doLogout()"><i class="ti ti-logout" style="font-size:13px"></i>Cerrar sesión</button>
       <div class="theme-row">
@@ -444,6 +434,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
       <div class="view on" id="view-dash"></div>
       <div class="view" id="view-board"></div>
       <div class="view" id="view-ideas"></div>
+      <div class="view" id="view-clients"></div>
       <div class="view" id="view-cal"></div>
       <div class="view" id="view-publicaciones"></div>
       <div class="view" id="view-payments"></div>
@@ -1055,6 +1046,7 @@ function buildSBNav(){
   html+=nav('dash','ti-layout-dashboard','Resumen');
   html+=nav('board','ti-layout-kanban','Tablero','<span class="nbadge" id="bbadge">0</span>');
   html+=nav('ideas','ti-bulb','Mejoras');
+  html+=nav('clients','ti-users','Clientes');
   if(isCMup())html+=nav('cal','ti-calendar','Calendario');
   if(isCMup())html+=nav('publicaciones','ti-chart-line','Publicaciones');
   if(isCEO())html+=nav('payments','ti-coin','Pagos equipo');
@@ -1062,37 +1054,47 @@ function buildSBNav(){
   if(isCEO())html+=nav('users','ti-users-group','Usuarios');
   if(isCEO())html+=nav('config','ti-settings','Configuración');
   if(!isCMup())html+='<div class="nl" style="margin-top:6px">Mis pagos</div>'+`<div class="ni" onclick="showMyPayments()"><i class="ti ti-wallet"></i>Mis pagos</div>`;
-  if(isCMup())html+='<div class="nl" style="margin-top:6px">Clientes</div>';
   el.innerHTML=html;
 }
 function nav(id,ic,label,extra=''){
   return`<div class="ni" id="ni-${id}" onclick="showView('${id}')"><i class="ti ${ic}"></i>${label}${extra}</div>`;
 }
 function renderSB(){
+  // El listado de clientes vive ahora en la vista "Clientes" del panel, no en el lateral.
+  if(document.getElementById('view-clients')?.classList.contains('on'))renderClientsView();
+}
+function renderClientsView(){
   const list=myClients();
   const today2=today();
-  document.getElementById('cl-list').innerHTML=list.map(c=>{
-    // Check if any reel is due today in pubCal
-    const mk=monthKey();
-    const pubCal=(c.pubCal||{})[mk]||{};
-    const reelsToday=Object.values(pubCal).some(pd=>pd.pub===today2||pd.trial===today2||pd.tiktok===today2);
-    // Check if any reel grabbed but not sent
-    const reels=c.reels[mk]||[];
-    const pendingEnvio=reels.some(r=>r.grabado&&!r.enviado&&!r.editado);
-    return`<div class="sci${activeClient?.id===c.id?' on':''}" onclick="openProfile('${c.id}')">
-      <div class="sc-av">${ini(c.name)}</div>
-      <div class="sc-n">${c.name}</div>
-      <div style="display:flex;gap:3px;margin-left:auto;flex-shrink:0">
-        ${reelsToday?'<div style="width:7px;height:7px;border-radius:50%;background:#E1306C" title="Publicación hoy"></div>':''}
-        ${pendingEnvio?'<div style="width:7px;height:7px;border-radius:50%;background:var(--warn)" title="Reel sin enviar a editor"></div>':''}
-      </div>
+  const mk=monthKey();
+  document.getElementById('view-clients').innerHTML=`
+    <div style="margin-bottom:14px;max-width:320px">
+      <input type="text" placeholder="🔍 Buscar cliente..." id="cli-search" oninput="filterCliGrid(this.value)">
+    </div>
+    <div class="cli-grid" id="cli-grid">
+      ${list.length?list.map(c=>{
+        const pubCal=(c.pubCal||{})[mk]||{};
+        const reelsToday=Object.values(pubCal).some(pd=>pd.pub===today2||pd.trial===today2||pd.tiktok===today2);
+        const reels=c.reels[mk]||[];
+        const pendingEnvio=reels.some(r=>r.grabado&&!r.enviado&&!r.editado);
+        return`<div class="cli-card" onclick="openProfile('${c.id}')">
+          <div class="cli-av">${ini(c.name)}</div>
+          <div class="cli-info">
+            <div class="cli-name">${c.name}</div>
+            <div class="cli-type">${c.type||''}</div>
+          </div>
+          <div style="display:flex;gap:4px;margin-left:auto;flex-shrink:0">
+            ${reelsToday?'<div style="width:8px;height:8px;border-radius:50%;background:#E1306C" title="Publicación hoy"></div>':''}
+            ${pendingEnvio?'<div style="width:8px;height:8px;border-radius:50%;background:var(--warn)" title="Reel sin enviar a editor"></div>':''}
+          </div>
+        </div>`;
+      }).join(''):`<div style="color:var(--tx3);font-size:13px">No tienes clientes asignados.</div>`}
     </div>`;
-  }).join('');
 }
-function filterCL(q){
+function filterCliGrid(q){
   const lq=q.toLowerCase();
-  document.querySelectorAll('.sci').forEach(el=>{
-    const n=el.querySelector('.sc-n')?.textContent||'';
+  document.querySelectorAll('.cli-card').forEach(el=>{
+    const n=el.querySelector('.cli-name')?.textContent||'';
     el.style.display=n.toLowerCase().includes(lq)?'':'none';
   });
 }
@@ -1119,15 +1121,16 @@ function showView(name){
   document.getElementById('view-'+name)?.classList.add('on');
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('ni-'+name)?.classList.add('on');
-  const icons={dash:'ti-layout-dashboard',pipeline:'ti-columns',board:'ti-layout-kanban',ideas:'ti-bulb',cal:'ti-calendar',publicaciones:'ti-chart-line',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',config:'ti-settings',profile:'ti-user'};
-  const titles={dash:'Resumen general',pipeline:'Pipeline de contenido',board:'Tablero del equipo',ideas:'Ideas de mejora',cal:'Calendario',publicaciones:'Publicaciones',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
+  const icons={dash:'ti-layout-dashboard',pipeline:'ti-columns',board:'ti-layout-kanban',ideas:'ti-bulb',clients:'ti-users',cal:'ti-calendar',publicaciones:'ti-chart-line',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',config:'ti-settings',profile:'ti-user'};
+  const titles={dash:'Resumen general',pipeline:'Pipeline de contenido',board:'Tablero del equipo',ideas:'Ideas de mejora',clients:'Clientes',cal:'Calendario',publicaciones:'Publicaciones',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
   document.getElementById('tb-ic').className='ti '+(icons[name]||'ti-layout-dashboard');
   document.getElementById('tb-t').textContent=titles[name]||'';
-  const acts={dash:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,profile:'',ideas:`<button class="btn btn-s btn-p" onclick="openModal('idea')"><i class="ti ti-plus"></i>Nueva idea</button>`};
+  const acts={dash:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,profile:'',ideas:`<button class="btn btn-s btn-p" onclick="openModal('idea')"><i class="ti ti-plus"></i>Nueva idea</button>`,clients:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`};
   document.getElementById('top-acts').innerHTML=acts[name]||'';
   if(name==='dash')renderDash();
   if(name==='board')renderBoard();
   if(name==='ideas')renderIdeasBoard();
+  if(name==='clients')renderClientsView();
   if(name==='cal')renderCal();
   if(name==='publicaciones')renderPublicaciones();
   if(name==='payments')renderPayments();
