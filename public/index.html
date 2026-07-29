@@ -1748,12 +1748,12 @@ function openTaskDetail(colId,taskId){
     </div>`;})():''}
   </div>
   <div class="f"><label>Tipo de tarea</label><select id="td-type" onchange="tdTypeChanged('${colId}','${taskId}')">
-    <option value="normal"${curType==='normal'?' selected':''}>📝 Normal (texto libre)</option>
-    <option value="editar"${curType==='editar'?' selected':''}>✂️ Editar contenido</option>
-    <option value="trial_ig"${curType==='trial_ig'?' selected':''}>📲 Subir a Trial Instagram</option>
-    <option value="subir_ig"${curType==='subir_ig'?' selected':''}>📸 Subir a Instagram</option>
-    <option value="subir_tiktok"${curType==='subir_tiktok'?' selected':''}>🎵 Subir a TikTok</option>
-    <option value="subir_yt"${curType==='subir_yt'?' selected':''}>▶️ Subir a YouTube</option>
+    <option value="normal"${curType==='normal'?' selected':''}>Normal (texto libre)</option>
+    <option value="editar"${curType==='editar'?' selected':''}>Editar contenido</option>
+    <option value="trial_ig"${curType==='trial_ig'?' selected':''}>Subir a Trial Instagram</option>
+    <option value="subir_ig"${curType==='subir_ig'?' selected':''}>Subir a Instagram (sacar de trials)</option>
+    <option value="subir_tiktok"${curType==='subir_tiktok'?' selected':''}>Subir a TikTok</option>
+    <option value="subir_yt"${curType==='subir_yt'?' selected':''}>Subir a YouTube</option>
   </select></div>
   <div class="f" id="td-reel-wrap" style="display:${curType!=='normal'?'block':'none'}">
     <div class="fg2">
@@ -3822,17 +3822,18 @@ function openModal(type,extra='',extra2=null){
   }else if(type==='task'){
     const col2=boardCols.find(c=>c.id===extra);
     const prefix=col2?.name?col2.name+' - ':'';
+    ntTitleEdited=false;
     c.innerHTML=`<div class="modal-t">Nueva tarea</div>
       <div class="f"><label>Tipo de tarea</label><select id="nt-type" onchange="ntTypeChanged()">
-        <option value="normal">📝 Normal (texto libre)</option>
-        <option value="editar">✂️ Editar contenido</option>
-        <option value="trial_ig">📲 Subir a Trial Instagram</option>
-        <option value="subir_ig">📸 Subir a Instagram</option>
-        <option value="subir_tiktok">🎵 Subir a TikTok</option>
-        <option value="subir_yt">▶️ Subir a YouTube</option>
+        <option value="normal">Normal (texto libre)</option>
+        <option value="editar">Editar contenido</option>
+        <option value="trial_ig">Subir a Trial Instagram</option>
+        <option value="subir_ig">Subir a Instagram (sacar de trials)</option>
+        <option value="subir_tiktok">Subir a TikTok</option>
+        <option value="subir_yt">Subir a YouTube</option>
       </select></div>
       <div id="nt-type-chip"></div>
-      <div class="f"><label>Tarea</label><input id="nt-title" value="${prefix}" placeholder="Descripción"></div>
+      <div class="f"><label>Tarea</label><input id="nt-title" value="${prefix}" placeholder="Descripción" oninput="ntTitleEdited=true"></div>
       <div class="fg2">
         <div class="f"><label>Columna</label><select id="nt-col">${boardCols.map(col=>`<option value="${col.id}"${col.id===extra?' selected':''}>${col.name}</option>`).join('')}</select></div>
         <div class="f"><label>Fecha límite</label><input id="nt-date" type="date"></div>
@@ -4008,12 +4009,13 @@ async function saveContract(id){
   }
   closeModal();renderProfile(c);saveClient_doc(c);showToast('Contrato actualizado ✓','ok');
 }
+let ntTitleEdited=false;
 const NT_TYPE_META={
-  editar:{emoji:'✂️',label:'Editar',step:'editado',network:null,c:'var(--ok2, #4ADE80)',bg:'rgba(74,222,128,.14)'},
-  trial_ig:{emoji:'📲',label:'Subir a Trial Instagram',step:null,network:'trial_ig',c:'#E1306C',bg:'rgba(225,48,108,.14)'},
-  subir_ig:{emoji:'📸',label:'Subir a Instagram',step:'subido',network:'ig',c:'var(--p, #A855F7)',bg:'var(--pdim, rgba(168,85,247,.14))'},
-  subir_tiktok:{emoji:'🎵',label:'Subir a TikTok',step:'subido',network:'tiktok',c:'#06B6D4',bg:'rgba(6,182,212,.14)'},
-  subir_yt:{emoji:'▶️',label:'Subir a YouTube',step:'subido',network:null,c:'#F97316',bg:'rgba(249,115,22,.14)'},
+  editar:{label:'Editar',step:'editado',network:null,c:'var(--ok2, #4ADE80)',bg:'rgba(74,222,128,.14)'},
+  trial_ig:{label:'Subir a Trial Instagram',step:null,network:'trial_ig',c:'#E1306C',bg:'rgba(225,48,108,.14)'},
+  subir_ig:{label:'Subir a Instagram (sacar de trials)',step:'subido',network:'ig',c:'var(--p, #A855F7)',bg:'var(--pdim, rgba(168,85,247,.14))'},
+  subir_tiktok:{label:'Subir a TikTok',step:'subido',network:'tiktok',c:'#06B6D4',bg:'rgba(6,182,212,.14)'},
+  subir_yt:{label:'Subir a YouTube',step:'subido',network:null,c:'#F97316',bg:'rgba(249,115,22,.14)'},
 };
 function ntTypeChanged(){
   const type=document.getElementById('nt-type').value;
@@ -4021,7 +4023,7 @@ function ntTypeChanged(){
   document.getElementById('nt-reel-wrap').style.display=isTyped?'block':'none';
   const chipEl=document.getElementById('nt-type-chip');
   const meta=NT_TYPE_META[type];
-  chipEl.innerHTML=meta?`<span style="display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;background:linear-gradient(135deg,${meta.bg},transparent);color:${meta.c};margin:-8px 0 10px">${meta.emoji} ${meta.label}</span>`:'';
+  chipEl.innerHTML=meta?`<span style="display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;background:linear-gradient(135deg,${meta.bg},transparent);color:${meta.c};margin:-8px 0 10px">${meta.label}</span>`:'';
   if(isTyped)ntClientChanged();else ntUpdateTitlePreview();
 }
 function ntClientChanged(){
@@ -4048,6 +4050,7 @@ function ntMonthChanged(){
   ntUpdateTitlePreview();
 }
 function ntUpdateTitlePreview(){
+  if(ntTitleEdited)return;
   const type=document.getElementById('nt-type').value;
   const titleEl=document.getElementById('nt-title');
   const meta=NT_TYPE_META[type];
@@ -4057,7 +4060,7 @@ function ntUpdateTitlePreview(){
   const reelId=document.getElementById('nt-reel')?.value;
   const reel=((c?.reels||{})[mk]||[]).find(r=>String(r.id)===String(reelId));
   if(!c||!reel)return;
-  titleEl.value=`${meta.emoji} ${meta.label}: ${reel.label} — ${c.name}`;
+  titleEl.value=`${meta.label}: ${reel.label} — ${c.name}`;
 }
 function tdTypeChanged(colId,taskId){
   const type=document.getElementById('td-type').value;
@@ -4106,7 +4109,7 @@ async function saveTask(){
     const reelId=document.getElementById('nt-reel')?.value;
     const reel=((c.reels||{})[mk]||[]).find(r=>String(r.id)===String(reelId));
     if(!reel)return showToast('Elige un reel de ese mes','err');
-    if(!title)title=`${meta.emoji} ${meta.label}: ${reel.label} — ${c.name}`;
+    if(!title)title=`${meta.label}: ${reel.label} — ${c.name}`;
     linked={linkedClientId:c.id,linkedReelId:reel.id,linkedProdStep:meta.step,network:meta.network,linkedMonth:mk};
   }
   if(!title)return showToast('Escribe una descripción','err');
