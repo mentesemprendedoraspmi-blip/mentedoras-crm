@@ -3822,6 +3822,7 @@ function openModal(type,extra='',extra2=null){
   }else if(type==='task'){
     const col2=boardCols.find(c=>c.id===extra);
     const prefix=col2?.name?col2.name+' - ':'';
+    ntTitleEdited=false;
     c.innerHTML=`<div class="modal-t">Nueva tarea</div>
       <div class="f"><label>Tipo de tarea</label><select id="nt-type" onchange="ntTypeChanged()">
         <option value="normal">Normal (texto libre)</option>
@@ -3832,7 +3833,7 @@ function openModal(type,extra='',extra2=null){
         <option value="subir_yt">Subir a YouTube</option>
       </select></div>
       <div id="nt-type-chip"></div>
-      <div class="f"><label>Tarea</label><input id="nt-title" value="${prefix}" placeholder="Descripción"></div>
+      <div class="f"><label>Tarea</label><input id="nt-title" value="${prefix}" placeholder="Descripción" oninput="ntTitleEdited=true"></div>
       <div class="fg2">
         <div class="f"><label>Columna</label><select id="nt-col">${boardCols.map(col=>`<option value="${col.id}"${col.id===extra?' selected':''}>${col.name}</option>`).join('')}</select></div>
         <div class="f"><label>Fecha límite</label><input id="nt-date" type="date"></div>
@@ -4008,6 +4009,7 @@ async function saveContract(id){
   }
   closeModal();renderProfile(c);saveClient_doc(c);showToast('Contrato actualizado ✓','ok');
 }
+let ntTitleEdited=false;
 const NT_TYPE_META={
   editar:{label:'Editar',step:'editado',network:null,c:'var(--ok2, #4ADE80)',bg:'rgba(74,222,128,.14)'},
   trial_ig:{label:'Subir a Trial Instagram',step:null,network:'trial_ig',c:'#E1306C',bg:'rgba(225,48,108,.14)'},
@@ -4048,6 +4050,7 @@ function ntMonthChanged(){
   ntUpdateTitlePreview();
 }
 function ntUpdateTitlePreview(){
+  if(ntTitleEdited)return;
   const type=document.getElementById('nt-type').value;
   const titleEl=document.getElementById('nt-title');
   const meta=NT_TYPE_META[type];
