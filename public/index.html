@@ -663,6 +663,7 @@ const IDEA_COLS=[{id:'buzon',name:'💡 Buzón de ideas'},{id:'planificado',name
 let CU=null; // current user
 let activeClient=null;
 let activeTab='info';
+let clientsShowInactive=false;
 let activeReelMonth='';
 let activePortalMonth='';
 let activePortalClient=null;
@@ -1067,6 +1068,7 @@ function renderClientsView(){
   const list=myClients();
   const today2=today();
   const mk=monthKey();
+  const inactiveList=isCEO()?clients.filter(c=>!isActiveClient(c)):[];
   document.getElementById('view-clients').innerHTML=`
     <div style="margin-bottom:14px;max-width:320px">
       <input type="text" placeholder="🔍 Buscar cliente..." id="cli-search" oninput="filterCliGrid(this.value)">
@@ -1089,7 +1091,29 @@ function renderClientsView(){
           </div>
         </div>`;
       }).join(''):`<div style="color:var(--tx3);font-size:13px">No tienes clientes asignados.</div>`}
-    </div>`;
+    </div>
+    ${isCEO()?`
+    <div style="margin-top:20px">
+      <div style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--tx3);font-size:12px;font-weight:500" onclick="toggleInactiveClientsPanel()">
+        <i class="ti ti-chevron-${clientsShowInactive?'down':'right'}"></i>
+        Clientes inactivos (${inactiveList.length})
+      </div>
+      ${clientsShowInactive?`<div class="cli-grid" style="margin-top:10px">
+        ${inactiveList.length?inactiveList.map(c=>`
+          <div class="cli-card" style="opacity:.55" onclick="openProfile('${c.id}')">
+            <div class="cli-av">${ini(c.name)}</div>
+            <div class="cli-info">
+              <div class="cli-name">${c.name}</div>
+              <div class="cli-type">${c.type||''}</div>
+            </div>
+            <button class="btn btn-s btn-p" style="margin-left:auto;flex-shrink:0" onclick="event.stopPropagation();toggleClientActive('${c.id}')"><i class="ti ti-eye"></i>Activar</button>
+          </div>`).join(''):`<div style="color:var(--tx3);font-size:12px">No hay clientes inactivos.</div>`}
+      </div>`:''}
+    </div>`:''}`;
+}
+function toggleInactiveClientsPanel(){
+  clientsShowInactive=!clientsShowInactive;
+  renderClientsView();
 }
 function filterCliGrid(q){
   const lq=q.toLowerCase();
@@ -2660,15 +2684,6 @@ function renderConfig(){
       <div class="f"><label>Nombre de la agencia</label><input id="cfg-name" value="${appConfig.agencyName}"></div>
       <div class="f"><label>Tagline</label><input id="cfg-tag" value="${appConfig.agencyTagline}" placeholder="ej. Agencia de Contenido"></div>
       <button class="btn btn-s btn-p" onclick="saveConfigData()"><i class="ti ti-check"></i>Guardar</button>
-    </div>
-    <div class="card">
-      <div class="card-t"><i class="ti ti-eye-off"></i>Clientes inactivos</div>
-      <div style="font-size:12px;color:var(--tx3);margin-bottom:14px">Clientes marcados como inactivos: no aparecen en el lateral ni en el resto del CRM, pero su información no se ha borrado. Actívalos para que vuelva a aparecer todo.</div>
-      ${clients.filter(c=>!isActiveClient(c)).length?clients.filter(c=>!isActiveClient(c)).map(c=>`
-        <div class="pf">
-          <span class="pf-l" style="cursor:pointer" onclick="openProfile('${c.id}')">${c.name}</span>
-          <button class="btn btn-s btn-p" onclick="toggleClientActive('${c.id}')"><i class="ti ti-eye"></i>Activar</button>
-        </div>`).join(''):`<div style="font-size:12px;color:var(--tx3)">No hay clientes inactivos.</div>`}
     </div>`;
 }
 async function saveConfigData(){
