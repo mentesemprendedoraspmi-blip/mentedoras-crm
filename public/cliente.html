@@ -687,6 +687,10 @@ function renderInicio(){
   const pe=reels.filter(r=>!r.grabado).length;
   const nextGrab=reels.filter(r=>!r.grabado&&r.fechaGrab).sort((a,b)=>a.fechaGrab.localeCompare(b.fechaGrab))[0];
   const nextEdit=reels.filter(r=>r.grabado&&!r.subido&&r.fechaEdit).sort((a,b)=>a.fechaEdit.localeCompare(b.fechaEdit))[0];
+  const hasTrial=client.trialsEnabled!==false&&(client.socialNets||['instagram']).includes('instagram');
+  const pubCalMonth=(client.pubCal||{})[mk]||{};
+  const trialNow=hasTrial?reels.filter(r=>r.trialSubido&&!r.subido):[];
+  const nextTrialReel=hasTrial?reels.filter(r=>(pubCalMonth[r.id]||{}).trial&&!r.trialSubido&&!r.subido).sort((a,b)=>pubCalMonth[a.id].trial.localeCompare(pubCalMonth[b.id].trial))[0]:null;
   const allReels=Object.values(client.reels||{}).flat();
   const totalPub=allReels.filter(r=>r.subido).length;
   const months=Object.keys(client.reels||{}).length;
@@ -720,6 +724,12 @@ function renderInicio(){
   if(nextEdit){
     const diff=Math.ceil((new Date(nextEdit.fechaEdit+'T12:00:00')-new Date())/864e5);
     if(diff<=2&&diff>=0)html+=`<div class="alert alert-info"><i class="ti ti-video" style="font-size:18px"></i><div><div style="font-weight:600">${tx('reelProxListo')}</div><div style="font-size:12px">${nextEdit.label} — ${fmtDate(nextEdit.fechaEdit)}</div></div></div>`;
+  }
+  if(trialNow.length)html+=`<div class="alert alert-info"><i class="ti ti-brand-instagram" style="font-size:18px"></i><div><div style="font-weight:600">📲 ${t('En Trial de Instagram','On Instagram Trial')}</div><div style="font-size:12px">${trialNow.map(r=>r.label).join(', ')}</div></div></div>`;
+  if(nextTrialReel){
+    const td=pubCalMonth[nextTrialReel.id].trial;
+    const diff=Math.ceil((new Date(td+'T12:00:00')-new Date())/864e5);
+    if(diff<=3&&diff>=0)html+=`<div class="alert alert-warn"><i class="ti ti-brand-instagram" style="font-size:18px"></i><div><div style="font-weight:600">📲 ${t('Trial próximo','Trial coming up')}</div><div style="font-size:12px">${nextTrialReel.label} — ${fmtDate(td)}</div></div></div>`;
   }
   if(sub>0)html+=`<div class="alert alert-ok"><i class="ti ti-check-circle" style="font-size:18px"></i><div><div style="font-weight:600">${sub} reel${sub>1?'s':''} publicado${sub>1?'s':''}  este mes</div><div style="font-size:12px">${sub}/${reels.length} en total</div></div></div>`;
 
@@ -880,11 +890,14 @@ function renderReels(){
   }
   const reels=client.reels[activeMonth]||[];
   const sub=reels.filter(r=>r.subido).length;
-  const ed=reels.filter(r=>r.editado&&!r.subido).length;
+  const trialUp=reels.filter(r=>r.trialSubido&&!r.subido).length;
+  const ed=reels.filter(r=>r.editado&&!r.trialSubido&&!r.subido).length;
   const gr=reels.filter(r=>r.grabado&&!r.editado).length;
   const drive=client.drive||{};
   const hasTiktok=!!(client.tiktokUrl);
   const hasStories=!!client.includeStories;
+  const hasTrial=client.trialsEnabled!==false&&(client.socialNets||['instagram']).includes('instagram');
+  const pubCalMonth=(client.pubCal||{})[activeMonth]||{};
 
   let html=`<div class="month-row">
     ${months.map(m=>`<button class="mbtn${m===activeMonth?' on':''}" onclick="setActiveMonth('${m}')">${monthLabel(m)}</button>`).join('')}
@@ -892,6 +905,7 @@ function renderReels(){
 
   html+=`<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
     ${sub?`<span class="chip" style="background:rgba(34,197,94,.12);color:#4ADE80">✅ ${sub} publicados</span>`:''}
+    ${hasTrial&&trialUp?`<span class="chip" style="background:rgba(225,48,108,.12);color:#E1306C">📲 ${trialUp} en trial</span>`:''}
     ${ed?`<span class="chip" style="background:rgba(192,132,252,.12);color:#C084FC">✂️ ${ed} en edición</span>`:''}
     ${gr?`<span class="chip" style="background:rgba(245,158,11,.12);color:var(--warn)">🎬 ${gr} grabados</span>`:''}
   </div>`;
@@ -914,14 +928,17 @@ function renderReels(){
     ${reels.length?reels.map(r=>{
       let estado='⏳ Pendiente';let color='var(--tx3)';
       if(r.subido){estado='✅ Publicado';color='#4ADE80';}
+      else if(hasTrial&&r.trialSubido){estado='📲 En Trial';color='#E1306C';}
       else if(r.editado){estado='👁 En revisión';color='#C084FC';}
       else if(r.grabado){estado='✂️ Editándose';color='var(--warn)';}
+      const trialDate=(pubCalMonth[r.id]||{}).trial;
       return`<div class="reel-row">
         <div>
           <div style="font-size:13px;font-weight:500">${r.label}</div>
           <div style="font-size:11px;color:var(--tx3);margin-top:2px">
             ${r.fechaGrab&&!r.grabado?'📅 '+t('Grabación','Recording')+': '+fmtDate(r.fechaGrab):''}
-            ${r.fechaEdit&&!r.subido?'🎯 '+t('Entrega prevista','Expected delivery')+': '+fmtDate(r.fechaEdit):''}
+            ${r.fechaEdit&&!r.subido&&!r.trialSubido?'🎯 '+t('Entrega prevista','Expected delivery')+': '+fmtDate(r.fechaEdit):''}
+            ${hasTrial&&trialDate&&!r.trialSubido&&!r.subido?'📲 '+t('Trial previsto','Trial expected')+': '+fmtDate(trialDate):''}
           </div>
         </div>
         <span style="font-size:11px;font-weight:600;color:${color};white-space:nowrap">${estado}</span>
@@ -958,6 +975,7 @@ function renderReels(){
     {label:'Guionización',done:reels.some(r=>(client.produccion||{})[activeMonth]?.s0?.[r.id])},
     {label:'Grabación',done:reels.some(r=>r.grabado)},
     {label:'Edición',done:reels.some(r=>r.editado)},
+    ...(hasTrial?[{label:'Trial Instagram',done:reels.some(r=>r.trialSubido)}]:[]),
     {label:'Publicación',done:reels.some(r=>r.subido)},
   ];
   const activeIdx=steps.findIndex(s=>!s.done);
