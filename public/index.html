@@ -700,10 +700,11 @@ function dstatus(d){
 function isCEO(){return CU?.level==='ceo';}
 function isPMup(){return CU?.level==='ceo'||CU?.level==='pm';}
 function isCMup(){return CU?.level==='ceo'||CU?.level==='pm'||CU?.level==='cm';}
+function isActiveClient(c){return c.active!==false;}
 function myClients(){
-  if(isCMup())return clients;
+  const base=isCMup()?clients:clients.filter(c=>(c.editors||[]).includes(CU?.name));
   // editors see only assigned clients
-  return clients.filter(c=>(c.editors||[]).includes(CU?.name));
+  return base.filter(isActiveClient);
 }
 
 // ============================================================
@@ -1181,7 +1182,7 @@ function renderDash(){
   if(CU?.level==='cm'){
     const upcoming=[];
     const limitDate=new Date(Date.now()+7*864e5).toISOString().split('T')[0];
-    clients.filter(c=>c.cm===CU.name).forEach(c=>{
+    clients.filter(c=>c.cm===CU.name&&isActiveClient(c)).forEach(c=>{
       Object.keys(c.pubCal||{}).forEach(mk2=>{
         Object.entries(c.pubCal[mk2]).forEach(([rid,pd])=>{
           const reel=(c.reels[mk2]||[]).find(r=>r.id===rid||String(r.id)===String(rid));
@@ -1887,7 +1888,7 @@ function showBoardTaskCreator(t){
 function checkAutoTasksForCM(){
   const todayStr=today();
   clients.forEach(c=>{
-    if(!c.cm||!c.pubCal)return;
+    if(!c.cm||!c.pubCal||!isActiveClient(c))return;
     const mk=monthKey();
     const pubCalMonth=c.pubCal[mk]||{};
     const reels=c.reels[mk]||[];
@@ -2224,7 +2225,7 @@ function openPubClientDetail(clientId){
 // CALENDAR
 // ============================================================
 // Clientes con contenido activo (los que tienen CM asignado)
-function calContentClients(){return clients.filter(c=>c.cm);}
+function calContentClients(){return clients.filter(c=>c.cm&&isActiveClient(c));}
 // Carga (una vez por sesión, o al forzar) los eventos de Google Calendar que coinciden
 // con algún cliente (por nombre de negocio o de dueño). No expone eventos personales.
 async function loadGCalEvents(force){
@@ -2651,11 +2652,20 @@ function renderConfig(){
       </div>
       <button class="btn btn-s btn-p" onclick="saveConfigData()"><i class="ti ti-check"></i>Guardar</button>
     </div>
-    <div class="card">
+    <div class="card" style="margin-bottom:14px">
       <div class="card-t"><i class="ti ti-building"></i>Datos de la agencia</div>
       <div class="f"><label>Nombre de la agencia</label><input id="cfg-name" value="${appConfig.agencyName}"></div>
       <div class="f"><label>Tagline</label><input id="cfg-tag" value="${appConfig.agencyTagline}" placeholder="ej. Agencia de Contenido"></div>
       <button class="btn btn-s btn-p" onclick="saveConfigData()"><i class="ti ti-check"></i>Guardar</button>
+    </div>
+    <div class="card">
+      <div class="card-t"><i class="ti ti-eye-off"></i>Clientes inactivos</div>
+      <div style="font-size:12px;color:var(--tx3);margin-bottom:14px">Clientes marcados como inactivos: no aparecen en el lateral ni en el resto del CRM, pero su información no se ha borrado. Actívalos para que vuelva a aparecer todo.</div>
+      ${clients.filter(c=>!isActiveClient(c)).length?clients.filter(c=>!isActiveClient(c)).map(c=>`
+        <div class="pf">
+          <span class="pf-l" style="cursor:pointer" onclick="openProfile('${c.id}')">${c.name}</span>
+          <button class="btn btn-s btn-p" onclick="toggleClientActive('${c.id}')"><i class="ti ti-eye"></i>Activar</button>
+        </div>`).join(''):`<div style="font-size:12px;color:var(--tx3)">No hay clientes inactivos.</div>`}
     </div>`;
 }
 async function saveConfigData(){
@@ -2670,7 +2680,7 @@ async function saveConfigData(){
 // ============================================================
 function renderFinance(){
   const mk=monthKey();
-  const total=clients.reduce((s,c)=>s+c.price,0);
+  const total=clients.filter(isActiveClient).reduce((s,c)=>s+c.price,0);
   const cobrado=cobrosList.filter(co=>co.month===mk&&co.paid).reduce((s,co)=>s+co.importe,0);
   document.getElementById('view-finance').innerHTML=`
     <div class="fin-grid">
@@ -2699,7 +2709,7 @@ function renderFinance(){
       <div class="card-t"><i class="ti ti-list"></i>Detalle por cliente</div>
       <table class="pay-table" style="width:100%">
         <tr><th>Cliente</th><th>Precio/mes</th><th>Fin contrato</th><th>Estado</th></tr>
-        ${clients.map(c=>`<tr>
+        ${clients.filter(isActiveClient).map(c=>`<tr>
           <td style="font-weight:600">${c.name}</td>
           <td style="color:var(--c);font-weight:600">${c.price?c.price+'€':'—'}</td>
           <td>${c.contractEnd?fmtDate(c.contractEnd):'—'}</td>
@@ -2748,11 +2758,27 @@ function openProfile(id){
   activeReelMonth=Object.keys(c.reels||{}).sort().includes(mk)?mk:Object.keys(c.reels||{}).sort()[0]||mk;
   showView('profile');
   document.getElementById('tb-t').textContent=c.name;
-  document.getElementById('top-acts').innerHTML=`
-    <button class="btn btn-s" onclick="openModal('edit-client','${c.id}')"><i class="ti ti-pencil"></i>Editar</button>
-    <button class="btn btn-s" onclick="copyLink('${id}')"><i class="ti ti-link"></i>Link cliente</button>
-    ${isCEO()?`<button class="btn btn-s btn-danger" onclick="delClient('${c.id}')"><i class="ti ti-trash"></i>Eliminar</button>`:''}`;
+  document.getElementById('top-acts').innerHTML=profileTopActsHtml(c);
   renderProfile(c);renderSB();
+}
+function profileTopActsHtml(c){
+  return`
+    <button class="btn btn-s" onclick="openModal('edit-client','${c.id}')"><i class="ti ti-pencil"></i>Editar</button>
+    <button class="btn btn-s" onclick="copyLink('${c.id}')"><i class="ti ti-link"></i>Link cliente</button>
+    ${isCEO()?`<button class="btn btn-s" onclick="toggleClientActive('${c.id}')"><i class="ti ${isActiveClient(c)?'ti-eye-off':'ti-eye'}"></i>${isActiveClient(c)?'Marcar inactivo':'Marcar activo'}</button>`:''}
+    ${isCEO()?`<button class="btn btn-s btn-danger" onclick="delClient('${c.id}')"><i class="ti ti-trash"></i>Eliminar</button>`:''}`;
+}
+function toggleClientActive(id){
+  const c=clients.find(cl=>cl.id===id);if(!c)return;
+  c.active=isActiveClient(c)?false:true;
+  saveClient_doc(c);
+  renderSB();
+  if(activeClient?.id===c.id){
+    document.getElementById('top-acts').innerHTML=profileTopActsHtml(c);
+    renderProfile(c);
+  }
+  if(document.getElementById('view-config')?.classList.contains('on'))renderConfig();
+  showToast(isActiveClient(c)?'Cliente marcado como activo ✓':'Cliente marcado como inactivo ✓','ok');
 }
 function genAccessCode(){return String(Math.floor(100000+Math.random()*900000));}
 function regenAccessCode(id){
@@ -2771,7 +2797,7 @@ function renderProfile(c){
     <div class="prof-hdr">
       <div style="display:flex;align-items:center;gap:14px">
         <div class="prof-av">${ini(c.name)}</div>
-        <div><div class="prof-name">${c.name}</div><div class="prof-type">${c.type}</div></div>
+        <div><div class="prof-name">${c.name}${!isActiveClient(c)?'<span class="badge badge-warn" style="margin-left:8px;font-size:11px;vertical-align:middle">Inactivo</span>':''}</div><div class="prof-type">${c.type}</div></div>
       </div>
     </div>
     <div class="tabs">
@@ -3344,8 +3370,9 @@ async function checkCalendarRecordings(){
   try{
     const todayStr2=today();
     if(localStorage.getItem('calCheckDate')===todayStr2)return; // ya se comprobó hoy
-    const names=clients.map(c=>c.name);
-    const owners=clients.map(c=>c.owner||'');
+    const activeC=clients.filter(isActiveClient);
+    const names=activeC.map(c=>c.name);
+    const owners=activeC.map(c=>c.owner||'');
     if(!names.length)return;
     const resp=await fetch('/api/calendar-check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'grabado',names,owners})});
     localStorage.setItem('calCheckDate',todayStr2);
@@ -3838,7 +3865,7 @@ function openModal(type,extra='',extra2=null){
         <div class="f"><label>Columna</label><select id="nt-col">${boardCols.map(col=>`<option value="${col.id}"${col.id===extra?' selected':''}>${col.name}</option>`).join('')}</select></div>
         <div class="f"><label>Fecha límite</label><input id="nt-date" type="date"></div>
       </div>
-      <div class="f"><label>Cliente (opcional)</label><select id="nt-cl" onchange="ntClientChanged()"><option value="">— Sin cliente —</option>${clients.map(cl=>`<option value="${cl.id}">${cl.name}</option>`).join('')}</select></div>
+      <div class="f"><label>Cliente (opcional)</label><select id="nt-cl" onchange="ntClientChanged()"><option value="">— Sin cliente —</option>${clients.filter(isActiveClient).map(cl=>`<option value="${cl.id}">${cl.name}</option>`).join('')}</select></div>
       <div class="fg2" id="nt-reel-wrap" style="display:none">
         <div class="f"><label>Mes</label><select id="nt-month" onchange="ntMonthChanged()"></select></div>
         <div class="f"><label>Reel</label><select id="nt-reel" onchange="ntUpdateTitlePreview()"></select></div>
@@ -3855,7 +3882,7 @@ function openModal(type,extra='',extra2=null){
       </div>
       <div class="fg2">
         <div class="f"><label>Tipo</label><select id="ev-type"><option value="grab">Grabación</option><option value="del">Entrega</option><option value="meet">Reunión</option></select></div>
-        <div class="f"><label>Cliente</label><select id="ev-cl"><option value="">— General —</option>${clients.map(cl=>`<option>${cl.name}</option>`).join('')}</select></div>
+        <div class="f"><label>Cliente</label><select id="ev-cl"><option value="">— General —</option>${clients.filter(isActiveClient).map(cl=>`<option>${cl.name}</option>`).join('')}</select></div>
       </div>
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveEvent()">Guardar</button></div>`;
   }else if(type==='payment'){
@@ -3900,7 +3927,7 @@ function openModal(type,extra='',extra2=null){
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveGrowth('${extra}')">Guardar</button></div>`;
   }else if(type==='cobro'){
     c.innerHTML=`<div class="modal-t">Añadir cobro</div>
-      <div class="f"><label>Cliente</label><select id="nc-cl"><option value="">— Selecciona —</option>${clients.map(cl=>`<option>${cl.name}</option>`).join('')}</select></div>
+      <div class="f"><label>Cliente</label><select id="nc-cl"><option value="">— Selecciona —</option>${clients.filter(isActiveClient).map(cl=>`<option>${cl.name}</option>`).join('')}</select></div>
       <div class="fg2">
         <div class="f"><label>Concepto</label><select id="nc-conc"><option>Mensualidad</option><option>Pago trimestral</option><option>Pago inicial</option><option>Otros</option></select></div>
         <div class="f"><label>Importe (€)</label><input id="nc-imp" type="number" placeholder="0" min="0"></div>
