@@ -822,7 +822,6 @@ async function loadAll(){
   }catch(e){console.warn('loadAll:',e);}
   render();
   if(CU?.level!=='editor')checkCalendarRecordings();
-  // Check for auto CM tasks daily
   // Auto-refresh every 30 seconds to catch any missed updates
   setInterval(async()=>{
     if(!CU)return;
@@ -835,8 +834,6 @@ async function loadAll(){
       if(activeClient){const u=clients.find(c=>c.id===activeClient.id);if(u){activeClient=u;if(document.getElementById('view-profile')?.classList.contains('on'))renderProfile(u);}}
     }catch(e){}
   },30000);
-  // Check auto tasks for CM
-  setTimeout(checkAutoTasksForCM, 2000);
   // real-time
   if(db){
     try{
@@ -1912,37 +1909,6 @@ function showBoardTaskCreator(t){
   if(!t.createdBy||t.createdBy==='Sistema')return'';
   return`<div style="font-size:10px;color:var(--tx3);margin-top:4px">✍️ ${t.createdBy}${t.movedFrom?` · ← ${t.movedFrom}`:''}</div>`;
 }
-function checkAutoTasksForCM(){
-  const todayStr=today();
-  clients.forEach(c=>{
-    if(!c.cm||!c.pubCal||!isActiveClient(c))return;
-    const mk=monthKey();
-    const pubCalMonth=c.pubCal[mk]||{};
-    const reels=c.reels[mk]||[];
-    reels.forEach(r=>{
-      const pd=pubCalMonth[r.id]||{};
-      // Check trial date
-      if(pd.trial===todayStr&&!pd.trialTaskCreated){
-        createAutoTask(`📤 Trial Instagram — ${r.label} (${c.name})`,c.cm,todayStr,c,{linkedClientId:c.id,linkedReelId:r.id,network:'trial_ig',linkedMonth:mk});
-        pd.trialTaskCreated=true;
-      }
-      // Check pub date
-      if(pd.pub===todayStr&&!pd.pubTaskCreated){
-        const timeStr=pd.pubTime?` a las ${pd.pubTime}`:'';
-        createAutoTask(`📸 Publicar Instagram${timeStr} — ${r.label} (${c.name})`,c.cm,todayStr,c,{linkedClientId:c.id,linkedReelId:r.id,linkedProdStep:'subido',network:'ig',linkedMonth:mk});
-        pd.pubTaskCreated=true;
-      }
-      // Check tiktok
-      if(pd.tiktok===todayStr&&!pd.tiktokTaskCreated){
-        const timeStr=pd.tiktokTime?` a las ${pd.tiktokTime}`:'';
-        createAutoTask(`🎵 Publicar TikTok${timeStr} — ${r.label} (${c.name})`,c.cm,todayStr,c,{linkedClientId:c.id,linkedReelId:r.id,linkedProdStep:'subido',network:'tiktok',linkedMonth:mk});
-        pd.tiktokTaskCreated=true;
-      }
-    });
-  });
-  saveClients();
-}
-
 function createAutoTask(title,cmName,date,client,linked=null){
   // Find the column with the CM's name
   let col=boardCols.find(c=>c.name.toLowerCase()===cmName.toLowerCase());
