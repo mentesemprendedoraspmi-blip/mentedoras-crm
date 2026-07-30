@@ -592,6 +592,7 @@ const FASE0_ITEMS=['Contactado','Respuesta del cliente de querer comenzar','Pedi
 const PROD_STEPS=['Guionización de reels','Guión aprobado por cliente','Grabación agendada','Grabación realizada','Edición completada','OK a modificaciones','Subida a redes'];
 
 const LABELS=[{n:'Urgente',c:'#EF4444',bg:'rgba(239,68,68,.15)'},{n:'Importante',c:'#F59E0B',bg:'rgba(245,158,11,.15)'},{n:'Reel',c:'#00E5E5',bg:'rgba(0,229,229,.15)'},{n:'Guion',c:'#C084FC',bg:'rgba(192,132,252,.15)'},{n:'Edición',c:'#4ADE80',bg:'rgba(74,222,128,.15)'}];
+const COL_COLORS=['#00E5E5','#A855F7','#4ADE80','#F59E0B','#EF4444','#3B82F6','#EC4899','#8FA3B8'];
 
 // ============================================================
 // USERS
@@ -1052,7 +1053,7 @@ function closeWelcome(){
 function getTodayTasks(){
   const col=findColumnByName(CU?.name);
   if(!col)return[];
-  return (col.tasks||[]).filter(t=>t.date===today()&&!t.done).map(t=>({...t,colName:col.name}));
+  return (col.tasks||[]).filter(t=>t.date===today()&&!t.done&&!t.archived).map(t=>({...t,colName:col.name}));
 }
 function showTodayTasksModal(){
   const todayTasks=getTodayTasks();
@@ -1180,7 +1181,7 @@ function showView(name){
   const titles={dash:'Resumen general',pipeline:'Pipeline de contenido',board:'Tablero del equipo',ideas:'Ideas de mejora',clients:'Clientes',cal:'Calendario',publicaciones:'Publicaciones',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
   document.getElementById('tb-ic').className='ti '+(icons[name]||'ti-layout-dashboard');
   document.getElementById('tb-t').textContent=titles[name]||'';
-  const acts={dash:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,profile:'',ideas:`<button class="btn btn-s btn-p" onclick="openModal('idea')"><i class="ti ti-plus"></i>Nueva idea</button>`,clients:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`};
+  const acts={dash:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,profile:'',ideas:`<button class="btn btn-s btn-p" onclick="openModal('idea')"><i class="ti ti-plus"></i>Nueva idea</button>`,clients:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,board:isCMup()?`<button class="btn btn-s" onclick="showArchiveModal()"><i class="ti ti-archive"></i>Archivo</button>`:''};
   document.getElementById('top-acts').innerHTML=acts[name]||'';
   if(name==='dash')renderDash();
   if(name==='board')renderBoard();
@@ -1423,7 +1424,7 @@ let dragTaskColId=null,dragTaskId=null,dragBoardColId=null;
 
 function renderBoard(){
   const boardScrollPos=(document.getElementById('bw-scroll')||{}).scrollLeft||0;
-  const visibleCols=isPMup()?boardCols:boardCols.filter(col=>{
+  const visibleCols=(isPMup()?boardCols:boardCols.filter(col=>{
     const colNameLow=col.name.toLowerCase().trim();
     const myNameLow=(CU?.name||'').toLowerCase().trim();
     const myFirstName=myNameLow.split(' ')[0];
@@ -1440,11 +1441,11 @@ function renderBoard(){
     });
     if(colUser&&(colUser.level==='ceo'||colUser.role==='CEO'))return true;
     return false;
-  });
+  })).filter(col=>!col.archived);
   const bw=document.getElementById('view-board');
   bw.innerHTML=`<div class="bw" id="bw-scroll" style="overflow-x:auto;padding-bottom:8px"><div class="bcols" id="bcols-inner">
     ${visibleCols.map(col=>{
-      const sortedTasks=[...(col.tasks||[])].sort((a,b)=>{if(a.done&&!b.done)return 1;if(!a.done&&b.done)return -1;if(a.date&&b.date)return a.date.localeCompare(b.date);if(a.date&&!b.date)return -1;if(!a.date&&b.date)return 1;return 0;});
+      const sortedTasks=(col.tasks||[]).filter(t=>!t.archived).sort((a,b)=>{if(a.done&&!b.done)return 1;if(!a.done&&b.done)return -1;if(a.date&&b.date)return a.date.localeCompare(b.date);if(a.date&&!b.date)return -1;if(!a.date&&b.date)return 1;return 0;});
       const pend=sortedTasks.filter(t=>!t.done).length;
       return`<div class="bcol" data-col="${col.id}" ${col.isFinal?'style="border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.04)"':''}
         ondragover="boardColDragOver(event,'${col.id}')"
@@ -1466,7 +1467,12 @@ function renderBoard(){
                 <div class="dm-item" onclick="sortCol('${col.id}','date')"><i class="ti ti-sort-ascending"></i>Ordenar por fecha</div>
                 <div class="dm-item" onclick="sortCol('${col.id}','name')"><i class="ti ti-sort-ascending-letters"></i>Ordenar por nombre</div>
                 <div class="dm-item" onclick="setFinalCol('${col.id}')"><i class="ti ti-${col.isFinal?'star-filled':'star'}" style="color:${col.isFinal?'var(--warn)':''}"></i>${col.isFinal?'✅ Columna Finalizado':'⭐ Marcar como Finalizado'}</div>
+                <div style="display:flex;gap:5px;padding:8px 10px" onclick="event.stopPropagation()">
+                  ${COL_COLORS.map(cl=>`<div onclick="setColColor('${col.id}','${cl}')" style="width:16px;height:16px;border-radius:50%;background:${cl};cursor:pointer;flex-shrink:0;box-shadow:${col.color===cl?'0 0 0 2px var(--bg2),0 0 0 3px '+cl:'none'}"></div>`).join('')}
+                </div>
                 <div class="dm-item" onclick="clearColTasks('${col.id}')"><i class="ti ti-trash"></i>Vaciar columna</div>
+                <div class="dm-item" onclick="archiveAllCardsInColumn('${col.id}')"><i class="ti ti-archive"></i>Archivar tarjetas de esta lista</div>
+                <div class="dm-item" onclick="archiveColumn('${col.id}')"><i class="ti ti-archive"></i>Archivar lista</div>
                 <div class="dm-item danger" onclick="deleteCol('${col.id}')"><i class="ti ti-trash"></i>Eliminar columna</div>
               </div>
             </div>`:''}
@@ -1710,6 +1716,72 @@ async function col_delete(colId){
   boardCols=boardCols.filter(c=>c.id!==colId);
   renderBoard();saveIndex();showToast('Columna eliminada ✓','ok');
 }
+function setColColor(colId,color){
+  const col=boardCols.find(c=>c.id===colId);if(!col)return;
+  col.color=color;saveIndex();renderBoard();
+}
+function archiveColumn(colId){
+  const col=boardCols.find(c=>c.id===colId);if(!col)return;
+  const mc=document.getElementById('modal-c');
+  mc.innerHTML=`<div class="modal-t">¿Archivar "${col.name}"?</div>
+    <p style="font-size:13px;color:var(--tx2);margin-bottom:16px">La lista dejará de aparecer en el tablero, pero no se borra nada — puedes recuperarla desde "Archivo".</p>
+    <div class="modal-acts">
+      <button class="btn btn-s" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-s btn-p" onclick="closeModal();col_archive('${colId}')">Archivar</button>
+    </div>`;
+  document.getElementById('mo').classList.add('open');
+}
+function col_archive(colId){
+  const col=boardCols.find(c=>c.id===colId);if(!col)return;
+  col.archived=true;saveIndex();renderBoard();showToast(`🗄️ "${col.name}" archivada`,'ok');
+}
+function archiveAllCardsInColumn(colId){
+  const col=boardCols.find(c=>c.id===colId);if(!col)return;
+  const mc=document.getElementById('modal-c');
+  mc.innerHTML=`<div class="modal-t">¿Archivar las tarjetas de "${col.name}"?</div>
+    <p style="font-size:13px;color:var(--tx2);margin-bottom:16px">Las tarjetas actuales dejarán de verse en la lista, pero no se borran — puedes recuperarlas desde "Archivo". La lista se queda para nuevas tarjetas.</p>
+    <div class="modal-acts">
+      <button class="btn btn-s" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-s btn-p" onclick="closeModal();col_archiveTasks('${colId}')">Archivar tarjetas</button>
+    </div>`;
+  document.getElementById('mo').classList.add('open');
+}
+function col_archiveTasks(colId){
+  const col=boardCols.find(c=>c.id===colId);if(!col)return;
+  let count=0;
+  (col.tasks||[]).forEach(t=>{if(!t.archived){t.archived=true;count++;saveBoardTask(t,colId);}});
+  renderBoard();showToast(`🗄️ ${count} tarjeta${count===1?'':'s'} archivada${count===1?'':'s'}`,'ok');
+}
+function showArchiveModal(){
+  const archivedCols=boardCols.filter(c=>c.archived);
+  const archivedTasks=[];
+  boardCols.forEach(col=>{(col.tasks||[]).forEach(t=>{if(t.archived)archivedTasks.push({...t,colId:col.id,colName:col.name});});});
+  const mc=document.getElementById('modal-c');
+  mc.innerHTML=`<div class="modal-t">🗄️ Archivo</div>
+    <div style="font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Listas archivadas (${archivedCols.length})</div>
+    ${archivedCols.length?archivedCols.map(c=>`
+      <div class="pf">
+        <span class="pf-l">${c.name}</span>
+        <button class="btn btn-s btn-p" onclick="restoreColumn('${c.id}')"><i class="ti ti-archive-off"></i>Restaurar</button>
+      </div>`).join(''):`<div style="font-size:12px;color:var(--tx3);margin-bottom:10px">No hay listas archivadas.</div>`}
+    <div style="font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 6px">Tarjetas archivadas (${archivedTasks.length})</div>
+    ${archivedTasks.length?archivedTasks.map(t=>`
+      <div class="pf">
+        <span class="pf-l" style="flex:1">${t.title}<div style="font-size:10px;color:var(--tx3)">${t.colName}</div></span>
+        <button class="btn btn-s btn-p" onclick="restoreTask('${t.colId}','${t.id}')"><i class="ti ti-archive-off"></i>Restaurar</button>
+      </div>`).join(''):`<div style="font-size:12px;color:var(--tx3)">No hay tarjetas archivadas.</div>`}
+    <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cerrar</button></div>`;
+  document.getElementById('mo').classList.add('open');
+}
+function restoreColumn(colId){
+  const col=boardCols.find(c=>c.id===colId);if(!col)return;
+  col.archived=false;saveIndex();renderBoard();showArchiveModal();showToast(`"${col.name}" restaurada ✓`,'ok');
+}
+function restoreTask(colId,taskId){
+  const col=boardCols.find(c=>c.id===colId);if(!col)return;
+  const t=col.tasks.find(tt=>String(tt.id)===String(taskId));if(!t)return;
+  t.archived=false;saveBoardTask(t,colId);renderBoard();showArchiveModal();showToast('Tarjeta restaurada ✓','ok');
+}
 function addBoardCol(){
   const name=prompt('Nombre de la nueva columna:');
   if(!name)return;
@@ -1942,12 +2014,13 @@ function showBoardTaskCreator(t){
 }
 function findColumnByName(name){
   if(!name)return null;
+  const cols=boardCols.filter(c=>!c.archived);
   // Exact match first
-  let col=boardCols.find(c=>c.name.toLowerCase()===name.toLowerCase());
+  let col=cols.find(c=>c.name.toLowerCase()===name.toLowerCase());
   // If not found by exact match, try partial (ej. "adrian" -> columna "Adri")
-  if(!col)col=boardCols.find(c=>c.name.toLowerCase().includes(name.toLowerCase())||name.toLowerCase().includes(c.name.toLowerCase()));
+  if(!col)col=cols.find(c=>c.name.toLowerCase().includes(name.toLowerCase())||name.toLowerCase().includes(c.name.toLowerCase()));
   // Última opción: comparar solo el primer nombre (ej. "Marina López" -> columna "Marina")
-  if(!col)col=boardCols.find(c=>c.name.trim().toLowerCase().split(/\s+/)[0]===name.trim().toLowerCase().split(/\s+/)[0]);
+  if(!col)col=cols.find(c=>c.name.trim().toLowerCase().split(/\s+/)[0]===name.trim().toLowerCase().split(/\s+/)[0]);
   return col||null;
 }
 function createAutoTask(title,cmName,date,client,linked=null){
@@ -2075,8 +2148,8 @@ async function toggleCheck(colId,taskId,i){
 }
 function renderBoardBadge(){
   const me=CU?.name;
-  const myCol=boardCols.find(c=>c.name===me);
-  const count=myCol?myCol.tasks.filter(t=>!t.done).length:boardCols.reduce((s,c)=>s+c.tasks.filter(t=>!t.done).length,0);
+  const myCol=boardCols.find(c=>c.name===me&&!c.archived);
+  const count=myCol?myCol.tasks.filter(t=>!t.done&&!t.archived).length:boardCols.filter(c=>!c.archived).reduce((s,c)=>s+c.tasks.filter(t=>!t.done&&!t.archived).length,0);
   const el=document.getElementById('bbadge');if(el)el.textContent=count;
 }
 function createPortalAutoTask(title){
@@ -2112,9 +2185,9 @@ function renderPublicaciones(){
   // existiera ese campo) para que el histórico ya en el tablero cuente desde ya.
   const last={};
   const bumpLast=(cid,net,d)=>{if(!cid||!net||!d)return;if(!last[cid])last[cid]={};if(!last[cid][net]||d>last[cid][net])last[cid][net]=d;};
-  boardCols.forEach(col=>{
+  boardCols.filter(col=>!col.archived).forEach(col=>{
     (col.tasks||[]).forEach(t=>{
-      if(!t.done)return;
+      if(!t.done||t.archived)return;
       const net=t.network||inferNetworkFromTitle(t.title);
       if(!net)return;
       const d=t.doneAt||t.date;
