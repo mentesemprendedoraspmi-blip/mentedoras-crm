@@ -1050,10 +1050,9 @@ function closeWelcome(){
   showTodayTasksModal();
 }
 function getTodayTasks(){
-  const myColName=CU?.name||'';
-  return boardCols
-    .filter(col=>isCEO()||col.name.toLowerCase()===myColName.toLowerCase())
-    .flatMap(col=>(col.tasks||[]).filter(t=>t.date===today()&&!t.done).map(t=>({...t,colName:col.name})));
+  const col=findColumnByName(CU?.name);
+  if(!col)return[];
+  return (col.tasks||[]).filter(t=>t.date===today()&&!t.done).map(t=>({...t,colName:col.name}));
 }
 function showTodayTasksModal(){
   const todayTasks=getTodayTasks();
@@ -1941,14 +1940,19 @@ function showBoardTaskCreator(t){
   if(!t.createdBy||t.createdBy==='Sistema')return'';
   return`<div style="font-size:10px;color:var(--tx3);margin-top:4px">✍️ ${t.createdBy}${t.movedFrom?` · ← ${t.movedFrom}`:''}</div>`;
 }
-function createAutoTask(title,cmName,date,client,linked=null){
-  // Find the column with the CM's name
-  let col=boardCols.find(c=>c.name.toLowerCase()===cmName.toLowerCase());
-  // If not found by exact match, try partial
-  if(!col)col=boardCols.find(c=>c.name.toLowerCase().includes(cmName.toLowerCase()));
+function findColumnByName(name){
+  if(!name)return null;
+  // Exact match first
+  let col=boardCols.find(c=>c.name.toLowerCase()===name.toLowerCase());
+  // If not found by exact match, try partial (ej. "adrian" -> columna "Adri")
+  if(!col)col=boardCols.find(c=>c.name.toLowerCase().includes(name.toLowerCase())||name.toLowerCase().includes(c.name.toLowerCase()));
   // Última opción: comparar solo el primer nombre (ej. "Marina López" -> columna "Marina")
-  if(!col)col=boardCols.find(c=>c.name.trim().toLowerCase().split(/\s+/)[0]===cmName.trim().toLowerCase().split(/\s+/)[0]);
-  // If still not found, don't create - we don't want it in random columns
+  if(!col)col=boardCols.find(c=>c.name.trim().toLowerCase().split(/\s+/)[0]===name.trim().toLowerCase().split(/\s+/)[0]);
+  return col||null;
+}
+function createAutoTask(title,cmName,date,client,linked=null){
+  const col=findColumnByName(cmName);
+  // If not found, don't create - we don't want it in random columns
   if(!col)return null;
   // Avoid duplicates
   if(col.tasks.some(t=>t.title===title&&t.date===date))return null;
