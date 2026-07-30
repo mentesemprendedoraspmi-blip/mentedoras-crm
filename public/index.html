@@ -515,6 +515,18 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
   </div>
 </div>
 
+<!-- TODAY TASKS SUMMARY -->
+<div class="welcome-overlay" id="today-modal">
+  <div class="welcome-box" style="max-width:380px;text-align:left">
+    <div style="text-align:center">
+      <div class="welcome-emoji">📋</div>
+      <div class="welcome-title" id="today-title">Para hoy</div>
+    </div>
+    <div id="today-list" style="margin:14px 0;max-height:280px;overflow-y:auto"></div>
+    <button onclick="closeTodayModal()" style="width:100%;padding:10px 28px;background:var(--c);color:var(--bg);border:none;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer">Vale, entendido ✓</button>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // DATA
@@ -1018,13 +1030,13 @@ function showApp(){
   const dow=new Date().getDay(); // 0=Dom, 1=Lun, 2=Mar, 3=Mié, 4=Jue, 5=Vie, 6=Sáb
   const g=h<13?'¡Buenos días':h<20?'¡Buenas tardes':'¡Buenas noches';
   const dayMsgs={
-    0:['¡Domingo de descanso! 😴','Recarga pilas que mañana toca','El equipo descansa, la energía se acumula 🔋'],
-    1:['¡Semana nueva, energía nueva! 💪','¡A por todas esta semana!','Lunes de arranque 🚀'],
-    2:['¡Martes en marcha! 🎯','El ritmo ya está cogido 🔥','Segundo día, segundo piso 📈'],
-    3:['¡Mitad de semana! 🏁','Ya vamos a la bajada 📉','Miércoles, el ecuador 🌍'],
-    4:['¡Ya queda menos! 🙌','Mañana es viernes, aguanta 💪','Jueves — la meta se acerca 🎯'],
-    5:['¡Es VIERNES! 🎉','¡Que ya se acaba la semana! 🥳','¡Último empujón y a descansar! 🚀','¡Viernes! El mejor día de la semana 🔥'],
-    6:['¡Sábado! Si estás aquí, eres de los buenos 🏆','Trabajando en sábado — eso se llama compromiso 💎','¡Sábado de crack! 🔥']
+    0:['¡Domingo de descanso! 😴','Recarga pilas que mañana toca','El equipo descansa, la energía se acumula 🔋','Un vistazo rápido y a disfrutar del domingo 🌤️'],
+    1:['¡Semana nueva, energía nueva! 💪','¡A por todas esta semana!','Lunes de arranque 🚀','Nuevo lunes, nuevas oportunidades ✨'],
+    2:['¡Martes en marcha! 🎯','El ritmo ya está cogido 🔥','Segundo día, segundo piso 📈','Martes con todo 💥'],
+    3:['¡Mitad de semana! 🏁','Ya vamos a la bajada 📉','Miércoles, el ecuador 🌍','A mitad de camino, sigue así 🙌'],
+    4:['¡Ya queda menos! 🙌','Mañana es viernes, aguanta 💪','Jueves — la meta se acerca 🎯','Un empujón más y llega el finde 🏃'],
+    5:['¡Es VIERNES! 🎉','¡Que ya se acaba la semana! 🥳','¡Último empujón y a descansar! 🚀','¡Viernes! El mejor día de la semana 🔥','Cierra la semana a lo grande ✨'],
+    6:['¡Sábado! Si estás aquí, eres de los buenos 🏆','Trabajando en sábado — eso se llama compromiso 💎','¡Sábado de crack! 🔥','Sábado productivo, qué crack 🌟']
   };
   const msgs=dayMsgs[dow]||['¡A por ello!'];
   const subMsg=msgs[Math.floor(Math.random()*msgs.length)];
@@ -1033,7 +1045,30 @@ function showApp(){
   document.getElementById('w-sub').textContent=subMsg;
   document.getElementById('welcome').classList.add('open');
 }
-function closeWelcome(){document.getElementById('welcome').classList.remove('open');}
+function closeWelcome(){
+  document.getElementById('welcome').classList.remove('open');
+  showTodayTasksModal();
+}
+function getTodayTasks(){
+  const myColName=CU?.name||'';
+  return boardCols
+    .filter(col=>isCEO()||col.name.toLowerCase()===myColName.toLowerCase())
+    .flatMap(col=>(col.tasks||[]).filter(t=>t.date===today()&&!t.done).map(t=>({...t,colName:col.name})));
+}
+function showTodayTasksModal(){
+  const todayTasks=getTodayTasks();
+  if(!todayTasks.length)return;
+  document.getElementById('today-title').textContent=`${todayTasks.length} tarea${todayTasks.length>1?'s':''} para hoy`;
+  document.getElementById('today-list').innerHTML=todayTasks.map(t=>`
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:8px 0;border-bottom:1px solid var(--bd)">
+      <span style="flex:1">${t.title}</span>
+      ${t.client?`<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:var(--cdim);color:var(--c);flex-shrink:0">${t.client}</span>`:''}
+    </div>`).join('');
+  document.getElementById('today-modal').classList.add('open');
+}
+function closeTodayModal(){
+  document.getElementById('today-modal').classList.remove('open');
+}
 
 // ============================================================
 // SIDEBAR NAV
@@ -1188,10 +1223,7 @@ function renderDash(){
 
   html+=`<div id="dash-notifs"></div>`;
   // Today's tasks - only show tasks from user's own column
-  const myColName=CU?.name||'';
-  const todayTasks=boardCols
-    .filter(col=>isCEO()||col.name.toLowerCase()===myColName.toLowerCase())
-    .flatMap(col=>(col.tasks||[]).filter(t=>t.date===today()&&!t.done).map(t=>({...t,colName:col.name})));
+  const todayTasks=getTodayTasks();
   if(todayTasks.length){
     html+=`<div style="background:rgba(var(--c-rgb,0,229,229),.08);border:1px solid rgba(var(--c-rgb,0,229,229),.2);border-radius:var(--r);padding:12px 14px;margin-bottom:14px">
       <div style="font-weight:600;font-size:13px;margin-bottom:8px">📋 ${todayTasks.length} tarea${todayTasks.length>1?'s':''} para hoy</div>
@@ -2650,7 +2682,24 @@ function renderConfig(){
       <div class="f"><label>Nombre de la agencia</label><input id="cfg-name" value="${appConfig.agencyName}"></div>
       <div class="f"><label>Tagline</label><input id="cfg-tag" value="${appConfig.agencyTagline}" placeholder="ej. Agencia de Contenido"></div>
       <button class="btn btn-s btn-p" onclick="saveConfigData()"><i class="ti ti-check"></i>Guardar</button>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="card-t"><i class="ti ti-trash"></i>Limpieza de tareas automáticas obsoletas</div>
+      <div style="font-size:12px;color:var(--tx3);margin-bottom:14px">Elimina las tareas "Trial Instagram / Publicar Instagram / Publicar TikTok" que creaba la automatización antigua del calendario (ya desactivada), incluidas las que no correspondían a redes activas del cliente.</div>
+      <button class="btn btn-s btn-danger" onclick="limpiarTareasSistemaObsoletas()"><i class="ti ti-trash"></i>Limpiar tareas obsoletas</button>
     </div>`;
+}
+function limpiarTareasSistemaObsoletas(){
+  if(!confirm('¿Eliminar las tareas antiguas creadas automáticamente por el calendario (Trial Instagram / Publicar Instagram / Publicar TikTok)? Esta acción no se puede deshacer.'))return;
+  const pattern=/^(📤 Trial Instagram — |📸 Publicar Instagram|🎵 Publicar TikTok)/;
+  let count=0;
+  boardCols.forEach(col=>{
+    const toRemove=(col.tasks||[]).filter(t=>t.createdBy==='Sistema'&&t.autoTask&&pattern.test(t.title));
+    toRemove.forEach(t=>{deleteBoardTask(t.id);count++;});
+    col.tasks=(col.tasks||[]).filter(t=>!toRemove.includes(t));
+  });
+  renderBoard();renderBoardBadge();
+  showToast(count?`🧹 ${count} tarea${count>1?'s':''} obsoleta${count>1?'s':''} eliminada${count>1?'s':''}`:'No había tareas obsoletas que limpiar','ok');
 }
 async function saveConfigData(){
   appConfig.whatsappAdri=document.getElementById('cfg-w1')?.value.trim()||'';
@@ -4639,6 +4688,7 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch
 })();
 document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&document.getElementById('lp')&&document.getElementById('lp').style.display!=='none')doLogin();
+  if(e.key==='Enter'&&document.getElementById('welcome')?.classList.contains('open'))closeWelcome();
 });
 </script>
 </body>
