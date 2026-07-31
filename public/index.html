@@ -833,6 +833,8 @@ async function loadAll(){
     const sp=await fbGet('crm','payments');
     if(sp){if(sp.list)paymentsList=sp.list;if(sp.cobros)cobrosList=sp.cobros;}
   }catch(e){console.warn('loadAll:',e);}
+  boardDataLoaded=true;
+  maybeShowTodayTasksModal();
   render();
   if(CU?.level!=='editor')checkCalendarRecordings();
   // Auto-refresh every 30 seconds to catch any missed updates
@@ -1046,9 +1048,18 @@ function showApp(){
   document.getElementById('w-sub').textContent=subMsg;
   document.getElementById('welcome').classList.add('open');
 }
+let welcomeClosed=false;
+let boardDataLoaded=false;
 function closeWelcome(){
   document.getElementById('welcome').classList.remove('open');
-  showTodayTasksModal();
+  welcomeClosed=true;
+  maybeShowTodayTasksModal();
+}
+function maybeShowTodayTasksModal(){
+  // Espera a que el tablero real haya cargado de Firestore antes de comprobar
+  // las tareas de hoy — si no, boardCols aún tiene el esqueleto vacío inicial
+  // y el resumen sale siempre en blanco aunque sí haya tareas para hoy.
+  if(welcomeClosed&&boardDataLoaded)showTodayTasksModal();
 }
 function getTodayTasks(){
   const col=findColumnByName(CU?.name);
