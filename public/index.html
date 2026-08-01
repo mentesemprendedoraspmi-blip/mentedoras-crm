@@ -1860,7 +1860,7 @@ function openTaskDetail(colId,taskId){
   const curType=taskCurrentType(t);
   const tdC=clients.find(cl=>cl.name===t.client);
   const tdMonth=t.linkedMonth||monthKey();
-  const tdMonths=Object.keys(tdC?.reels||{}).sort();
+  const tdMonths=allMonthsThisYear();
   const tdReels=(tdC?.reels||{})[tdMonth]||[];
   const mc=document.getElementById('modal-c');
   mc.style.maxWidth='560px';
@@ -4174,6 +4174,10 @@ function ntTypeChanged(){
   chipEl.innerHTML=meta?`<span style="display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;background:linear-gradient(135deg,${meta.bg},transparent);color:${meta.c};margin:-8px 0 10px">${meta.label}</span>`:'';
   if(isTyped)ntClientChanged();else ntUpdateTitlePreview();
 }
+function allMonthsThisYear(){
+  const year=new Date().getFullYear();
+  return Array.from({length:12},(_,i)=>year+'-'+String(i+1).padStart(2,'0'));
+}
 function ntClientChanged(){
   const type=document.getElementById('nt-type').value;
   const monthSel=document.getElementById('nt-month');
@@ -4181,9 +4185,9 @@ function ntClientChanged(){
   if(type==='normal'){reelSel.innerHTML='';monthSel.innerHTML='';return;}
   const clientId=document.getElementById('nt-cl').value;
   const c=clients.find(cl=>cl.id===clientId);
-  const months=Object.keys(c?.reels||{}).sort();
+  const months=allMonthsThisYear();
   const curMk=monthKey();
-  monthSel.innerHTML=months.length?months.map(mk=>`<option value="${mk}"${mk===curMk?' selected':''}>${monthLabel(mk)}</option>`).join(''):`<option value="">— Sin meses —</option>`;
+  monthSel.innerHTML=months.map(mk=>`<option value="${mk}"${mk===curMk?' selected':''}>${monthLabel(mk)}</option>`).join('');
   ntMonthChanged();
 }
 function ntMonthChanged(){
@@ -4223,9 +4227,9 @@ function tdClientChanged(colId,taskId){
   if(type==='normal'){reelSel.innerHTML='';monthSel.innerHTML='';return;}
   const clientName=document.getElementById('td-cl').value;
   const c=clients.find(cl=>cl.name===clientName);
-  const months=Object.keys(c?.reels||{}).sort();
+  const months=allMonthsThisYear();
   const curMk=monthKey();
-  monthSel.innerHTML=months.length?months.map(mk=>`<option value="${mk}"${mk===curMk?' selected':''}>${monthLabel(mk)}</option>`).join(''):`<option value="">— Sin meses —</option>`;
+  monthSel.innerHTML=months.map(mk=>`<option value="${mk}"${mk===curMk?' selected':''}>${monthLabel(mk)}</option>`).join('');
   tdMonthChanged(colId,taskId);
 }
 function tdMonthChanged(colId,taskId){
