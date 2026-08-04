@@ -593,6 +593,8 @@ const PROD_STEPS=['Guionización de reels','Guión aprobado por cliente','Grabac
 
 const LABELS=[{n:'Urgente',c:'#EF4444',bg:'rgba(239,68,68,.15)'},{n:'Importante',c:'#F59E0B',bg:'rgba(245,158,11,.15)'},{n:'Reel',c:'#00E5E5',bg:'rgba(0,229,229,.15)'},{n:'Guion',c:'#C084FC',bg:'rgba(192,132,252,.15)'},{n:'Edición',c:'#4ADE80',bg:'rgba(74,222,128,.15)'}];
 const COL_COLORS=['#00E5E5','#A855F7','#4ADE80','#F59E0B','#EF4444','#3B82F6','#EC4899','#8FA3B8'];
+const OWNER_COLORS={Adri:'#00E5E5',Alan:'#A855F7'};
+function ownerColor(name){return OWNER_COLORS[name]||'#8FA3B8';}
 
 // ============================================================
 // USERS
@@ -1122,11 +1124,12 @@ function renderClientsView(){
         const reelsToday=Object.values(pubCal).some(pd=>pd.pub===today2||pd.trial===today2||pd.tiktok===today2);
         const reels=c.reels[mk]||[];
         const pendingEnvio=reels.some(r=>r.grabado&&!r.enviado&&!r.editado);
-        return`<div class="cli-card" onclick="openProfile('${c.id}')">
+        return`<div class="cli-card" style="${c.accountOwner?`border-left:3px solid ${ownerColor(c.accountOwner)}`:''}" onclick="openProfile('${c.id}')">
           <div class="cli-av">${ini(c.name)}</div>
           <div class="cli-info">
             <div class="cli-name">${c.name}</div>
             <div class="cli-type">${c.type||''}</div>
+            ${c.accountOwner?`<div style="font-size:9px;color:${ownerColor(c.accountOwner)};display:flex;align-items:center;gap:3px;margin-top:2px"><span style="width:6px;height:6px;border-radius:50%;background:${ownerColor(c.accountOwner)};flex-shrink:0"></span>${c.accountOwner}</div>`:''}
           </div>
           <div style="display:flex;gap:4px;margin-left:auto;flex-shrink:0">
             ${reelsToday?'<div style="width:8px;height:8px;border-radius:50%;background:#E1306C" title="Publicación hoy"></div>':''}
@@ -2337,8 +2340,10 @@ function openPubClientDetail(clientId){
 // ============================================================
 // CALENDAR
 // ============================================================
-// Clientes con contenido activo (los que tienen CM asignado)
-function calContentClients(){return clients.filter(c=>c.cm&&isActiveClient(c));}
+// Clientes con contenido activo: los que tienen CM asignado, más los que no
+// tienen CM pero se han marcado a mano para verlos igualmente en el Calendario
+// interno (togglePubCalVisibility, desde la pestaña "Cal. Publicación").
+function calContentClients(){return clients.filter(c=>(c.cm||c.pubCalVisible)&&isActiveClient(c));}
 // Carga (una vez por sesión, o al forzar) los eventos de Google Calendar que coinciden
 // con algún cliente (por nombre de negocio o de dueño). No expone eventos personales.
 async function loadGCalEvents(force){
@@ -3001,11 +3006,18 @@ function renderProfile(c){
                 ${editorNames.map(e=>`<div onclick="toggleEditor('${c.id}','${e}')" style="padding:5px 12px;border-radius:20px;border:1px solid ${(c.editors||[]).includes(e)?'var(--c)':'var(--bd2)'};background:${(c.editors||[]).includes(e)?'var(--cdim)':'transparent'};color:${(c.editors||[]).includes(e)?'var(--c)':'var(--tx3)'};font-size:12px;cursor:pointer;transition:all .15s">${e}</div>`).join('')}
               </div>
             </div>
-            <div>
+            <div style="margin-bottom:8px">
               <div style="font-size:11px;color:var(--tx3);margin-bottom:6px">CM</div>
               <select style="font-size:12px;padding:6px 10px;width:100%" onchange="updateClientField('${c.id}','cm',this.value);saveClient_doc(c);showToast('CM actualizado ✓','ok')">
                 <option value="">— Sin CM —</option>
                 ${Object.values(USERS).filter(u=>u.level==='cm'||u.role==='CM').map(u=>`<option${c.cm===u.name?' selected':''}>${u.name}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--tx3);margin-bottom:6px">RESPONSABLE DE CUENTA</div>
+              <select style="font-size:12px;padding:6px 10px;width:100%" onchange="updateClientField('${c.id}','accountOwner',this.value);saveClient_doc(c);renderProfile(c);showToast('Responsable actualizado ✓','ok')">
+                <option value="">— Sin responsable —</option>
+                ${Object.values(USERS).filter(u=>u.level==='ceo'||u.role==='CEO').map(u=>`<option${c.accountOwner===u.name?' selected':''}>${u.name}</option>`).join('')}
               </select>
             </div>
           </div>
@@ -3671,7 +3683,10 @@ function renderPubCalTab(c){
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${months.map(m=>`<button class="mbtn${m===selMonth?' on':''}" onclick="switchPubCalMonth('${c.id}','${m}')">${monthLabel(m)}</button>`).join('')}
     </div>
-    <button class="btn btn-s btn-p" onclick="generatePubCal('${c.id}','${selMonth}')"><i class="ti ti-wand"></i>Generar automático</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${!c.cm?`<button class="btn btn-s${c.pubCalVisible?' btn-p':''}" onclick="togglePubCalVisibility('${c.id}')" title="Este cliente no tiene CM asignado, así que por defecto no aparece en nuestro Calendario interno — actívalo aquí si igual queréis llevarle un control"><i class="ti ti-calendar-${c.pubCalVisible?'check':'plus'}"></i>${c.pubCalVisible?'En nuestro calendario':'Mostrar en nuestro calendario'}</button>`:''}
+      <button class="btn btn-s btn-p" onclick="generatePubCal('${c.id}','${selMonth}')"><i class="ti ti-wand"></i>Generar automático</button>
+    </div>
   </div>`;
 
   // Calendar grid
@@ -3801,6 +3816,13 @@ function switchPubCalMonth(cid,mk){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   c.pubCalMonth=mk;
   document.getElementById('tc-pubcal').innerHTML=renderPubCalTab(c);
+}
+function togglePubCalVisibility(cid){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  c.pubCalVisible=!c.pubCalVisible;
+  saveClient_doc(c);
+  document.getElementById('tc-pubcal').innerHTML=renderPubCalTab(c);
+  showToast(c.pubCalVisible?`📅 "${c.name}" ahora aparece en el Calendario interno`:`"${c.name}" ya no aparece en el Calendario interno`,'ok');
 }
 function addMetricSnapshot(cid){
   const mc=document.getElementById('modal-c');
