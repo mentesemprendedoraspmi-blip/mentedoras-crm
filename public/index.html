@@ -3631,14 +3631,6 @@ function renderPubCalTab(c){
   const mk=monthKey();
   const months=Object.keys(c.reels||{}).sort();
   const selMonth=c.pubCalMonth||mk;
-  const reels=c.reels[selMonth]||[];
-  const pubCal=c.pubCal||{};
-  const nets=c.socialNets||['instagram'];
-  const hasIG=nets.includes('instagram');
-  const hasTT=nets.includes('tiktok');
-  const hasYT=nets.includes('youtube');
-  const peakHours=c.peakHours||{L:'18:00',M:'18:00',X:'18:00',J:'18:00',V:'19:00',S:'12:00',D:'12:00'};
-  const days=['L','M','X','J','V','S','D'];
 
   // Month selector + generate button
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
@@ -3653,53 +3645,6 @@ function renderPubCalTab(c){
 
   html+=clientCalGridHtml(c,selMonth);
 
-  // Calendar grid
-  if(!reels.length){
-    html+=`<div style="text-align:center;padding:20px;color:var(--tx3)">Sin reels para ${monthLabel(selMonth)}</div>`;
-  } else {
-    html+=`<div class="card">
-      <div class="card-t"><i class="ti ti-calendar"></i>Fechas de publicación — ${monthLabel(selMonth)}</div>
-      <table style="width:100%;font-size:12px;border-collapse:collapse">
-        <tr style="font-size:11px;color:var(--tx3)">
-          <th style="text-align:left;padding:6px;font-weight:500">Reel</th>
-          ${hasIG?`<th style="text-align:left;padding:6px;font-weight:500">📤 Trial IG</th><th style="text-align:left;padding:6px;font-weight:500">📸 Pub. IG</th>`:''}
-          ${hasTT?`<th style="text-align:left;padding:6px;font-weight:500">🎵 TikTok</th>`:''}
-          ${hasYT?`<th style="text-align:left;padding:6px;font-weight:500">📺 YouTube</th>`:''}
-        </tr>
-        ${reels.map((r,i)=>`<tr style="border-top:1px solid var(--bd)">
-          <td style="padding:6px;font-weight:500">${r.label}</td>
-          ${hasIG?`
-          <td style="padding:6px">
-            <div style="display:flex;align-items:center;gap:4px">
-              <input type="date" value="${pubCal[selMonth]?.[r.id]?.trial||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','trial',this.value)">
-              <div class="chk${pubCal[selMonth]?.[r.id]?.trialDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','trialDone')" ontouchend="event.preventDefault();togglePubDone('${c.id}','${selMonth}','${r.id}','trialDone')"></div>
-            </div>
-          </td>
-          <td style="padding:6px">
-            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-              <input type="date" value="${pubCal[selMonth]?.[r.id]?.pub||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','pub',this.value)">
-              ${pubCal[selMonth]?.[r.id]?.pubTime?`<span style="font-size:11px;color:var(--c);font-weight:600">⏰ ${pubCal[selMonth][r.id].pubTime}</span>`:''}
-              <div class="chk${pubCal[selMonth]?.[r.id]?.pubDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','pubDone')" ontouchend="event.preventDefault();togglePubDone('${c.id}','${selMonth}','${r.id}','pubDone')"></div>
-            </div>
-          </td>`:''}
-          ${hasTT?`<td style="padding:6px">
-            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-              <input type="date" value="${pubCal[selMonth]?.[r.id]?.tiktok||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','tiktok',this.value)">
-              ${pubCal[selMonth]?.[r.id]?.tiktokTime?`<span style="font-size:11px;color:#69C9D0;font-weight:600">⏰ ${pubCal[selMonth][r.id].tiktokTime}</span>`:''}
-              <div class="chk${pubCal[selMonth]?.[r.id]?.tiktokDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','tiktokDone')" ontouchend="event.preventDefault();togglePubDone('${c.id}','${selMonth}','${r.id}','tiktokDone')"></div>
-            </div>
-          </td>`:''}
-          ${hasYT?`<td style="padding:6px">
-            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-              <input type="date" value="${pubCal[selMonth]?.[r.id]?.youtube||''}" style="font-size:11px;padding:3px 4px" onchange="savePubDate('${c.id}','${selMonth}','${r.id}','youtube',this.value)">
-              ${pubCal[selMonth]?.[r.id]?.youtubeTime?`<span style="font-size:11px;color:#FF0000;font-weight:600">⏰ ${pubCal[selMonth][r.id].youtubeTime}</span>`:''}
-              <div class="chk${pubCal[selMonth]?.[r.id]?.youtubeDone?' on':''}" style="width:16px;height:16px;border-radius:4px;flex-shrink:0" onclick="togglePubDone('${c.id}','${selMonth}','${r.id}','youtubeDone')" ontouchend="event.preventDefault();togglePubDone('${c.id}','${selMonth}','${r.id}','youtubeDone')"></div>
-            </div>
-          </td>`:''}
-        </tr>`).join('')}
-      </table>
-    </div>`;
-  }
   return html;
 }
 
@@ -3743,37 +3688,6 @@ function generatePubCal(cid,mk){
     if(nets.includes('youtube')){c.pubCal[mk][r.id].youtube=pubDateStr;c.pubCal[mk][r.id].youtubeTime=pubTime;}
   });
   saveClient_doc(c);switchPubCalMonth(cid,mk);showToast('Calendario generado ✓','ok');
-}
-
-async function savePubDate(cid,mk,rid,field,val){
-  const c=clients.find(c=>c.id===cid);if(!c)return;
-  if(!c.pubCal)c.pubCal={};
-  if(!c.pubCal[mk])c.pubCal[mk]={};
-  if(!c.pubCal[mk][rid])c.pubCal[mk][rid]={};
-  c.pubCal[mk][rid][field]=val;
-  // Auto-fill pub date 2 days after trial
-  if(field==='trial'&&val&&!c.pubCal[mk][rid].pub){
-    const d=new Date(val+'T12:00:00');
-    d.setDate(d.getDate()+2);
-    const pubDate=d.toISOString().split('T')[0];
-    c.pubCal[mk][rid].pub=pubDate;
-    // Same date for TikTok and YouTube if active
-    const nets=c.socialNets||['instagram'];
-    if(nets.includes('tiktok')&&!c.pubCal[mk][rid].tiktok)c.pubCal[mk][rid].tiktok=pubDate;
-    if(nets.includes('youtube')&&!c.pubCal[mk][rid].youtube)c.pubCal[mk][rid].youtube=pubDate;
-    setTimeout(()=>switchPubCalMonth(cid,mk),100);
-  }
-  saveClient_doc(c);
-}
-
-async function togglePubDone(cid,mk,rid,field){
-  const c=clients.find(c=>c.id===cid);if(!c)return;
-  if(!c.pubCal)c.pubCal={};
-  if(!c.pubCal[mk])c.pubCal[mk]={};
-  if(!c.pubCal[mk][rid])c.pubCal[mk][rid]={};
-  c.pubCal[mk][rid][field]=!c.pubCal[mk][rid][field];
-  saveClient_doc(c);
-  document.getElementById('tc-pubcal').innerHTML=renderPubCalTab(c);
 }
 
 function switchPubCalMonth(cid,mk){
