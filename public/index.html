@@ -436,7 +436,6 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
       <div class="view" id="view-ideas"></div>
       <div class="view" id="view-clients"></div>
       <div class="view" id="view-cal"></div>
-      <div class="view" id="view-publicaciones"></div>
       <div class="view" id="view-payments"></div>
       <div class="view" id="view-finance"></div>
       <div class="view" id="view-users"></div>
@@ -595,6 +594,16 @@ const LABELS=[{n:'Urgente',c:'#EF4444',bg:'rgba(239,68,68,.15)'},{n:'Importante'
 const COL_COLORS=['#00E5E5','#A855F7','#4ADE80','#F59E0B','#EF4444','#3B82F6','#EC4899','#8FA3B8'];
 const OWNER_COLORS={Adri:'#00E5E5',Alan:'#A855F7'};
 function ownerColor(name){return OWNER_COLORS[name]||'#8FA3B8';}
+// Paleta de colores por cliente, asignados de forma estable (hash del nombre) para
+// distinguir de un vistazo en el calendario a qué cliente pertenece cada evento,
+// sin depender de filtrar la lista de clientes.
+const CLIENT_COLOR_PALETTE=['#00E5E5','#A855F7','#4ADE80','#F59E0B','#EF4444','#3B82F6','#EC4899','#F97316','#14B8A6','#8B5CF6','#84CC16','#06B6D4'];
+function clientColor(name){
+  if(!name)return null;
+  let hash=0;
+  for(let i=0;i<name.length;i++)hash=(hash*31+name.charCodeAt(i))>>>0;
+  return CLIENT_COLOR_PALETTE[hash%CLIENT_COLOR_PALETTE.length];
+}
 
 // ============================================================
 // USERS
@@ -1175,7 +1184,6 @@ function buildSBNav(){
   html+=nav('ideas','ti-bulb','Mejoras');
   html+=nav('clients','ti-users','Clientes');
   if(isCMup())html+=nav('cal','ti-calendar','Calendario');
-  if(isCMup())html+=nav('publicaciones','ti-chart-line','Publicaciones');
   if(isCEO())html+=nav('payments','ti-coin','Pagos equipo');
   if(isPMup())html+=nav('finance','ti-chart-bar','Facturación');
   if(isCEO())html+=nav('users','ti-users-group','Usuarios');
@@ -1253,8 +1261,8 @@ function showView(name){
   document.getElementById('view-'+name)?.classList.add('on');
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('ni-'+name)?.classList.add('on');
-  const icons={dash:'ti-layout-dashboard',pipeline:'ti-columns',board:'ti-layout-kanban',ideas:'ti-bulb',clients:'ti-users',cal:'ti-calendar',publicaciones:'ti-chart-line',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',config:'ti-settings',profile:'ti-user'};
-  const titles={dash:'Resumen general',pipeline:'Pipeline de contenido',board:'Tablero del equipo',ideas:'Ideas de mejora',clients:'Clientes',cal:'Calendario',publicaciones:'Publicaciones',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
+  const icons={dash:'ti-layout-dashboard',pipeline:'ti-columns',board:'ti-layout-kanban',ideas:'ti-bulb',clients:'ti-users',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',config:'ti-settings',profile:'ti-user'};
+  const titles={dash:'Resumen general',pipeline:'Pipeline de contenido',board:'Tablero del equipo',ideas:'Ideas de mejora',clients:'Clientes',cal:'Calendario',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
   document.getElementById('tb-ic').className='ti '+(icons[name]||'ti-layout-dashboard');
   document.getElementById('tb-t').textContent=titles[name]||'';
   const acts={dash:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,profile:'',ideas:`<button class="btn btn-s btn-p" onclick="openModal('idea')"><i class="ti ti-plus"></i>Nueva idea</button>`,clients:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,board:isCMup()?`<button class="btn btn-s" onclick="showArchiveModal()"><i class="ti ti-archive"></i>Archivo</button>`:''};
@@ -1264,7 +1272,6 @@ function showView(name){
   if(name==='ideas')renderIdeasBoard();
   if(name==='clients')renderClientsView();
   if(name==='cal')renderCal();
-  if(name==='publicaciones')renderPublicaciones();
   if(name==='payments')renderPayments();
   if(name==='finance')renderFinance();
   if(name==='users')renderUsers();
@@ -2242,168 +2249,6 @@ function createPortalAutoTask(title){
 }
 
 // ============================================================
-// PUBLICACIONES (última publicación IG/TikTok por cliente)
-// ============================================================
-function inferNetworkFromTitle(title){
-  if(!title)return null;
-  if(/^📤 Trial Instagram|^📲 Subir a Trial/.test(title))return'trial_ig';
-  if(/^📸 Publicar Instagram|^📤 Publicar:/.test(title))return'ig';
-  if(/^🎵 Publicar TikTok/.test(title))return'tiktok';
-  return null;
-}
-function renderPublicaciones(){
-  // Solo clientes con un CM asignado (a los que sí les subimos contenido), y si soy CM, solo los míos
-  const mc=myClients().filter(c=>c.cm&&(CU?.level!=='cm'||c.cm===CU.name));
-  const todayD=today();
-  const daysSince=d=>d?Math.max(0,Math.floor((new Date(todayD+'T12:00:00')-new Date(d+'T12:00:00'))/864e5)):null;
-  // Recorre TODAS las tarjetas del tablero: para cada una marcada como hecha y con una red asociada,
-  // guarda por cliente+red la fecha de completado más reciente. El cliente se resuelve por
-  // linkedClientId si la tarjeta está enlazada, o si no por coincidencia de nombre (tarjetas antiguas/manuales).
-  // Se usa doneAt si existe, y si no la fecha puesta en la propia tarjeta (tarjetas completadas antes de
-  // que existiera doneAt) — así una tarjeta ya marcada como hecha no aparece como "Nunca" por falta de dato.
-  // La red se lee de t.network si existe, y si no se infiere del título (tarjetas creadas antes de que
-  // existiera ese campo) para que el histórico ya en el tablero cuente desde ya.
-  const last={};
-  const bumpLast=(cid,net,d)=>{if(!cid||!net||!d)return;if(!last[cid])last[cid]={};if(!last[cid][net]||d>last[cid][net])last[cid][net]=d;};
-  boardCols.filter(col=>!col.archived).forEach(col=>{
-    (col.tasks||[]).forEach(t=>{
-      if(!t.done||t.archived)return;
-      const net=t.network||inferNetworkFromTitle(t.title);
-      if(!net)return;
-      const d=t.doneAt||t.date;
-      let cid=t.linkedClientId;
-      if(!cid){const found=clients.find(cl=>cl.name===t.client);cid=found?.id;}
-      bumpLast(cid,net,d);
-    });
-  });
-  // Respaldo: mucho contenido se marca "subido" directamente en la ficha del cliente sin pasar por
-  // una tarjeta del tablero. En ese caso usamos la fecha de publicación del Calendario (se calcula
-  // sola al marcar un reel como grabado) para que no salga "Nunca" cuando sí hay una fecha real.
-  mc.forEach(c=>{
-    Object.keys(c.pubCal||{}).forEach(mk=>{
-      const reels=c.reels[mk]||[];
-      Object.entries(c.pubCal[mk]).forEach(([rid,pd])=>{
-        const reel=reels.find(r=>String(r.id)===String(rid));
-        if(!reel)return;
-        if(reel.subido){
-          bumpLast(c.id,'ig',pd.pub);
-          bumpLast(c.id,'tiktok',pd.tiktok);
-        }
-        if(reel.trialSubido)bumpLast(c.id,'trial_ig',pd.trial);
-      });
-    });
-  });
-  const rows=mc.map(c=>{
-    const l=last[c.id]||{};
-    const hasTikTok=(c.socialNets||['instagram']).includes('tiktok');
-    const hasTrial=c.trialsEnabled!==false&&(c.socialNets||['instagram']).includes('instagram');
-    const trialDays=hasTrial?daysSince(l.trial_ig):null;
-    const igDays=daysSince(l.ig);
-    const ttDays=hasTikTok?daysSince(l.tiktok):null;
-    const urgency=Math.max(igDays===null?9999:igDays,hasTikTok?(ttDays===null?9999:ttDays):-1,hasTrial?(trialDays===null?9999:trialDays):-1);
-    return{c,trialDays,igDays,ttDays,hasTikTok,hasTrial,urgency};
-  }).sort((a,b)=>b.urgency-a.urgency);
-  const pill=(bg,c,txt)=>`<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:11px;font-weight:600;background:linear-gradient(135deg,${bg},transparent);color:${c}">${txt}</span>`;
-  const fmtAgo=days=>{
-    if(days===null)return pill('rgba(239,68,68,.14)','var(--err)','Nunca');
-    if(days===0)return pill('rgba(74,222,128,.14)','var(--ok2)','Hoy');
-    if(days<=3)return pill('rgba(143,163,184,.16)','var(--tx2)',`Hace ${days}d`);
-    if(days<=10)return pill('rgba(245,158,11,.14)','var(--warn)',`Hace ${days}d`);
-    return pill('rgba(239,68,68,.14)','var(--err)',`Hace ${days}d`);
-  };
-  document.getElementById('view-publicaciones').innerHTML=`
-    <div class="card">
-      <div class="card-t"><i class="ti ti-chart-line"></i>Última publicación por cliente</div>
-      <div style="font-size:11px;color:var(--tx3);margin-bottom:10px">Ordenado por más tiempo sin publicar primero — se calcula con las tarjetas del tablero marcadas como hechas (Subir a Trial Instagram / Subir a Instagram / Subir a TikTok). Haz clic en un cliente para ver el detalle por reel.</div>
-      <table style="width:100%;font-size:13px;border-collapse:collapse">
-        <tr style="color:var(--tx3);font-size:11px;text-transform:uppercase">
-          <th style="text-align:left;padding:6px;font-weight:500">Cliente</th>
-          <th style="text-align:right;padding:6px;font-weight:500"><span style="color:#E1306C">📲 Trial Instagram</span></th>
-          <th style="text-align:right;padding:6px;font-weight:500"><i class="ti ti-brand-instagram" style="color:var(--p)"></i> Instagram</th>
-          <th style="text-align:right;padding:6px;font-weight:500"><i class="ti ti-brand-tiktok" style="color:#06B6D4"></i> TikTok</th>
-        </tr>
-        ${rows.map(r=>`<tr class="pub-row" style="border-top:1px solid var(--bd);cursor:pointer;transition:background .15s" onclick="openPubClientDetail('${r.c.id}')" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='transparent'">
-          <td style="padding:8px 6px;font-weight:500"><div style="display:flex;align-items:center;gap:8px"><div class="cc-av" style="width:26px;height:26px;font-size:10px;flex-shrink:0">${ini(r.c.name)}</div>${r.c.name}</div></td>
-          <td style="padding:8px 6px;text-align:right">${r.hasTrial?fmtAgo(r.trialDays):'<span style="color:var(--tx3)">—</span>'}</td>
-          <td style="padding:8px 6px;text-align:right">${fmtAgo(r.igDays)}</td>
-          <td style="padding:8px 6px;text-align:right">${r.hasTikTok?fmtAgo(r.ttDays):'<span style="color:var(--tx3)">—</span>'}</td>
-        </tr>`).join('')}
-      </table>
-      ${!rows.length?`<div style="text-align:center;padding:30px;color:var(--tx3)">Sin clientes para mostrar.</div>`:''}
-    </div>`;
-}
-function openPubClientDetail(clientId){
-  const c=clients.find(cl=>cl.id===clientId);if(!c)return;
-  const mk=monthKey();
-  const reels=(c.reels||{})[mk]||[];
-  const hasTikTok=(c.socialNets||['instagram']).includes('tiktok');
-  const hasTrial=c.trialsEnabled!==false&&(c.socialNets||['instagram']).includes('instagram');
-  // Recorre las tarjetas del tablero enlazadas a este cliente: fecha de subida (hechas) o "Pendiente" (creadas, sin marcar)
-  const byReel={},pending={};
-  boardCols.forEach(col=>{
-    (col.tasks||[]).forEach(t=>{
-      const net=t.network||inferNetworkFromTitle(t.title);
-      if(!net||!t.linkedReelId)return;
-      let cid=t.linkedClientId;
-      if(!cid){const found=clients.find(cl=>cl.name===t.client);cid=found?.id;}
-      if(cid!==clientId)return;
-      if(t.linkedMonth&&t.linkedMonth!==mk)return; // pertenece a otro mes, no mezclar con los reels de este mes
-      if(t.done){
-        const d=t.doneAt||t.date;if(!d)return;
-        if(!byReel[t.linkedReelId])byReel[t.linkedReelId]={};
-        if(!byReel[t.linkedReelId][net]||d>byReel[t.linkedReelId][net])byReel[t.linkedReelId][net]=d;
-      }else{
-        if(!t.date)return;
-        if(!pending[t.linkedReelId])pending[t.linkedReelId]={};
-        if(!pending[t.linkedReelId][net]||t.date<pending[t.linkedReelId][net])pending[t.linkedReelId][net]=t.date;
-      }
-    });
-  });
-  // Respaldo: reels marcados "subido"/"trial" directamente en la ficha, sin tarjeta de por medio
-  Object.keys(c.pubCal||{}).forEach(pmk=>{
-    const pReels=c.reels[pmk]||[];
-    Object.entries(c.pubCal[pmk]).forEach(([rid,pd])=>{
-      const reel=pReels.find(r=>String(r.id)===String(rid));
-      if(!reel)return;
-      if(!byReel[rid])byReel[rid]={};
-      if(reel.subido){
-        if(pd.pub&&(!byReel[rid].ig||pd.pub>byReel[rid].ig))byReel[rid].ig=pd.pub;
-        if(pd.tiktok&&(!byReel[rid].tiktok||pd.tiktok>byReel[rid].tiktok))byReel[rid].tiktok=pd.tiktok;
-      }
-      if(reel.trialSubido&&pd.trial&&(!byReel[rid].trial_ig||pd.trial>byReel[rid].trial_ig))byReel[rid].trial_ig=pd.trial;
-    });
-  });
-  const netCols=[
-    ...(hasTrial?[{key:'trial_ig',label:'Trial IG',c:'#E1306C'}]:[]),
-    {key:'ig',label:'Instagram',c:'var(--p)'},
-    ...(hasTikTok?[{key:'tiktok',label:'TikTok',c:'#06B6D4'}]:[]),
-  ];
-  const pubPill=(bg,c,txt)=>`<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:11px;font-weight:600;background:linear-gradient(135deg,${bg},transparent);color:${c}">${txt}</span>`;
-  const cell=(reelId,key)=>{
-    const done=byReel[reelId]?.[key];
-    if(done)return pubPill('rgba(74,222,128,.14)','var(--ok2)',fmtDate(done));
-    const pend=pending[reelId]?.[key];
-    if(pend)return pubPill('rgba(245,158,11,.14)','var(--warn)',`${fmtDate(pend)} · pendiente`);
-    return`<span style="color:var(--tx3)">—</span>`;
-  };
-  const mc=document.getElementById('modal-c');
-  mc.style.maxWidth='560px';
-  mc.innerHTML=`<div class="modal-t" style="display:flex;align-items:center;gap:10px"><div class="cc-av" style="width:32px;height:32px;font-size:11px;flex-shrink:0">${ini(c.name)}</div>${c.name} — Reels de ${monthLabel(mk)}</div>
-    <table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:8px">
-      <tr style="color:var(--tx3);font-size:11px;text-transform:uppercase">
-        <th style="text-align:left;padding:6px;font-weight:500">Reel</th>
-        ${netCols.map(nc=>`<th style="text-align:right;padding:6px;font-weight:500"><span style="color:${nc.c}">${nc.label}</span></th>`).join('')}
-      </tr>
-      ${reels.length?reels.map(r=>`<tr style="border-top:1px solid var(--bd)">
-        <td style="padding:8px 6px;font-weight:500">${r.label}</td>
-        ${netCols.map(nc=>`<td style="padding:8px 6px;text-align:right">${cell(r.id,nc.key)}</td>`).join('')}
-      </tr>`).join(''):`<tr><td colspan="${netCols.length+1}" style="text-align:center;padding:20px;color:var(--tx3)">Sin reels este mes.</td></tr>`}
-    </table>
-    <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cerrar</button></div>`;
-  document.getElementById('mo').classList.add('open');
-}
-
-// ============================================================
 // CALENDAR
 // ============================================================
 // Clientes con contenido activo: los que tienen CM asignado, más los que no
@@ -2447,9 +2292,9 @@ function pubScheduleEvents(){
       Object.entries(c.pubCal[mk]).forEach(([rid,pd])=>{
         const reel=reels.find(r=>String(r.id)===String(rid));
         const label=reel?reel.label:('Reel '+rid);
-        if(hasTrial&&pd.trial)evs.push({title:`📲 Trial: ${c.name} — ${label}`,date:pd.trial,client:c.name,color:'#E1306C',source:'pub'});
-        if(pd.pub)evs.push({title:`📸 IG: ${c.name} — ${label}`,date:pd.pub,client:c.name,color:'var(--p)',source:'pub'});
-        if(hasTikTok&&pd.tiktok)evs.push({title:`🎵 TikTok: ${c.name} — ${label}`,date:pd.tiktok,client:c.name,color:'#06B6D4',source:'pub'});
+        if(hasTrial&&pd.trial)evs.push({title:`${label} — 📲 Trial IG`,date:pd.trial,client:c.name,color:clientColor(c.name),source:'pub'});
+        if(pd.pub)evs.push({title:`${label} — 📸 Pub. IG`,date:pd.pub,client:c.name,color:clientColor(c.name),source:'pub'});
+        if(hasTikTok&&pd.tiktok)evs.push({title:`${label} — 🎵 TikTok`,date:pd.tiktok,client:c.name,color:clientColor(c.name),source:'pub'});
       });
     });
   });
@@ -2504,6 +2349,7 @@ function calFilterPanelHtml(){
     <div style="display:flex;flex-direction:column;gap:2px;max-height:280px;overflow-y:auto">
       ${cc.map(c=>`<label style="display:flex;align-items:center;gap:7px;font-size:12px;padding:4px 6px;border-radius:var(--r);cursor:pointer" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='transparent'">
         <input type="checkbox" style="${chk}" ${isOn(c.name)?'checked':''} onchange="calToggleClient('${c.name.replace(/'/g,"\\'")}')">
+        <span style="width:8px;height:8px;border-radius:50%;background:${clientColor(c.name)};flex-shrink:0"></span>
         <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
       </label>`).join('')}
     </div>
@@ -2533,7 +2379,7 @@ function renderCal(){
   for(let d=1;d<=last.getDate();d++){
     const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isT=ds===today();
-    const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...extra.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>{const f=calFormatTaskEvent(t);return{title:f.title,client:f.client,type:'task',date:ds,color:'#C084FC',time:t.time||''};})];
+    const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...extra.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>{const f=calFormatTaskEvent(t);return{title:f.title,client:f.client,type:'task',date:ds,color:clientColor(f.client)||'#C084FC',time:t.time||''};})];
     evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
     const typeColors={grab:'var(--warn)',del:'var(--c)',meet:'#4ADE80',task:'#C084FC'};
     const visible=evs.slice(0,3);
@@ -2541,7 +2387,7 @@ function renderCal(){
     grid+=`<div class="cal-day${isT?' today':''}" onclick="showCalDay('${ds}',event)" style="cursor:pointer">
       <div class="cal-dn">${d}</div>
       ${visible.map(e=>{
-        const col=e.color||typeColors[e.type]||'var(--c)';
+        const col=e.color||clientColor(e.client)||typeColors[e.type]||'var(--c)';
         const timeStr=e.time?e.time.replace(':00','').replace(/^0/,'')+' '  :'';
         const full=timeStr+e.title;
         const short=full.length>30?full.substring(0,30)+'…':full;
@@ -2555,7 +2401,7 @@ function renderCal(){
 }
 function showCalDay(ds,evt){
   evt&&evt.stopPropagation();
-  const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...calExtraEvents().filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>{const f=calFormatTaskEvent(t);return{title:'📋 '+f.title,client:f.client,type:'task',date:ds,color:'#C084FC'};})];
+  const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...calExtraEvents().filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>{const f=calFormatTaskEvent(t);return{title:'📋 '+f.title,client:f.client,type:'task',date:ds,color:clientColor(f.client)||'#C084FC'};})];
   evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
   const el=document.getElementById('cal-day-detail');if(!el)return;
   const[y,m,d]=ds.split('-');
@@ -2571,8 +2417,8 @@ function showCalDay(ds,evt){
         <button class="btn btn-s" onclick="document.getElementById('cal-day-detail').innerHTML='';document.getElementById('cal-day-detail').dataset.date=''"><i class="ti ti-x"></i></button>
       </div>
     </div>
-    ${evs.length?evs.map(e=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:8px;background:var(--bg3);border-radius:var(--r);margin-bottom:6px;border-left:3px solid ${e.color||typeColors[e.type]||'var(--c)'}">
-      ${e.time?`<span style="font-size:11px;font-weight:600;color:${e.color||typeColors[e.type]||'var(--c)'};white-space:nowrap;min-width:40px">${e.time}</span>`:'<span style="min-width:40px"></span>'}
+    ${evs.length?evs.map(e=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:8px;background:var(--bg3);border-radius:var(--r);margin-bottom:6px;border-left:3px solid ${e.color||clientColor(e.client)||typeColors[e.type]||'var(--c)'}">
+      ${e.time?`<span style="font-size:11px;font-weight:600;color:${e.color||clientColor(e.client)||typeColors[e.type]||'var(--c)'};white-space:nowrap;min-width:40px">${e.time}</span>`:'<span style="min-width:40px"></span>'}
       <div style="flex:1">
         <div style="font-size:13px;font-weight:500">${e.title}</div>
         ${e.client?`<div style="font-size:11px;color:var(--tx3);margin-top:2px">${e.client}</div>`:''}
@@ -2593,7 +2439,7 @@ function calDayItems(ds){
   const push=e=>(calEventHourMinute(e)!==null?timed:allday).push(e);
   calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)).forEach(push);
   calExtraEvents().filter(e=>e.date===ds).forEach(push);
-  (boardCols||[]).flatMap(c=>c.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).forEach(t=>{const f=calFormatTaskEvent(t);allday.push({title:'📋 '+f.title,client:f.client,color:'#C084FC'});});
+  (boardCols||[]).flatMap(c=>c.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).forEach(t=>{const f=calFormatTaskEvent(t);allday.push({title:'📋 '+f.title,client:f.client,color:clientColor(f.client)||'#C084FC'});});
   return{timed,allday};
 }
 // Rejilla horaria compartida por semana (7 días) y día (1 día)
@@ -3729,6 +3575,56 @@ async function toggleRequestStatus(id,reqId){
   renderProfile(c);
   await saveClient_doc(c);
 }
+// Mini calendario mensual dentro de la ficha del cliente, con el mismo aspecto
+// (rejilla y píldoras) que el Calendario interno, filtrado a este único cliente,
+// para que lo que se ve aquí sea exactamente lo mismo que lo que aparece allí.
+function clientCalGridHtml(c,mk){
+  const[y,m]=mk.split('-').map(Number);
+  if(!y||!m)return'';
+  const first=new Date(y,m-1,1);
+  const last=new Date(y,m,0);
+  const startDay=first.getDay()||7;
+  const days=['L','M','X','J','V','S','D'];
+  const col=clientColor(c.name)||'var(--c)';
+  const pubCalMonth=(c.pubCal||{})[mk]||{};
+  const reels=c.reels[mk]||[];
+  const hasTikTok=(c.socialNets||['instagram']).includes('tiktok');
+  const hasTrial=c.trialsEnabled!==false&&(c.socialNets||['instagram']).includes('instagram');
+  const evsByDay={};
+  const push=(date,title)=>{if(!date)return;if(!evsByDay[date])evsByDay[date]=[];evsByDay[date].push(title);};
+  reels.forEach(r=>{
+    const pd=pubCalMonth[r.id]||{};
+    if(hasTrial&&pd.trial)push(pd.trial,`${r.label} — 📲 Trial IG`);
+    if(pd.pub)push(pd.pub,`${r.label} — 📸 Pub. IG`);
+    if(hasTikTok&&pd.tiktok)push(pd.tiktok,`${r.label} — 🎵 TikTok`);
+  });
+  (boardCols||[]).flatMap(bc=>bc.tasks||[]).filter(t=>!t.archived&&t.date&&t.date.startsWith(mk)&&(t.linkedClientId===c.id||t.client===c.name)).forEach(t=>{
+    const f=calFormatTaskEvent(t);
+    push(t.date,f.title);
+  });
+  let grid=`<div class="cal-grid">${days.map(d=>`<div class="cal-day-hdr">${d}</div>`).join('')}`;
+  for(let i=1;i<startDay;i++)grid+=`<div class="cal-day om" style="cursor:default"></div>`;
+  for(let d=1;d<=last.getDate();d++){
+    const ds=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isT=ds===today();
+    const titles=evsByDay[ds]||[];
+    const visible=titles.slice(0,3);
+    const hidden=titles.length-3;
+    grid+=`<div class="cal-day${isT?' today':''}" style="cursor:default">
+      <div class="cal-dn">${d}</div>
+      ${visible.map(t=>{
+        const short=t.length>30?t.substring(0,30)+'…':t;
+        return`<div title="${t}" style="font-size:10px;padding:1px 3px;border-radius:2px;margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;background:${col}22;color:${col};border-left:2px solid ${col}">${short}</div>`;
+      }).join('')}
+      ${hidden>0?`<div style="font-size:9px;color:var(--tx3);margin-top:2px;padding:0 2px">+${hidden} más</div>`:''}
+    </div>`;
+  }
+  grid+='</div>';
+  return`<div class="card" style="margin-bottom:14px">
+    <div class="card-t"><i class="ti ti-calendar" style="color:${col}"></i>Calendario — ${monthLabel(mk)}</div>
+    ${grid}
+  </div>`;
+}
 function renderPubCalTab(c){
   const hasReels=(Array.isArray(c.services)?c.services:[]).some(s=>['content_5','content_8_cm','podcast_reels_edit'].includes(s));
   if(!hasReels)return`<div style="text-align:center;padding:30px;color:var(--tx3)">Este cliente no tiene servicio de reels.</div>`;
@@ -3754,6 +3650,8 @@ function renderPubCalTab(c){
       <button class="btn btn-s btn-p" onclick="generatePubCal('${c.id}','${selMonth}')"><i class="ti ti-wand"></i>Generar automático</button>
     </div>
   </div>`;
+
+  html+=clientCalGridHtml(c,selMonth);
 
   // Calendar grid
   if(!reels.length){
