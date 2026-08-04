@@ -678,7 +678,9 @@ const IDEA_COLS=[{id:'buzon',name:'💡 Buzón de ideas'},{id:'planificado',name
 let CU=null; // current user
 let activeClient=null;
 let activeTab='info';
-let clientsShowInactive=false;
+let clientFilterOwner='all'; // 'all' | 'Adri' | 'Alan' | 'none'
+let clientFilterStatus='active'; // 'active' | 'inactive' | 'all'
+let clientSortBy='name'; // 'name' | 'oldest' | 'newest' | 'content' | 'renewal'
 let activeReelMonth='';
 let activePortalMonth='';
 let activePortalClient=null;
@@ -708,10 +710,73 @@ function isCEO(){return CU?.level==='ceo';}
 function isPMup(){return CU?.level==='ceo'||CU?.level==='pm';}
 function isCMup(){return CU?.level==='ceo'||CU?.level==='pm'||CU?.level==='cm';}
 function isActiveClient(c){return c.active!==false;}
+function myClientsAll(){
+  // editors see only assigned clients — sin filtrar por activo/inactivo
+  return isCMup()?clients:clients.filter(c=>(c.editors||[]).includes(CU?.name));
+}
 function myClients(){
-  const base=isCMup()?clients:clients.filter(c=>(c.editors||[]).includes(CU?.name));
-  // editors see only assigned clients
-  return base.filter(isActiveClient);
+  return myClientsAll().filter(isActiveClient);
+}
+function applyClientFilterSort(list){
+  let arr=list.filter(c=>{
+    if(clientFilterStatus==='active'&&!isActiveClient(c))return false;
+    if(clientFilterStatus==='inactive'&&isActiveClient(c))return false;
+    if(clientFilterOwner==='none'&&c.accountOwner)return false;
+    if(clientFilterOwner!=='all'&&clientFilterOwner!=='none'&&c.accountOwner!==clientFilterOwner)return false;
+    return true;
+  });
+  arr=[...arr].sort((a,b)=>{
+    if(clientSortBy==='oldest')return(a.contractStart||'9999-99-99').localeCompare(b.contractStart||'9999-99-99');
+    if(clientSortBy==='newest')return(b.contractStart||'').localeCompare(a.contractStart||'');
+    if(clientSortBy==='content')return(b.numReels||0)-(a.numReels||0);
+    if(clientSortBy==='renewal')return(a.contractEnd||'9999-99-99').localeCompare(b.contractEnd||'9999-99-99');
+    return a.name.localeCompare(b.name);
+  });
+  return arr;
+}
+function groupClientsByOwner(list){
+  const groups={Adri:[],Alan:[],none:[]};
+  list.forEach(c=>{
+    const key=c.accountOwner&&groups[c.accountOwner]?c.accountOwner:'none';
+    groups[key].push(c);
+  });
+  return groups;
+}
+function clientFilterControlsHtml(){
+  return`<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
+    <select onchange="clientFilterOwner=this.value;renderActiveClientListView()" style="font-size:12px;padding:5px 8px;width:auto">
+      <option value="all"${clientFilterOwner==='all'?' selected':''}>Todos los responsables</option>
+      <option value="Adri"${clientFilterOwner==='Adri'?' selected':''}>Adri</option>
+      <option value="Alan"${clientFilterOwner==='Alan'?' selected':''}>Alan</option>
+      <option value="none"${clientFilterOwner==='none'?' selected':''}>Sin responsable</option>
+    </select>
+    <select onchange="clientFilterStatus=this.value;renderActiveClientListView()" style="font-size:12px;padding:5px 8px;width:auto">
+      <option value="active"${clientFilterStatus==='active'?' selected':''}>Activos</option>
+      <option value="inactive"${clientFilterStatus==='inactive'?' selected':''}>Inactivos</option>
+      <option value="all"${clientFilterStatus==='all'?' selected':''}>Todos</option>
+    </select>
+    <select onchange="clientSortBy=this.value;renderActiveClientListView()" style="font-size:12px;padding:5px 8px;width:auto">
+      <option value="name"${clientSortBy==='name'?' selected':''}>Nombre (A-Z)</option>
+      <option value="oldest"${clientSortBy==='oldest'?' selected':''}>Más antiguo (contrato)</option>
+      <option value="newest"${clientSortBy==='newest'?' selected':''}>Más reciente (contrato)</option>
+      <option value="content"${clientSortBy==='content'?' selected':''}>Mayor contenido</option>
+      <option value="renewal"${clientSortBy==='renewal'?' selected':''}>Renovación próxima</option>
+    </select>
+  </div>`;
+}
+function renderActiveClientListView(){
+  if(document.getElementById('view-dash')?.classList.contains('on'))renderDash();
+  if(document.getElementById('view-clients')?.classList.contains('on'))renderClientsView();
+}
+function ownerGroupSectionsHtml(list,cardsGridFn){
+  if(clientFilterOwner!=='all')return cardsGridFn(list);
+  const groups=groupClientsByOwner(list);
+  return[['Adri',groups.Adri],['Alan',groups.Alan],['none',groups.none]].filter(([,l])=>l.length).map(([key,l],i)=>`
+    <div style="margin:${i===0?'0':'20px'} 0 8px;font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;gap:6px">
+      ${key!=='none'?`<span style="width:8px;height:8px;border-radius:50%;background:${ownerColor(key)}"></span>`:''}
+      ${key==='none'?'Sin responsable':key} (${l.length})
+    </div>
+    ${cardsGridFn(l)}`).join('');
 }
 
 // ============================================================
@@ -1109,57 +1174,38 @@ function renderSB(){
   // El listado de clientes vive ahora en la vista "Clientes" del panel, no en el lateral.
   if(document.getElementById('view-clients')?.classList.contains('on'))renderClientsView();
 }
+function cliCardHtml(c,mk,today2){
+  const pubCal=(c.pubCal||{})[mk]||{};
+  const reelsToday=Object.values(pubCal).some(pd=>pd.pub===today2||pd.trial===today2||pd.tiktok===today2);
+  const reels=c.reels[mk]||[];
+  const pendingEnvio=reels.some(r=>r.grabado&&!r.enviado&&!r.editado);
+  const inactive=!isActiveClient(c);
+  return`<div class="cli-card" style="${inactive?'opacity:.55;':''}${c.accountOwner?`border-left:3px solid ${ownerColor(c.accountOwner)}`:''}" onclick="openProfile('${c.id}')">
+    <div class="cli-av">${ini(c.name)}</div>
+    <div class="cli-info">
+      <div class="cli-name">${c.name}</div>
+      <div class="cli-type">${c.type||''}</div>
+      ${c.accountOwner?`<div style="font-size:9px;color:${ownerColor(c.accountOwner)};display:flex;align-items:center;gap:3px;margin-top:2px"><span style="width:6px;height:6px;border-radius:50%;background:${ownerColor(c.accountOwner)};flex-shrink:0"></span>${c.accountOwner}</div>`:''}
+    </div>
+    <div style="display:flex;gap:6px;margin-left:auto;flex-shrink:0;align-items:center">
+      ${reelsToday?'<div style="width:8px;height:8px;border-radius:50%;background:#E1306C" title="Publicación hoy"></div>':''}
+      ${pendingEnvio?'<div style="width:8px;height:8px;border-radius:50%;background:var(--warn)" title="Reel sin enviar a editor"></div>':''}
+      ${inactive&&isCEO()?`<button class="btn btn-s btn-p" onclick="event.stopPropagation();toggleClientActive('${c.id}');renderActiveClientListView()"><i class="ti ti-eye"></i>Activar</button>`:''}
+    </div>
+  </div>`;
+}
 function renderClientsView(){
-  const list=myClients();
-  const today2=today();
   const mk=monthKey();
-  const inactiveList=isCEO()?clients.filter(c=>!isActiveClient(c)):[];
+  const today2=today();
+  const base=applyClientFilterSort(myClientsAll());
   document.getElementById('view-clients').innerHTML=`
     <div style="margin-bottom:14px;max-width:320px">
       <input type="text" placeholder="🔍 Buscar cliente..." id="cli-search" oninput="filterCliGrid(this.value)">
     </div>
-    <div class="cli-grid" id="cli-grid">
-      ${list.length?list.map(c=>{
-        const pubCal=(c.pubCal||{})[mk]||{};
-        const reelsToday=Object.values(pubCal).some(pd=>pd.pub===today2||pd.trial===today2||pd.tiktok===today2);
-        const reels=c.reels[mk]||[];
-        const pendingEnvio=reels.some(r=>r.grabado&&!r.enviado&&!r.editado);
-        return`<div class="cli-card" style="${c.accountOwner?`border-left:3px solid ${ownerColor(c.accountOwner)}`:''}" onclick="openProfile('${c.id}')">
-          <div class="cli-av">${ini(c.name)}</div>
-          <div class="cli-info">
-            <div class="cli-name">${c.name}</div>
-            <div class="cli-type">${c.type||''}</div>
-            ${c.accountOwner?`<div style="font-size:9px;color:${ownerColor(c.accountOwner)};display:flex;align-items:center;gap:3px;margin-top:2px"><span style="width:6px;height:6px;border-radius:50%;background:${ownerColor(c.accountOwner)};flex-shrink:0"></span>${c.accountOwner}</div>`:''}
-          </div>
-          <div style="display:flex;gap:4px;margin-left:auto;flex-shrink:0">
-            ${reelsToday?'<div style="width:8px;height:8px;border-radius:50%;background:#E1306C" title="Publicación hoy"></div>':''}
-            ${pendingEnvio?'<div style="width:8px;height:8px;border-radius:50%;background:var(--warn)" title="Reel sin enviar a editor"></div>':''}
-          </div>
-        </div>`;
-      }).join(''):`<div style="color:var(--tx3);font-size:13px">No tienes clientes asignados.</div>`}
-    </div>
-    ${isCEO()?`
-    <div style="margin-top:20px">
-      <div style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--tx3);font-size:12px;font-weight:500" onclick="toggleInactiveClientsPanel()">
-        <i class="ti ti-chevron-${clientsShowInactive?'down':'right'}"></i>
-        Clientes inactivos (${inactiveList.length})
-      </div>
-      ${clientsShowInactive?`<div class="cli-grid" style="margin-top:10px">
-        ${inactiveList.length?inactiveList.map(c=>`
-          <div class="cli-card" style="opacity:.55" onclick="openProfile('${c.id}')">
-            <div class="cli-av">${ini(c.name)}</div>
-            <div class="cli-info">
-              <div class="cli-name">${c.name}</div>
-              <div class="cli-type">${c.type||''}</div>
-            </div>
-            <button class="btn btn-s btn-p" style="margin-left:auto;flex-shrink:0" onclick="event.stopPropagation();toggleClientActive('${c.id}')"><i class="ti ti-eye"></i>Activar</button>
-          </div>`).join(''):`<div style="color:var(--tx3);font-size:12px">No hay clientes inactivos.</div>`}
-      </div>`:''}
-    </div>`:''}`;
-}
-function toggleInactiveClientsPanel(){
-  clientsShowInactive=!clientsShowInactive;
-  renderClientsView();
+    ${clientFilterControlsHtml()}
+    <div id="cli-list-wrap">
+      ${base.length?ownerGroupSectionsHtml(base,list=>`<div class="cli-grid">${list.map(c=>cliCardHtml(c,mk,today2)).join('')}</div>`):`<div style="color:var(--tx3);font-size:13px">No hay clientes que coincidan con estos filtros.</div>`}
+    </div>`;
 }
 function filterCliGrid(q){
   const lq=q.toLowerCase();
@@ -1353,7 +1399,8 @@ function renderDash(){
   <div class="sh"><div class="st">Clientes</div>
     <input type="text" placeholder="🔍 Buscar cliente..." style="font-size:12px;padding:5px 10px;width:160px" oninput="filterDashClients(this.value)" id="dash-search">
   </div>
-  <div class="cg" id="dash-clients">${renderClientCards(mc,mk)}</div>`;
+  ${clientFilterControlsHtml()}
+  <div id="dash-clients">${ownerGroupSectionsHtml(applyClientFilterSort(myClientsAll()),list=>`<div class="cg">${renderClientCards(list,mk)}</div>`)}</div>`;
   document.getElementById('view-dash').innerHTML=html;
 }
 
@@ -1366,10 +1413,11 @@ function renderClientCards(mc,mk){
       const gr=r.filter(r=>r.grabado&&!r.editado).length;
       const pe=r.filter(r=>!r.grabado).length;
       const svcs=(Array.isArray(c.services)?c.services:[]).map(id=>SERVICES.find(s=>s.id===id)?.label).filter(Boolean);
-      return`<div class="cc" onclick="openProfile('${c.id}')">
+      return`<div class="cc" style="${!isActiveClient(c)?'opacity:.55;':''}${c.accountOwner?`border-left:3px solid ${ownerColor(c.accountOwner)}`:''}" onclick="openProfile('${c.id}')">
         <div class="cc-av">${ini(c.name)}</div>
         <div class="cc-n">${c.name}</div>
         <div class="cc-t">${c.type}</div>
+        ${c.accountOwner?`<div style="font-size:9px;color:${ownerColor(c.accountOwner)};display:flex;align-items:center;gap:3px;margin-top:3px"><span style="width:6px;height:6px;border-radius:50%;background:${ownerColor(c.accountOwner)};flex-shrink:0"></span>${c.accountOwner}</div>`:''}
         ${svcs.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">${svcs.slice(0,2).map(s=>`<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--cdim);color:var(--c)">${s.split('(')[0].trim()}</span>`).join('')}${svcs.length>2?`<span style="font-size:10px;color:var(--tx3)">+${svcs.length-2}</span>`:''}</div>`:''}
         <div class="cc-ft">
           ${r.length?`<div style="display:flex;flex-wrap:wrap;gap:3px">
@@ -1378,6 +1426,7 @@ function renderClientCards(mc,mk){
             ${gr?`<span class="chip" style="background:rgba(245,158,11,.12);color:var(--warn)">🎬 ${gr}/${r.length}</span>`:''}
             ${pe?`<span class="chip" style="background:var(--bg3);color:var(--tx3)">⏳ ${pe}/${r.length}</span>`:''}
           </div>`:'<span style="font-size:11px;color:var(--tx3)">Sin reels este mes</span>'}
+          ${!isActiveClient(c)?`<button class="btn btn-s btn-p" style="margin-top:6px" onclick="event.stopPropagation();toggleClientActive('${c.id}');renderActiveClientListView()"><i class="ti ti-eye"></i>Activar</button>`:''}
         </div>
       </div>`;
     }).join('');
@@ -1404,9 +1453,10 @@ function toggleClientBreakdown(){
 }
 function filterDashClients(q){
   const mk=monthKey();
-  const mc=myClients().filter(c=>c.name.toLowerCase().includes(q.toLowerCase())||c.type.toLowerCase().includes(q.toLowerCase()));
+  const ql=q.toLowerCase();
+  const base=applyClientFilterSort(myClientsAll()).filter(c=>c.name.toLowerCase().includes(ql)||c.type.toLowerCase().includes(ql));
   const el=document.getElementById('dash-clients');
-  if(el)el.innerHTML=renderClientCards(mc,mk);
+  if(el)el.innerHTML=ownerGroupSectionsHtml(base,list=>`<div class="cg">${renderClientCards(list,mk)}</div>`);
 }
 
 // ============================================================
