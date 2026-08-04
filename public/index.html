@@ -2438,6 +2438,14 @@ function calFilterPanelHtml(){
     </div>
   </div>`;
 }
+// Las tarjetas tipadas guardan el título como "Acción: Reel N — Cliente" — en el
+// calendario interesa ver primero de qué reel se trata, así que se reordena a
+// "Reel N — Acción" y el cliente se separa aparte para mostrarlo si hay sitio.
+function calFormatTaskEvent(t){
+  const m=t.title.match(/^(.+?):\s*(.+?)\s*—\s*(.+)$/);
+  if(m)return{title:`${m[2]} — ${m[1]}`,client:m[3]};
+  return{title:t.title,client:t.client||''};
+}
 function renderCal(){
   loadGCalEvents();
   if(calView==='week'){renderCalWeek();return;}
@@ -2454,7 +2462,7 @@ function renderCal(){
   for(let d=1;d<=last.getDate();d++){
     const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isT=ds===today();
-    const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...extra.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>({title:t.title,type:'task',date:ds,color:'#C084FC',time:t.time||''}))];
+    const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...extra.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>{const f=calFormatTaskEvent(t);return{title:f.title,client:f.client,type:'task',date:ds,color:'#C084FC',time:t.time||''};})];
     evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
     const typeColors={grab:'var(--warn)',del:'var(--c)',meet:'#4ADE80',task:'#C084FC'};
     const visible=evs.slice(0,3);
@@ -2475,7 +2483,7 @@ function renderCal(){
 }
 function showCalDay(ds,evt){
   evt&&evt.stopPropagation();
-  const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...calExtraEvents().filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>({title:'📋 '+t.title,type:'task',date:ds,color:'#C084FC'}))];
+  const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...calExtraEvents().filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>{const f=calFormatTaskEvent(t);return{title:'📋 '+f.title,client:f.client,type:'task',date:ds,color:'#C084FC'};})];
   evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
   const el=document.getElementById('cal-day-detail');if(!el)return;
   const[y,m,d]=ds.split('-');
@@ -2513,7 +2521,7 @@ function calDayItems(ds){
   const push=e=>(calEventHourMinute(e)!==null?timed:allday).push(e);
   calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)).forEach(push);
   calExtraEvents().filter(e=>e.date===ds).forEach(push);
-  (boardCols||[]).flatMap(c=>c.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).forEach(t=>allday.push({title:'📋 '+t.title,color:'#C084FC'}));
+  (boardCols||[]).flatMap(c=>c.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).forEach(t=>{const f=calFormatTaskEvent(t);allday.push({title:'📋 '+f.title,client:f.client,color:'#C084FC'});});
   return{timed,allday};
 }
 // Rejilla horaria compartida por semana (7 días) y día (1 día)
