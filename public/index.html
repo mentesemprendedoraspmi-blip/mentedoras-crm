@@ -681,6 +681,7 @@ let activeTab='info';
 let clientFilterOwner='all'; // 'all' | 'Adri' | 'Alan' | 'none'
 let clientFilterStatus='active'; // 'active' | 'inactive' | 'all'
 let clientSortBy='name'; // 'name' | 'oldest' | 'newest' | 'content' | 'renewal'
+let clientFilterPanelOpen=false;
 let activeReelMonth='';
 let activePortalMonth='';
 let activePortalClient=null;
@@ -742,26 +743,41 @@ function groupClientsByOwner(list){
   });
   return groups;
 }
+function clientFiltersActiveCount(){
+  let n=0;
+  if(clientFilterOwner!=='all')n++;
+  if(clientFilterStatus!=='active')n++;
+  if(clientSortBy!=='name')n++;
+  return n;
+}
+function toggleClientFilterPanel(){
+  clientFilterPanelOpen=!clientFilterPanelOpen;
+  renderActiveClientListView();
+}
 function clientFilterControlsHtml(){
-  return`<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
-    <select onchange="clientFilterOwner=this.value;renderActiveClientListView()" style="font-size:12px;padding:5px 8px;width:auto">
-      <option value="all"${clientFilterOwner==='all'?' selected':''}>Todos los responsables</option>
-      <option value="Adri"${clientFilterOwner==='Adri'?' selected':''}>Adri</option>
-      <option value="Alan"${clientFilterOwner==='Alan'?' selected':''}>Alan</option>
-      <option value="none"${clientFilterOwner==='none'?' selected':''}>Sin responsable</option>
-    </select>
-    <select onchange="clientFilterStatus=this.value;renderActiveClientListView()" style="font-size:12px;padding:5px 8px;width:auto">
-      <option value="active"${clientFilterStatus==='active'?' selected':''}>Activos</option>
-      <option value="inactive"${clientFilterStatus==='inactive'?' selected':''}>Inactivos</option>
-      <option value="all"${clientFilterStatus==='all'?' selected':''}>Todos</option>
-    </select>
-    <select onchange="clientSortBy=this.value;renderActiveClientListView()" style="font-size:12px;padding:5px 8px;width:auto">
-      <option value="name"${clientSortBy==='name'?' selected':''}>Nombre (A-Z)</option>
-      <option value="oldest"${clientSortBy==='oldest'?' selected':''}>Más antiguo (contrato)</option>
-      <option value="newest"${clientSortBy==='newest'?' selected':''}>Más reciente (contrato)</option>
-      <option value="content"${clientSortBy==='content'?' selected':''}>Mayor contenido</option>
-      <option value="renewal"${clientSortBy==='renewal'?' selected':''}>Renovación próxima</option>
-    </select>
+  const n=clientFiltersActiveCount();
+  return`<div style="margin:10px 0">
+    <button class="btn btn-s${clientFilterPanelOpen?' btn-p':''}" onclick="toggleClientFilterPanel()"><i class="ti ti-adjustments"></i>Filtros${n?` (${n})`:''}</button>
+    ${clientFilterPanelOpen?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding:10px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r)">
+      <select onchange="clientFilterOwner=this.value;renderActiveClientListView()" style="font-size:12px;padding:5px 8px;width:auto">
+        <option value="all"${clientFilterOwner==='all'?' selected':''}>Todos los responsables</option>
+        <option value="Adri"${clientFilterOwner==='Adri'?' selected':''}>Adri</option>
+        <option value="Alan"${clientFilterOwner==='Alan'?' selected':''}>Alan</option>
+        <option value="none"${clientFilterOwner==='none'?' selected':''}>Sin responsable</option>
+      </select>
+      <select onchange="clientFilterStatus=this.value;renderActiveClientListView()" style="font-size:12px;padding:5px 8px;width:auto">
+        <option value="active"${clientFilterStatus==='active'?' selected':''}>Activos</option>
+        <option value="inactive"${clientFilterStatus==='inactive'?' selected':''}>Inactivos</option>
+        <option value="all"${clientFilterStatus==='all'?' selected':''}>Todos</option>
+      </select>
+      <select onchange="clientSortBy=this.value;renderActiveClientListView()" style="font-size:12px;padding:5px 8px;width:auto">
+        <option value="name"${clientSortBy==='name'?' selected':''}>Nombre (A-Z)</option>
+        <option value="oldest"${clientSortBy==='oldest'?' selected':''}>Más antiguo (contrato)</option>
+        <option value="newest"${clientSortBy==='newest'?' selected':''}>Más reciente (contrato)</option>
+        <option value="content"${clientSortBy==='content'?' selected':''}>Mayor contenido</option>
+        <option value="renewal"${clientSortBy==='renewal'?' selected':''}>Renovación próxima</option>
+      </select>
+    </div>`:''}
   </div>`;
 }
 function renderActiveClientListView(){
