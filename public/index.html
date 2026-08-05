@@ -1158,15 +1158,30 @@ function getTodayTasks(){
   if(!col)return[];
   return (col.tasks||[]).filter(t=>t.date===today()&&!t.done&&!t.archived).map(t=>({...t,colName:col.name}));
 }
+function getOverdueTasks(){
+  const col=findColumnByName(CU?.name);
+  if(!col)return[];
+  const t0=today();
+  return (col.tasks||[]).filter(t=>t.date&&t.date<t0&&!t.done&&!t.archived).map(t=>({...t,colName:col.name}));
+}
+function todayTaskRowHtml(t){
+  return`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:8px 0;border-bottom:1px solid var(--bd)">
+    <span style="flex:1">${t.title}</span>
+    ${t.client?`<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:var(--cdim);color:var(--c);flex-shrink:0">${t.client}</span>`:''}
+  </div>`;
+}
 function showTodayTasksModal(){
   const todayTasks=getTodayTasks();
-  if(!todayTasks.length)return;
-  document.getElementById('today-title').textContent=`${todayTasks.length} tarea${todayTasks.length>1?'s':''} para hoy`;
-  document.getElementById('today-list').innerHTML=todayTasks.map(t=>`
-    <div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:8px 0;border-bottom:1px solid var(--bd)">
-      <span style="flex:1">${t.title}</span>
-      ${t.client?`<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:var(--cdim);color:var(--c);flex-shrink:0">${t.client}</span>`:''}
-    </div>`).join('');
+  const overdueTasks=getOverdueTasks();
+  if(!todayTasks.length&&!overdueTasks.length)return;
+  const parts=[];
+  if(todayTasks.length)parts.push(`${todayTasks.length} para hoy`);
+  if(overdueTasks.length)parts.push(`${overdueTasks.length} atrasada${overdueTasks.length>1?'s':''}`);
+  document.getElementById('today-title').textContent=parts.join(' · ');
+  let html='';
+  if(overdueTasks.length)html+=`<div style="font-size:11px;font-weight:600;color:var(--err);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">⚠️ Atrasadas (${overdueTasks.length})</div>${overdueTasks.map(todayTaskRowHtml).join('')}`;
+  if(todayTasks.length)html+=`<div style="font-size:11px;font-weight:600;color:var(--c);text-transform:uppercase;letter-spacing:.05em;margin:${overdueTasks.length?'14px':'0'} 0 6px">Para hoy (${todayTasks.length})</div>${todayTasks.map(todayTaskRowHtml).join('')}`;
+  document.getElementById('today-list').innerHTML=html;
   document.getElementById('today-modal').classList.add('open');
 }
 function closeTodayModal(){
