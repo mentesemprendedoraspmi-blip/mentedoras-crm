@@ -1224,7 +1224,7 @@ function cliCardHtml(c,mk,today2){
     <div class="cli-info">
       <div class="cli-name">${c.name}</div>
       <div class="cli-type">${c.type||''}</div>
-      ${c.accountOwner?`<div style="font-size:9px;color:${ownerColor(c.accountOwner)};display:flex;align-items:center;gap:3px;margin-top:2px"><span style="width:6px;height:6px;border-radius:50%;background:${ownerColor(c.accountOwner)};flex-shrink:0"></span>${c.accountOwner}</div>`:''}
+      ${c.accountOwner?`<div style="font-size:9px;color:${ownerColor(c.accountOwner)};display:flex;align-items:center;gap:3px;margin-top:2px"><span style="width:6px;height:6px;border-radius:50%;background:${ownerColor(c.accountOwner)};flex-shrink:0"></span>${c.accountOwner}${c.cm?` · CM: ${c.cm}`:''}</div>`:''}
     </div>
     <div style="display:flex;gap:6px;margin-left:auto;flex-shrink:0;align-items:center">
       ${reelsToday?'<div style="width:8px;height:8px;border-radius:50%;background:#E1306C" title="Publicación hoy"></div>':''}
@@ -1455,7 +1455,7 @@ function renderClientCards(mc,mk){
         <div class="cc-av">${ini(c.name)}</div>
         <div class="cc-n">${c.name}</div>
         <div class="cc-t">${c.type}</div>
-        ${c.accountOwner?`<div style="font-size:9px;color:${ownerColor(c.accountOwner)};display:flex;align-items:center;gap:3px;margin-top:3px"><span style="width:6px;height:6px;border-radius:50%;background:${ownerColor(c.accountOwner)};flex-shrink:0"></span>${c.accountOwner}</div>`:''}
+        ${c.accountOwner?`<div style="font-size:9px;color:${ownerColor(c.accountOwner)};display:flex;align-items:center;gap:3px;margin-top:3px"><span style="width:6px;height:6px;border-radius:50%;background:${ownerColor(c.accountOwner)};flex-shrink:0"></span>${c.accountOwner}${c.cm?` · CM: ${c.cm}`:''}</div>`:''}
         ${svcs.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">${svcs.slice(0,2).map(s=>`<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--cdim);color:var(--c)">${s.split('(')[0].trim()}</span>`).join('')}${svcs.length>2?`<span style="font-size:10px;color:var(--tx3)">+${svcs.length-2}</span>`:''}</div>`:''}
         <div class="cc-ft">
           ${r.length?`<div style="display:flex;flex-wrap:wrap;gap:3px">
