@@ -10,6 +10,10 @@
 <meta name="apple-mobile-web-app-title" content="Mentedoras">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://www.gstatic.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <style>
@@ -533,9 +537,11 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
 const FIREBASE_CONFIG={apiKey:"AIzaSyBjPyF0q4KMH2LZ7qfBb9wvjZm2usYyIQM",authDomain:"mentedoras-crm.firebaseapp.com",projectId:"mentedoras-crm",storageBucket:"mentedoras-crm.firebasestorage.app",messagingSenderId:"965240949854",appId:"1:965240949854:web:151aebe243214b55c5f8cf"};
 let db=null,fbReady=false;
 
+let _fbInitPromise=null;
 function initFB(){
-  return new Promise(r=>{
-    if(fbReady){r();return;}
+  if(fbReady)return Promise.resolve();
+  if(_fbInitPromise)return _fbInitPromise; // ya en curso (p.ej. lanzado al abrir la página) — no dupliques la carga
+  _fbInitPromise=new Promise(r=>{
     const s1=document.createElement('script');
     s1.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
     s1.onload=()=>{
@@ -547,6 +553,7 @@ function initFB(){
       };s2.onerror=r;document.head.appendChild(s2);
     };s1.onerror=r;document.head.appendChild(s1);
   });
+  return _fbInitPromise;
 }
 async function fbSet(col,id,data){
   try{localStorage.setItem('fb_'+col+'_'+id,JSON.stringify(data));}catch(e){}
@@ -909,20 +916,22 @@ async function saveUsers(){await fbSet('crm','users',{users:USERS,u:new Date().t
 async function loadAll(){
   if(!fbReady)await initFB();
   try{
-    // Load users FIRST so login works for Firebase users
-    const su=await fbGet('crm','users');
+    // Todas estas lecturas son independientes entre sí (colecciones distintas) — lanzarlas
+    // en paralelo en vez de una detrás de otra reduce mucho la espera, sobre todo en móvil.
+    const[su,,,,se,sp]=await Promise.all([
+      fbGet('crm','users'),
+      loadClients(),
+      loadBoard(),
+      loadIdeas(),
+      fbGet('crm','events'),
+      fbGet('crm','payments'),
+    ]);
     if(su&&su.users){
       USERS={...USERS,...su.users};
       // Re-render board if open so column visibility updates with new users
       if(CU&&document.getElementById('view-board')?.classList.contains('on'))renderBoard();
     }
-
-    await loadClients();
-    await loadBoard();
-    await loadIdeas();
-    const se=await fbGet('crm','events');
     if(se&&se.list)calEvents=se.list;
-    const sp=await fbGet('crm','payments');
     if(sp){if(sp.list)paymentsList=sp.list;if(sp.cobros)cobrosList=sp.cobros;}
   }catch(e){console.warn('loadAll:',e);}
   boardDataLoaded=true;
@@ -4715,6 +4724,9 @@ function showToast(msg,type=''){
 loadTheme();
 // Register service worker for PWA
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+// Empieza a cargar Firebase ya, en cuanto se abre la página — así cuando el usuario
+// termina de escribir su usuario/contraseña, el SDK ya está listo y no hay que esperarlo.
+initFB();
 (async()=>{
   const isPortal=await checkRoute();
   if(!isPortal){
