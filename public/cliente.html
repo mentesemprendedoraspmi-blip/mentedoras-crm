@@ -118,19 +118,6 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
 .btn-s{padding:5px 10px;font-size:12px}
 .btn-block{width:100%;justify-content:center;padding:12px}
 .chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600}
-.month-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-.mbtn{padding:5px 12px;border-radius:20px;font-size:12px;border:1px solid var(--bd2);background:transparent;color:var(--tx3);transition:all .15s}
-.mbtn.on{background:var(--grad-brand-soft);color:var(--c);border-color:var(--c);font-weight:600}
-.reel-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bd);gap:10px}
-.reel-row:last-child{border-bottom:none}
-.timeline{position:relative;padding-left:20px}
-.timeline::before{content:'';position:absolute;left:6px;top:0;bottom:0;width:2px;background:var(--bd2)}
-.tl-item{position:relative;padding:0 0 16px 20px}
-.tl-dot{position:absolute;left:-14px;top:3px;width:12px;height:12px;border-radius:50%;background:var(--bg3);border:2px solid var(--bd2)}
-.tl-dot.done{background:var(--ok);border-color:var(--ok)}
-.tl-dot.active{background:var(--c);border-color:var(--c);box-shadow:0 0 0 3px var(--cdim)}
-.tl-title{font-size:13px;font-weight:500}
-.tl-date{font-size:11px;color:var(--tx3);margin-top:2px}
 .stars{display:flex;gap:4px}
 .star{font-size:24px;cursor:pointer;transition:transform .15s;opacity:.3}
 .star.on{opacity:1}
@@ -138,11 +125,6 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
 .growth-bar{height:8px;background:var(--bd);border-radius:4px;overflow:hidden;margin-top:6px}
 .growth-fill{height:100%;background:linear-gradient(90deg,var(--c),#4ADE80);border-radius:4px;transition:width .6s ease}
 .cred-field{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:12px;margin-bottom:10px}
-.mo{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(4px);padding:16px}
-.mo.open{display:flex}
-.modal{background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--rxl);padding:22px;width:100%;max-width:420px;box-shadow:var(--s3);max-height:90vh;overflow-y:auto}
-.modal-t{font-size:16px;font-weight:600;margin-bottom:16px}
-.modal-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
 .f{margin-bottom:12px}
 .f label{font-size:11px;font-weight:500;color:var(--tx2);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
 .welcome{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:16px}
@@ -253,7 +235,6 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
   </div>
 </div>
 
-<div class="mo" id="mo"><div class="modal" id="modal-c"></div></div>
 <div class="toast" id="toast"></div>
 <div class="welcome" id="welcome">
   <div class="welcome-box">
@@ -304,7 +285,7 @@ const FAQ={
   ]
 };
 
-let db=null,client=null,activeMonth='',lang='es',appConfig={},clientTasks=[];
+let db=null,client=null,lang='es',appConfig={},clientTasks=[];
 let calViewYear=new Date().getFullYear(),calViewMonth=new Date().getMonth(),calViewMode='month';
 
 // ============================================================
@@ -636,41 +617,6 @@ function renderIdeas(){
     </div>`:''}`;
 }
 
-function renderConversaciones(){
-  const convs=(client.conversations||[]).slice().reverse();
-  const typeIcons={meet:'📹',llamada:'📞',whatsapp:'💬',presencial:'🤝'};
-  const el=document.getElementById('ini-conversaciones');if(!el)return;
-  el.innerHTML=`
-    ${convs.length?convs.map(cv=>`<div class="card" style="margin-bottom:10px">
-      <div class="card-t">${typeIcons[cv.type]||'🎥'} ${cv.title}<span style="font-size:11px;color:var(--tx3);margin-left:auto;font-weight:400">${fmtDate(cv.date)}</span></div>
-      ${cv.driveLink?`<a href="${cv.driveLink}" target="_blank" style="font-size:12px;color:var(--c);display:inline-block;margin-bottom:8px"><i class="ti ti-external-link"></i> ${t('Ver documento','View document')}</a>`:''}
-      ${cv.transcriptText?`<div style="font-size:12px;color:var(--tx2);white-space:pre-wrap;background:var(--bg3);border-radius:var(--r);padding:8px">${cv.transcriptText}</div>`:''}
-    </div>`).join(''):`<div class="card" style="text-align:center;padding:20px;color:var(--tx3);font-size:13px">${t('Todavía no hay conversaciones registradas.','No conversations recorded yet.')}</div>`}`;
-}
-function renderPeticiones(){
-  const reqs=(client.requests||[]).slice().reverse();
-  const el=document.getElementById('ini-peticiones');if(!el)return;
-  el.innerHTML=`
-    <div class="card" style="margin-bottom:14px">
-      <div style="font-size:12px;color:var(--tx3);margin-bottom:10px">${t('Escribe aquí cualquier cosa que nos hayas pedido, para que quede constancia.','Write here anything you\'ve asked us for, so it\'s on record.')}</div>
-      <textarea id="req-client-text" rows="3" placeholder="${t('ej. Quiero que el próximo reel hable de...','e.g. I want the next reel to talk about...')}"></textarea>
-      <button class="btn btn-p btn-block" style="margin-top:8px" onclick="addClientRequest()">${t('Enviar petición 🚀','Send request 🚀')}</button>
-    </div>
-    ${reqs.length?reqs.map(r=>`<div class="card" style="margin-bottom:10px;${r.status==='atendida'?'opacity:.6':''}">
-      <div style="font-size:13px">${r.text}</div>
-      <div style="font-size:11px;color:var(--tx3);margin-top:6px">${fmtDate(r.date)}${r.status==='atendida'?' · ✅ '+t('Atendida','Handled'):' · ⏳ '+t('Pendiente','Pending')}</div>
-    </div>`).join(''):''}`;
-}
-async function addClientRequest(){
-  const text=document.getElementById('req-client-text')?.value.trim();
-  if(!text)return showToast(t('Escribe tu petición','Write your request'),'ok');
-  if(!client.requests)client.requests=[];
-  client.requests.push({id:Date.now()+'-'+Math.floor(Math.random()*1000),text,date:new Date().toISOString().split('T')[0],status:'abierta',addedBy:client.name});
-  await saveClientData();
-  await notifyTeam(`📋 ${client.name} tiene una nueva petición: "${text}"`);
-  renderPeticiones();
-  showToast(t('¡Petición enviada! 🚀','Request sent! 🚀'),'ok');
-}
 async function sendIdeas(){
   const text=document.getElementById('idea-text')?.value.trim();
   const days=document.getElementById('idea-days')?.value.trim();
@@ -695,53 +641,11 @@ async function sendIdeas(){
 // ============================================================
 // INICIO
 // ============================================================
-function renderLastPubCard(){
-  const hasTikTok=(client.socialNets||['instagram']).includes('tiktok');
-  const hasTrial=client.trialsEnabled!==false&&(client.socialNets||['instagram']).includes('instagram');
-  let lastIG=null,lastTT=null,lastTrial=null;
-  Object.keys(client.pubCal||{}).forEach(mk=>{
-    const reels=(client.reels||{})[mk]||[];
-    Object.entries(client.pubCal[mk]).forEach(([rid,pd])=>{
-      const reel=reels.find(r=>String(r.id)===String(rid));
-      if(!reel)return;
-      if(reel.subido){
-        if(pd.pub&&(!lastIG||pd.pub>lastIG))lastIG=pd.pub;
-        if(pd.tiktok&&(!lastTT||pd.tiktok>lastTT))lastTT=pd.tiktok;
-      }
-      if(reel.trialSubido&&pd.trial&&(!lastTrial||pd.trial>lastTrial))lastTrial=pd.trial;
-    });
-  });
-  const pill=(bg,c,txt)=>`<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:11px;font-weight:600;background:linear-gradient(135deg,${bg},transparent);color:${c}">${txt}</span>`;
-  const row=(label,date,bg,c)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0">
-    <span style="font-size:13px;color:var(--tx2)">${label}</span>
-    ${date?pill(bg,c,fmtDate(date)):pill('var(--bg3)','var(--tx3)',t('Aún no','Not yet'))}
-  </div>`;
-  return `<div class="card">
-    <div class="card-t"><i class="ti ti-send"></i>${t('Tus últimas publicaciones','Your latest posts')}</div>
-    ${hasTrial?row('📲 Trial Instagram',lastTrial,'rgba(225,48,108,.14)','#E1306C'):''}
-    ${row('<i class="ti ti-brand-instagram"></i> Instagram',lastIG,'rgba(168,85,247,.14)','var(--p)')}
-    ${hasTikTok?row('<i class="ti ti-brand-tiktok"></i> TikTok',lastTT,'rgba(6,182,212,.14)','#06B6D4'):''}
-  </div>`;
-}
 function sectionTitleHtml(icon,label){
   return`<div style="font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin:22px 0 10px;display:flex;align-items:center;gap:6px"><i class="ti ${icon}"></i>${label}</div>`;
 }
 function renderInicio(){
   const mk=monthKey();
-  const reels=client.reels?.[mk]||[];
-  const sub=reels.filter(r=>r.subido).length;
-  const ed=reels.filter(r=>r.editado&&!r.subido).length;
-  const gr=reels.filter(r=>r.grabado&&!r.editado).length;
-  const pe=reels.filter(r=>!r.grabado).length;
-  const nextGrab=reels.filter(r=>!r.grabado&&r.fechaGrab).sort((a,b)=>a.fechaGrab.localeCompare(b.fechaGrab))[0];
-  const nextEdit=reels.filter(r=>r.grabado&&!r.subido&&r.fechaEdit).sort((a,b)=>a.fechaEdit.localeCompare(b.fechaEdit))[0];
-  const hasTrial=client.trialsEnabled!==false&&(client.socialNets||['instagram']).includes('instagram');
-  const pubCalMonth=(client.pubCal||{})[mk]||{};
-  const trialNow=hasTrial?reels.filter(r=>r.trialSubido&&!r.subido):[];
-  const nextTrialReel=hasTrial?reels.filter(r=>(pubCalMonth[r.id]||{}).trial&&!r.trialSubido&&!r.subido).sort((a,b)=>pubCalMonth[a.id].trial.localeCompare(pubCalMonth[b.id].trial))[0]:null;
-  const allReels=Object.values(client.reels||{}).flat();
-  const totalPub=allReels.filter(r=>r.subido).length;
-  const months=Object.keys(client.reels||{}).length;
 
   let html=`
     <div style="margin-bottom:20px">
@@ -764,23 +668,6 @@ function renderInicio(){
     }
   }
 
-  // Alertas
-  if(nextGrab){
-    const diff=Math.ceil((new Date(nextGrab.fechaGrab+'T12:00:00')-new Date())/864e5);
-    if(diff<=3&&diff>=0)html+=`<div class="alert alert-warn"><i class="ti ti-calendar-event" style="font-size:18px"></i><div><div style="font-weight:600">${tx('grabProxima')}</div><div style="font-size:12px">${nextGrab.label} — ${fmtDate(nextGrab.fechaGrab)}</div></div></div>`;
-  }
-  if(nextEdit){
-    const diff=Math.ceil((new Date(nextEdit.fechaEdit+'T12:00:00')-new Date())/864e5);
-    if(diff<=2&&diff>=0)html+=`<div class="alert alert-info"><i class="ti ti-video" style="font-size:18px"></i><div><div style="font-weight:600">${tx('reelProxListo')}</div><div style="font-size:12px">${nextEdit.label} — ${fmtDate(nextEdit.fechaEdit)}</div></div></div>`;
-  }
-  if(trialNow.length)html+=`<div class="alert alert-info"><i class="ti ti-brand-instagram" style="font-size:18px"></i><div><div style="font-weight:600">📲 ${t('En Trial de Instagram','On Instagram Trial')}</div><div style="font-size:12px">${trialNow.map(r=>r.label).join(', ')}</div></div></div>`;
-  if(nextTrialReel){
-    const td=pubCalMonth[nextTrialReel.id].trial;
-    const diff=Math.ceil((new Date(td+'T12:00:00')-new Date())/864e5);
-    if(diff<=3&&diff>=0)html+=`<div class="alert alert-warn"><i class="ti ti-brand-instagram" style="font-size:18px"></i><div><div style="font-weight:600">📲 ${t('Trial próximo','Trial coming up')}</div><div style="font-size:12px">${nextTrialReel.label} — ${fmtDate(td)}</div></div></div>`;
-  }
-  if(sub>0)html+=`<div class="alert alert-ok"><i class="ti ti-check-circle" style="font-size:18px"></i><div><div style="font-weight:600">${sub} reel${sub>1?'s':''} publicado${sub>1?'s':''}  este mes</div><div style="font-size:12px">${sub}/${reels.length} en total</div></div></div>`;
-
   // Tu contenido — acceso consolidado a lo que el cliente busca de verdad
   const drive=client.drive||{};
   const upcomingCount=clientCalendarEvents().filter(e=>e.date>=today()).length;
@@ -795,80 +682,16 @@ function renderInicio(){
   };
   html+=`<div class="card">
     <div class="card-t"><i class="ti ti-folder"></i>${t('Tu contenido','Your content')}</div>
-    ${qrow('ti-video','var(--cdim)','var(--c)',tx('reelsEditados'),drive.reelsEdit?t('Carpeta de Drive','Drive folder'):t('Aún no configurada','Not set up yet'),drive.reelsEdit||"document.getElementById('ini-reels-anchor').scrollIntoView({behavior:'smooth'})")}
-    ${qrow('ti-pencil','var(--pdim)','var(--p)',tx('misGuiones'),drive.scripts?t('Para leer antes de grabar','Read before recording'):t('Aún no configurada','Not set up yet'),drive.scripts||"document.getElementById('ini-reels-anchor').scrollIntoView({behavior:'smooth'})")}
+    ${qrow('ti-video','var(--cdim)','var(--c)',tx('reelsEditados'),drive.reelsEdit?t('Carpeta de Drive','Drive folder'):t('Aún no configurada','Not set up yet'),drive.reelsEdit)}
+    ${qrow('ti-pencil','var(--pdim)','var(--p)',tx('misGuiones'),drive.scripts?t('Para leer antes de grabar','Read before recording'):t('Aún no configurada','Not set up yet'),drive.scripts)}
     ${qrow('ti-lock','rgba(245,158,11,.14)','var(--warn)',t('Credenciales','Credentials'),t('Tus accesos guardados','Your saved logins'),"showTab('ajustes')")}
     ${qrow('ti-calendar','rgba(34,197,94,.14)','#4ADE80',t('Calendario de contenido','Content calendar'),upcomingCount?`${upcomingCount} ${t('fechas próximas','upcoming dates')}`:t('Sin fechas próximas','No upcoming dates'),"showTab('calendario')")}
   </div>`;
 
-  // Stats
-  html+=`<div class="stat-grid">
-    <div class="stat"><div class="stat-v" style="color:#4ADE80">${sub}/${reels.length}</div><div class="stat-l">✅ ${tx('publicados')}</div></div>
-    <div class="stat"><div class="stat-v" style="color:#C084FC">${ed}</div><div class="stat-l">✂️ ${tx('enEdicion')}</div></div>
-    <div class="stat"><div class="stat-v" style="color:var(--warn)">${gr}</div><div class="stat-l">🎬 ${tx('grabados')}</div></div>
-    <div class="stat"><div class="stat-v" style="color:var(--tx3)">${pe}</div><div class="stat-l">⏳ ${tx('pendientes')}</div></div>
-  </div>`;
-
-  // Próximas fechas — todo lo agendado en el CRM (reels, calendario de publicación y tareas del tablero)
-  const upcoming=clientCalendarEvents().filter(e=>e.date>=today()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);
-  if(upcoming.length){
-    html+=`<div class="card"><div class="card-t"><i class="ti ti-calendar"></i>${tx('proximasFechas')}</div>`;
-    upcoming.forEach(e=>{html+=`<div class="pf"><span class="pf-l" style="color:${e.color}">${e.label}</span><span class="pf-v">${fmtDate(e.date)}</span></div>`;});
-    html+=`</div>`;
-  }
-
-  // Logros
-  html+=`<div class="card" style="background:linear-gradient(135deg,var(--bg2),var(--bg3))">
-    <div class="card-t"><i class="ti ti-trophy"></i>${tx('tusLogros')}</div>
-    <div class="stat-grid" style="margin-bottom:0">
-      <div class="stat"><div class="stat-v" style="color:#4ADE80">${totalPub}</div><div class="stat-l">📹 ${tx('reelsPublicados')}</div></div>
-      <div class="stat"><div class="stat-v" style="color:var(--c)">${client.contractStart?Math.max(0,Math.round((new Date()-new Date(client.contractStart+'T12:00:00'))/864e5/30)):0}</div><div class="stat-l">📅 ${tx('mesesJuntos')}</div></div>
-    </div>
-  </div>`;
-
-  // Última publicación por red
-  html+=renderLastPubCard();
-
-  // Acciones rápidas
-  html+=`<div class="card">
-    <div class="card-t"><i class="ti ti-bolt"></i>${tx('accionesRapidas')}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button class="btn btn-block" onclick="document.getElementById('ini-reels-anchor').scrollIntoView({behavior:'smooth'})"><i class="ti ti-video"></i>${tx('verMisReels')}</button>
-      <button class="btn btn-block" onclick="openMeetingModal()"><i class="ti ti-calendar-plus"></i>${tx('agendarReunion')}</button>
-      <button class="btn btn-block" onclick="document.getElementById('ini-chat').scrollIntoView({behavior:'smooth'})"><i class="ti ti-message-2"></i>${tx('hablarEquipo')}</button>
-      <button class="btn btn-block" onclick="showTab('contrato')"><i class="ti ti-file-text"></i>${tx('miContrato')}</button>
-    </div>
-  </div>`;
-
-  // Secciones que antes eran pestañas propias, ahora forman parte del resumen
-  html+=`<div id="ini-reels-anchor">${sectionTitleHtml('ti-video',t('Tus reels','Your reels'))}</div><div id="ini-reels"></div>`;
-  html+=sectionTitleHtml('ti-message-2',t('Histórico y conversaciones','History & conversations'))+`<div id="ini-conversaciones"></div>`;
-  html+=sectionTitleHtml('ti-clipboard-list',t('Tus peticiones','Your requests'))+`<div id="ini-peticiones"></div>`;
   html+=`<div id="ini-chat"></div>`;
 
   document.getElementById('view-inicio').innerHTML=html;
 
-  // Show ideas notification in last 5 days of month
-  const nowD=new Date();
-  const lastDay=new Date(nowD.getFullYear(),nowD.getMonth()+1,0).getDate();
-  const daysLeft=lastDay-nowD.getDate();
-  if(daysLeft<=5){
-    const nextM=new Date(nowD.getFullYear(),nowD.getMonth()+1,1);
-    const nextMLabel=(lang==='en'?['January','February','March','April','May','June','July','August','September','October','November','December']:MONTHS)[nextM.getMonth()];
-    const el=document.getElementById('view-inicio');
-    el.innerHTML=`<div class="alert alert-info" style="cursor:pointer;margin-bottom:16px" onclick="showTab('ideas')">
-      <i class="ti ti-bulb" style="font-size:20px"></i>
-      <div>
-        <div style="font-weight:600">💡 ${t('¡Nuevo mes en camino!','New month coming up!')} ${nextMLabel}</div>
-        <div style="font-size:12px">${t('¿Qué ideas tienes para el contenido del mes que viene? Haz clic para contárnoslo →','What ideas do you have for next month\'s content? Click to tell us →')}</div>
-      </div>
-    </div>`+el.innerHTML;
-  }
-
-  // Rellena las secciones que antes eran pestañas independientes
-  renderReels();
-  renderConversaciones();
-  renderPeticiones();
   renderChat();
 }
 
@@ -977,107 +800,6 @@ function showDayEvents(dateStr){
   </div>`;
   el.scrollIntoView({behavior:'smooth'});
 }
-
-// ============================================================
-// REELS
-// ============================================================
-function renderReels(){
-  const months=Object.keys(client.reels||{}).sort();
-  // Default to current month if available, otherwise latest
-  const mk2=monthKey();
-  if(!activeMonth||!months.includes(activeMonth)){
-    activeMonth=months.includes(mk2)?mk2:(months[months.length-1]||mk2);
-  }
-  const reels=client.reels[activeMonth]||[];
-  const sub=reels.filter(r=>r.subido).length;
-  const trialUp=reels.filter(r=>r.trialSubido&&!r.subido).length;
-  const ed=reels.filter(r=>r.editado&&!r.trialSubido&&!r.subido).length;
-  const gr=reels.filter(r=>r.grabado&&!r.editado).length;
-  const hasTiktok=!!(client.tiktokUrl);
-  const hasStories=!!client.includeStories;
-  const hasTrial=client.trialsEnabled!==false&&(client.socialNets||['instagram']).includes('instagram');
-  const pubCalMonth=(client.pubCal||{})[activeMonth]||{};
-
-  let html=`<div class="month-row">
-    ${months.map(m=>`<button class="mbtn${m===activeMonth?' on':''}" onclick="setActiveMonth('${m}')">${monthLabel(m)}</button>`).join('')}
-  </div>`;
-
-  html+=`<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-    ${sub?`<span class="chip" style="background:linear-gradient(135deg,rgba(34,197,94,.12),transparent);color:#4ADE80">✅ ${sub} publicados</span>`:''}
-    ${hasTrial&&trialUp?`<span class="chip" style="background:linear-gradient(135deg,rgba(225,48,108,.12),transparent);color:#E1306C">📲 ${trialUp} en trial</span>`:''}
-    ${ed?`<span class="chip" style="background:linear-gradient(135deg,rgba(192,132,252,.12),transparent);color:#C084FC">✂️ ${ed} en edición</span>`:''}
-    ${gr?`<span class="chip" style="background:linear-gradient(135deg,rgba(245,158,11,.12),transparent);color:var(--warn)">🎬 ${gr} grabados</span>`:''}
-  </div>`;
-
-  html+=`<div class="card" style="margin-bottom:14px">
-    <div class="card-t"><i class="ti ti-brand-instagram"></i>Reels Instagram — ${monthLabel(activeMonth)}</div>
-    ${reels.length?reels.map(r=>{
-      let estado='⏳ Pendiente';let color='var(--tx3)';
-      if(r.subido){estado='✅ Publicado';color='#4ADE80';}
-      else if(hasTrial&&r.trialSubido){estado='📲 En Trial';color='#E1306C';}
-      else if(r.editado){estado='👁 En revisión';color='#C084FC';}
-      else if(r.grabado){estado='✂️ Editándose';color='var(--warn)';}
-      const trialDate=(pubCalMonth[r.id]||{}).trial;
-      return`<div class="reel-row">
-        <div>
-          <div style="font-size:13px;font-weight:500">${r.label}</div>
-          <div style="font-size:11px;color:var(--tx3);margin-top:2px">
-            ${r.fechaGrab&&!r.grabado?'📅 '+t('Grabación','Recording')+': '+fmtDate(r.fechaGrab):''}
-            ${r.fechaEdit&&!r.subido&&!r.trialSubido?'🎯 '+t('Entrega prevista','Expected delivery')+': '+fmtDate(r.fechaEdit):''}
-            ${hasTrial&&trialDate&&!r.trialSubido&&!r.subido?'📲 '+t('Trial previsto','Trial expected')+': '+fmtDate(trialDate):''}
-          </div>
-        </div>
-        <span style="font-size:11px;font-weight:600;color:${color};white-space:nowrap">${estado}</span>
-      </div>`;
-    }).join(''):`<div style="text-align:center;padding:20px;color:var(--tx3)">${tx('sinReelsMes')}</div>`}
-  </div>`;
-
-  if(hasTiktok){
-    const tiktoks=(client.tiktoks||{})[activeMonth]||[];
-    html+=`<div class="card" style="margin-bottom:14px">
-      <div class="card-t"><i class="ti ti-brand-tiktok"></i>TikTok — ${monthLabel(activeMonth)}</div>
-      ${tiktoks.length?tiktoks.map(r=>{
-        let estado='⏳ Pendiente';let color='var(--tx3)';
-        if(r.subido){estado='✅ Publicado';color='#4ADE80';}
-        else if(r.editado){estado='✂️ En edición';color='var(--warn)';}
-        return`<div class="reel-row"><div><div style="font-size:13px;font-weight:500">${r.label}</div></div><span style="font-size:11px;font-weight:600;color:${color}">${estado}</span></div>`;
-      }).join(''):`<div style="text-align:center;padding:16px;color:var(--tx3);font-size:13px">${t('El equipo añadirá el contenido de TikTok aquí pronto 🎵','The team will add your TikTok content here soon 🎵')}</div>`}
-    </div>`;
-  }
-
-  if(hasStories){
-    const stories=(client.stories||{})[activeMonth]||[];
-    html+=`<div class="card" style="margin-bottom:14px">
-      <div class="card-t"><i class="ti ti-circle-plus"></i>Historias — ${monthLabel(activeMonth)}</div>
-      ${stories.length?stories.map(s=>`<div class="reel-row"><div><div style="font-size:13px">${s.label}</div></div><span style="font-size:11px;font-weight:600;color:${s.done?'#4ADE80':'var(--tx3)'}">${s.done?'✅ Publicada':'⏳ Pendiente'}</span></div>`).join(''):`<div style="text-align:center;padding:16px;color:var(--tx3);font-size:13px">${t('El equipo añadirá las historias aquí','The team will add your stories here')}</div>`}
-    </div>`;
-  }
-
-  html+=`<div class="card">
-    <div class="card-t"><i class="ti ti-timeline"></i>${tx('estadoProceso')}</div>
-    <div class="timeline">`;
-  const steps=[
-    {label:'Análisis y estrategia',done:true},
-    {label:'Guionización',done:reels.some(r=>(client.produccion||{})[activeMonth]?.s0?.[r.id])},
-    {label:'Grabación',done:reels.some(r=>r.grabado)},
-    {label:'Edición',done:reels.some(r=>r.editado)},
-    ...(hasTrial?[{label:'Trial Instagram',done:reels.some(r=>r.trialSubido)}]:[]),
-    {label:'Publicación',done:reels.some(r=>r.subido)},
-  ];
-  const activeIdx=steps.findIndex(s=>!s.done);
-  steps.forEach((s,i)=>{
-    const isActive=i===activeIdx;
-    html+=`<div class="tl-item">
-      <div class="tl-dot ${s.done?'done':isActive?'active':''}"></div>
-      <div class="tl-title" style="color:${s.done?'var(--tx3)':isActive?'var(--c)':'var(--tx2)'}">${s.label}</div>
-      ${isActive?'<div class="tl-date" style="color:var(--c)">'+tx('enProcesoAhora')+'</div>':''}
-    </div>`;
-  });
-  html+=`</div></div>`;
-  const el=document.getElementById('ini-reels');if(el)el.innerHTML=html;
-}
-
-function setActiveMonth(m){activeMonth=m;renderReels();}
 
 // ============================================================
 // CONTRATO
@@ -1436,30 +1158,6 @@ async function saveMyData(){
   showToast('Datos guardados ✓','ok');
 }
 
-// ============================================================
-// MODALS
-// ============================================================
-function openMeetingModal(){
-  const mc=document.getElementById('modal-c');
-  mc.innerHTML=`<div class="modal-t">${tx('solicitarReunion')}</div>
-    <div class="f"><label>${tx('motivo')}</label><input id="mt-m" placeholder="ej. Revisión de contenido"></div>
-    <div class="f"><label>${tx('fechaPreferida')}</label><input id="mt-f" type="date" value="${today()}"></div>
-    <div class="f"><label>${tx('horaPreferida')}</label><input id="mt-h" type="time" value="10:00"></div>
-    <div class="f"><label>${tx('notasOpcional')}</label><textarea id="mt-n" rows="2" placeholder="Cualquier detalle..."></textarea></div>
-    <div class="modal-acts"><button class="btn btn-s" onclick="closeMo()">${tx('cancelar')}</button><button class="btn btn-s btn-p" onclick="sendMeeting()">${tx('solicitar')}</button></div>`;
-  document.getElementById('mo').classList.add('open');
-}
-async function sendMeeting(){
-  const m=document.getElementById('mt-m')?.value.trim();const f=document.getElementById('mt-f')?.value;
-  const h=document.getElementById('mt-h')?.value;const n=document.getElementById('mt-n')?.value;
-  if(!m||!f)return showToast('Rellena motivo y fecha','ok');
-  await notifyTeam(`📅 ${client.name} solicita reunión: "${m}" — ${fmtDate(f)} ${h}${n?' · '+n:''}`);
-  closeMo();
-  showToast(t('Solicitud enviada, te confirmamos la cita en breve ✓','Request sent, we\'ll confirm the meeting shortly ✓'),'ok');
-}
-function closeMo(){document.getElementById('mo').classList.remove('open');}
-document.getElementById('mo').addEventListener('click',e=>{if(e.target===document.getElementById('mo'))closeMo();});
-
 function closeWelcome(){document.getElementById('welcome').classList.remove('open');}
 
 // ============================================================
@@ -1539,10 +1237,6 @@ loadTheme();
   document.getElementById('app').classList.add('on');
   document.getElementById('hdr-name').textContent=client.name;
   document.getElementById('sb-av').textContent=ini(client.name);
-
-  // Set active month
-  const months=Object.keys(client.reels||{}).sort();
-  activeMonth=months[months.length-1]||monthKey();
 
   // Render initial tab
   renderInicio();
