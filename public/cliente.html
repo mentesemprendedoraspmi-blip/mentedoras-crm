@@ -44,23 +44,50 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
 .lock-box p{font-size:12px;color:var(--tx3);margin-bottom:18px}
 .lock-box input{text-align:center;font-size:18px;letter-spacing:.2em;margin-bottom:10px}
 .lock-err{font-size:12px;color:var(--err);margin-top:8px;display:none}
-.app{display:none;flex-direction:column;min-height:100vh}
+.app{display:none;height:100vh;overflow:hidden}
 .app.on{display:flex}
-.hdr{background:linear-gradient(135deg,var(--bg2),var(--bg3));border-bottom:1px solid var(--bd);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
-.hdr-logo{font-size:18px;font-weight:600;font-style:italic;background:var(--grad-accent);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--c)}
-.hdr-name{font-size:12px;color:var(--tx3);margin-top:1px}
-.hdr-acts{display:flex;align-items:center;gap:8px}
 .th-btn{width:18px;height:18px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:all .15s;flex-shrink:0}
 .th-btn.on{border-color:var(--c)}
 .th-dark{background:radial-gradient(circle,#252D38,#111418)}
 .th-light{background:radial-gradient(circle,#fff,#E8EEF5)}
 .th-blue{background:radial-gradient(circle,#1D3360,#0A1628)}
-.nav{background:var(--bg2);border-bottom:1px solid var(--bd);display:flex;overflow-x:auto;padding:0 12px}
-.nav-tab{padding:12px 14px;font-size:13px;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;display:flex;align-items:center;gap:6px;transition:all .15s;flex-shrink:0}
-.nav-tab:hover{color:var(--tx)}
-.nav-tab.on{color:var(--c);border-bottom-color:var(--c);border-bottom-width:2px;font-weight:600;background:var(--cdim);border-radius:6px 6px 0 0}
-.nav-tab i{font-size:15px}
-.cnt{flex:1;padding:16px;max-width:680px;margin:0 auto;width:100%}
+/* Barra lateral, igual que el CRM interno */
+.sb{width:228px;min-width:228px;background:var(--bg2);border-right:1px solid var(--bd);display:flex;flex-direction:column;height:100vh;transition:transform .3s}
+.sb-top{padding:16px 14px 12px;border-bottom:1px solid var(--bd);background:linear-gradient(135deg,rgba(0,229,229,.09),rgba(168,85,247,.05))}
+.sb-logo{font-size:18px;font-weight:600;font-style:italic;background:var(--grad-accent);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--c)}
+.sb-sub{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin-top:1px}
+.sb-u{display:flex;align-items:center;gap:8px;margin-top:10px;background:var(--bg3);border-radius:var(--r);padding:7px 9px;border:1px solid var(--bd)}
+.sb-av{width:28px;height:28px;border-radius:50%;background:var(--cdim);border:1px solid rgba(0,229,229,.2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--c);flex-shrink:0}
+.sb-uname{font-size:12px;font-weight:500}
+.sb-nav{padding:8px 8px 0;flex:1;overflow-y:auto}
+.ni{position:relative;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--tx2);transition:all .15s;margin-bottom:1px}
+.ni:hover{background:var(--bg3);color:var(--tx)}
+.ni.on{background:var(--grad-brand-soft);color:var(--c);font-weight:600;box-shadow:inset 0 0 0 1px rgba(var(--c-rgb),.2)}
+.ni.on::before{content:'';position:absolute;left:-8px;top:2px;bottom:2px;width:3px;border-radius:0 3px 3px 0;background:var(--c)}
+.ni i{font-size:15px;width:16px;text-align:center}
+.sb-bot{margin:8px;flex-shrink:0;margin-top:auto}
+.sb-out{width:100%;padding:8px 12px;border-radius:var(--r);background:transparent;border:1px solid var(--bd);color:var(--tx3);font-size:12px;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .15s}
+.sb-out:hover{background:var(--bg3);color:var(--tx2)}
+.theme-row{display:flex;gap:5px;padding:8px 0;align-items:center}
+.theme-row span{font-size:10px;color:var(--tx3);flex:1}
+.overlay-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:70}
+.overlay-bg.open{display:block}
+.menu-toggle{display:none;background:transparent;border:none;color:var(--tx);font-size:22px;cursor:pointer;padding:4px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{padding:13px 20px;background:linear-gradient(135deg,var(--bg2),var(--bg3));border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.tbl{display:flex;align-items:center;gap:10px}
+.tb-ic{width:32px;height:32px;background:var(--cdim);border-radius:var(--r);display:flex;align-items:center;justify-content:center;color:var(--c)}
+.tb-t{font-size:15px;font-weight:600}
+.cnt{flex:1;overflow-y:auto;padding:16px;max-width:680px;margin:0 auto;width:100%}
+@media(max-width:768px){
+  .app.on{flex-direction:column}
+  .sb{position:fixed;left:0;top:0;bottom:0;z-index:80;transform:translateX(-100%);width:260px}
+  .sb.open{transform:translateX(0)}
+  .menu-toggle{display:flex}
+  .main{width:100%}
+  .topbar{padding:10px 14px}
+  .cnt{padding:14px}
+}
 .view{display:none}
 .view.on{display:block}
 .card{background:linear-gradient(160deg,var(--bg2),var(--bg3));border:1px solid var(--bd);border-radius:var(--rl);padding:16px;margin-bottom:14px}
@@ -172,56 +199,57 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
 </div>
 
 <div class="app" id="app">
-  <div class="hdr">
-    <div>
-      <div class="hdr-logo">Mentedoras</div>
-      <div class="hdr-name" id="hdr-name"></div>
+  <div class="overlay-bg" id="ov-bg" onclick="closeSB()"></div>
+  <div class="sb" id="sb">
+    <div class="sb-top">
+      <div class="sb-logo">Mentedoras</div>
+      <div class="sb-sub">Tu portal</div>
+      <div class="sb-u"><div class="sb-av" id="sb-av"></div><div class="sb-uname" id="hdr-name"></div></div>
     </div>
-    <div class="hdr-acts">
-      <button onclick="toggleLang()" id="lang-btn" style="background:var(--bg3);border:1px solid var(--bd2);border-radius:var(--r);padding:4px 10px;font-size:12px;color:var(--tx2);font-family:'DM Sans',sans-serif">🇪🇸 ES</button>
-      <div class="th-btn th-dark on" id="th-dark" onclick="setTheme('dark')" title="Oscuro"></div>
-      <div class="th-btn th-light" id="th-light" onclick="setTheme('light')" title="Claro"></div>
-      <div class="th-btn th-blue" id="th-blue" onclick="setTheme('blue')" title="Azul"></div>
+    <div class="sb-nav">
+      <div class="ni on" onclick="showTab('inicio')" id="nt-inicio"><i class="ti ti-home"></i><span id="tx-inicio">Inicio</span></div>
+      <div class="ni" onclick="showTab('calendario')" id="nt-calendario"><i class="ti ti-calendar"></i><span id="tx-calendario">Calendario</span></div>
+      <div class="ni" onclick="showTab('contrato')" id="nt-contrato"><i class="ti ti-file-text"></i><span id="tx-contrato">Contrato</span></div>
+      <div class="ni" onclick="showTab('modif')" id="nt-modif"><i class="ti ti-edit"></i><span id="tx-modif">Modificaciones</span></div>
+      <div class="ni" onclick="showTab('crecimiento')" id="nt-crecimiento"><i class="ti ti-trending-up"></i><span id="tx-crecimiento">Crecimiento</span></div>
+      <div class="ni" onclick="showTab('ideas')" id="nt-ideas"><i class="ti ti-bulb"></i><span id="tx-ideas">Ideas</span></div>
+      <div class="ni" onclick="showTab('ajustes')" id="nt-ajustes"><i class="ti ti-settings"></i><span id="tx-ajustes">Ajustes</span></div>
+    </div>
+    <div class="sb-bot">
+      <div class="theme-row">
+        <span>Tema:</span>
+        <div class="th-btn th-dark on" id="th-dark" onclick="setTheme('dark')" title="Oscuro"></div>
+        <div class="th-btn th-light" id="th-light" onclick="setTheme('light')" title="Claro"></div>
+        <div class="th-btn th-blue" id="th-blue" onclick="setTheme('blue')" title="Azul"></div>
+      </div>
+      <button class="sb-out" onclick="toggleLang()" id="lang-btn">🇪🇸 ES</button>
     </div>
   </div>
 
-  <div class="nav">
-    <div class="nav-tab on" onclick="showTab('inicio')" id="nt-inicio"><i class="ti ti-home"></i><span id="tx-inicio">Inicio</span></div>
-    <div class="nav-tab" onclick="showTab('calendario')" id="nt-calendario"><i class="ti ti-calendar"></i><span id="tx-calendario">Calendario</span></div>
-    <div class="nav-tab" onclick="showTab('reels')" id="nt-reels"><i class="ti ti-video"></i><span id="tx-reels">Reels</span></div>
-    <div class="nav-tab" onclick="showTab('contrato')" id="nt-contrato"><i class="ti ti-file-text"></i><span id="tx-contrato">Contrato</span></div>
-    <div class="nav-tab" onclick="showTab('modif')" id="nt-modif"><i class="ti ti-edit"></i><span id="tx-modif">Modificaciones</span></div>
-    <div class="nav-tab" onclick="showTab('crecimiento')" id="nt-crecimiento"><i class="ti ti-trending-up"></i><span id="tx-crecimiento">Crecimiento</span></div>
-    <div class="nav-tab" onclick="showTab('chat')" id="nt-chat"><i class="ti ti-message-2"></i><span id="tx-chat">Chat</span></div>
-    <div class="nav-tab" onclick="showTab('conversaciones')" id="nt-conversaciones"><i class="ti ti-video"></i><span id="tx-conversaciones">Conversaciones</span></div>
-    <div class="nav-tab" onclick="showTab('peticiones')" id="nt-peticiones"><i class="ti ti-clipboard-list"></i><span id="tx-peticiones">Peticiones</span></div>
-    <div class="nav-tab" onclick="showTab('ideas')" id="nt-ideas"><i class="ti ti-bulb"></i><span id="tx-ideas">Ideas</span></div>
-    <div class="nav-tab" onclick="showTab('ajustes')" id="nt-ajustes"><i class="ti ti-settings"></i><span id="tx-ajustes">Ajustes</span></div>
-  </div>
-
-  <div class="cnt" id="cnt">
-    <!-- INICIO -->
-    <div class="view on" id="view-inicio"></div>
-    <!-- CALENDARIO -->
-    <div class="view" id="view-calendario"></div>
-    <!-- REELS -->
-    <div class="view" id="view-reels"></div>
-    <!-- CONTRATO -->
-    <div class="view" id="view-contrato"></div>
-    <!-- MODIFICACIONES -->
-    <div class="view" id="view-modif"></div>
-    <!-- CRECIMIENTO -->
-    <div class="view" id="view-crecimiento"></div>
-    <!-- CHAT -->
-    <div class="view" id="view-chat"></div>
-    <!-- CONVERSACIONES -->
-    <div class="view" id="view-conversaciones"></div>
-    <!-- PETICIONES -->
-    <div class="view" id="view-peticiones"></div>
-    <!-- IDEAS -->
-    <div class="view" id="view-ideas"></div>
-    <!-- AJUSTES -->
-    <div class="view" id="view-ajustes"></div>
+  <div class="main">
+    <div class="topbar">
+      <div class="tbl">
+        <button class="menu-toggle" onclick="openSB()"><i class="ti ti-menu-2"></i></button>
+        <div class="tb-ic"><i class="ti ti-home" id="tb-ic"></i></div>
+        <div class="tb-t" id="tb-t">Inicio</div>
+      </div>
+    </div>
+    <div class="cnt" id="cnt">
+      <!-- INICIO -->
+      <div class="view on" id="view-inicio"></div>
+      <!-- CALENDARIO -->
+      <div class="view" id="view-calendario"></div>
+      <!-- CONTRATO -->
+      <div class="view" id="view-contrato"></div>
+      <!-- MODIFICACIONES -->
+      <div class="view" id="view-modif"></div>
+      <!-- CRECIMIENTO -->
+      <div class="view" id="view-crecimiento"></div>
+      <!-- IDEAS -->
+      <div class="view" id="view-ideas"></div>
+      <!-- AJUSTES -->
+      <div class="view" id="view-ajustes"></div>
+    </div>
   </div>
 </div>
 
@@ -337,14 +365,14 @@ function listenRealtime(){
       if(updated){
         client={...updated,editors:Array.isArray(updated.editors)?updated.editors:[],services:Array.isArray(updated.services)?updated.services:[]};
         // Refresh current tab
-        const activeTab=document.querySelector('.nav-tab.on')?.id?.replace('nt-','');
+        const activeTab=document.querySelector('.ni.on')?.id?.replace('nt-','');
         if(activeTab)renderTab(activeTab);
       }
     }
   });
   // Tareas del tablero interno enlazadas a este cliente (por id o por nombre, para tarjetas antiguas sin enlazar)
   const refreshClientTab=()=>{
-    const activeTab=document.querySelector('.nav-tab.on')?.id?.replace('nt-','');
+    const activeTab=document.querySelector('.ni.on')?.id?.replace('nt-','');
     if(activeTab==='inicio'||activeTab==='calendario')renderTab(activeTab);
   };
   const byId={},byName={};
@@ -395,8 +423,12 @@ function toggleLang(){
     if(el)el.textContent=tx(k);
   });
   // Re-render current tab
-  const activeTab=document.querySelector('.nav-tab.on')?.id?.replace('nt-','');
-  if(activeTab)renderTab(activeTab);
+  const activeTab=document.querySelector('.ni.on')?.id?.replace('nt-','');
+  if(activeTab){
+    const meta=TAB_META[activeTab];
+    if(meta)document.getElementById('tb-t').textContent=t(meta[1][0],meta[1][1]);
+    renderTab(activeTab);
+  }
 }
 
 function t(esText,enText){return lang==='en'?enText:esText;}
@@ -536,23 +568,37 @@ const TX={
 
 function tx(key){const v=TX[key];if(!v)return key;return lang==='en'?v[1]:v[0];}
 
+const TAB_META={
+  inicio:['ti-home',['Inicio','Home']],
+  calendario:['ti-calendar',['Calendario','Calendar']],
+  contrato:['ti-file-text',['Contrato','Contract']],
+  modif:['ti-edit',['Modificaciones','Changes']],
+  crecimiento:['ti-trending-up',['Crecimiento','Growth']],
+  ideas:['ti-bulb',['Ideas','Ideas']],
+  ajustes:['ti-settings',['Ajustes','Settings']],
+};
 function showTab(name){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
   document.getElementById('view-'+name)?.classList.add('on');
-  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.ni').forEach(t=>t.classList.remove('on'));
   document.getElementById('nt-'+name)?.classList.add('on');
+  const meta=TAB_META[name];
+  if(meta){
+    document.getElementById('tb-ic').className='ti '+meta[0];
+    document.getElementById('tb-t').textContent=t(meta[1][0],meta[1][1]);
+  }
   renderTab(name);
+  closeSB();
+  document.getElementById('cnt').scrollTop=0;
 }
+function openSB(){document.getElementById('sb').classList.add('open');document.getElementById('ov-bg').classList.add('open');}
+function closeSB(){document.getElementById('sb').classList.remove('open');document.getElementById('ov-bg').classList.remove('open');}
 function renderTab(name){
   if(name==='inicio')renderInicio();
   if(name==='calendario')renderCalendario();
-  if(name==='reels')renderReels();
   if(name==='contrato')renderContrato();
   if(name==='modif')renderModif();
   if(name==='crecimiento')renderCrecimiento();
-  if(name==='chat')renderChat();
-  if(name==='conversaciones')renderConversaciones();
-  if(name==='peticiones')renderPeticiones();
   if(name==='ideas')renderIdeas();
   if(name==='ajustes')renderAjustes();
 }
@@ -593,32 +639,27 @@ function renderIdeas(){
 function renderConversaciones(){
   const convs=(client.conversations||[]).slice().reverse();
   const typeIcons={meet:'📹',llamada:'📞',whatsapp:'💬',presencial:'🤝'};
-  document.getElementById('view-conversaciones').innerHTML=`
-    <div style="margin-bottom:16px">
-      <div style="font-size:18px;font-weight:600;margin-bottom:4px">🎥 ${t('Conversaciones con tu equipo','Conversations with your team')}</div>
-      <div style="font-size:13px;color:var(--tx3)">${t('Aquí guardamos el resumen de nuestras reuniones y llamadas.','Here we keep a record of our meetings and calls.')}</div>
-    </div>
+  const el=document.getElementById('ini-conversaciones');if(!el)return;
+  el.innerHTML=`
     ${convs.length?convs.map(cv=>`<div class="card" style="margin-bottom:10px">
       <div class="card-t">${typeIcons[cv.type]||'🎥'} ${cv.title}<span style="font-size:11px;color:var(--tx3);margin-left:auto;font-weight:400">${fmtDate(cv.date)}</span></div>
       ${cv.driveLink?`<a href="${cv.driveLink}" target="_blank" style="font-size:12px;color:var(--c);display:inline-block;margin-bottom:8px"><i class="ti ti-external-link"></i> ${t('Ver documento','View document')}</a>`:''}
       ${cv.transcriptText?`<div style="font-size:12px;color:var(--tx2);white-space:pre-wrap;background:var(--bg3);border-radius:var(--r);padding:8px">${cv.transcriptText}</div>`:''}
-    </div>`).join(''):`<div style="text-align:center;padding:30px;color:var(--tx3)">${t('Todavía no hay conversaciones registradas.','No conversations recorded yet.')}</div>`}`;
+    </div>`).join(''):`<div class="card" style="text-align:center;padding:20px;color:var(--tx3);font-size:13px">${t('Todavía no hay conversaciones registradas.','No conversations recorded yet.')}</div>`}`;
 }
 function renderPeticiones(){
   const reqs=(client.requests||[]).slice().reverse();
-  document.getElementById('view-peticiones').innerHTML=`
-    <div style="margin-bottom:16px">
-      <div style="font-size:18px;font-weight:600;margin-bottom:4px">📋 ${t('Tus peticiones','Your requests')}</div>
-      <div style="font-size:13px;color:var(--tx3)">${t('Escribe aquí cualquier cosa que nos hayas pedido, para que quede constancia.','Write here anything you\'ve asked us for, so it\'s on record.')}</div>
-    </div>
+  const el=document.getElementById('ini-peticiones');if(!el)return;
+  el.innerHTML=`
     <div class="card" style="margin-bottom:14px">
+      <div style="font-size:12px;color:var(--tx3);margin-bottom:10px">${t('Escribe aquí cualquier cosa que nos hayas pedido, para que quede constancia.','Write here anything you\'ve asked us for, so it\'s on record.')}</div>
       <textarea id="req-client-text" rows="3" placeholder="${t('ej. Quiero que el próximo reel hable de...','e.g. I want the next reel to talk about...')}"></textarea>
       <button class="btn btn-p btn-block" style="margin-top:8px" onclick="addClientRequest()">${t('Enviar petición 🚀','Send request 🚀')}</button>
     </div>
     ${reqs.length?reqs.map(r=>`<div class="card" style="margin-bottom:10px;${r.status==='atendida'?'opacity:.6':''}">
       <div style="font-size:13px">${r.text}</div>
       <div style="font-size:11px;color:var(--tx3);margin-top:6px">${fmtDate(r.date)}${r.status==='atendida'?' · ✅ '+t('Atendida','Handled'):' · ⏳ '+t('Pendiente','Pending')}</div>
-    </div>`).join(''):`<div style="text-align:center;padding:20px;color:var(--tx3)">${t('Todavía no has enviado peticiones.','You haven\'t sent any requests yet.')}</div>`}`;
+    </div>`).join(''):''}`;
 }
 async function addClientRequest(){
   const text=document.getElementById('req-client-text')?.value.trim();
@@ -681,6 +722,9 @@ function renderLastPubCard(){
     ${row('<i class="ti ti-brand-instagram"></i> Instagram',lastIG,'rgba(168,85,247,.14)','var(--p)')}
     ${hasTikTok?row('<i class="ti ti-brand-tiktok"></i> TikTok',lastTT,'rgba(6,182,212,.14)','#06B6D4'):''}
   </div>`;
+}
+function sectionTitleHtml(icon,label){
+  return`<div style="font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin:22px 0 10px;display:flex;align-items:center;gap:6px"><i class="ti ${icon}"></i>${label}</div>`;
 }
 function renderInicio(){
   const mk=monthKey();
@@ -751,8 +795,8 @@ function renderInicio(){
   };
   html+=`<div class="card">
     <div class="card-t"><i class="ti ti-folder"></i>${t('Tu contenido','Your content')}</div>
-    ${qrow('ti-video','var(--cdim)','var(--c)',tx('reelsEditados'),drive.reelsEdit?t('Carpeta de Drive','Drive folder'):t('Aún no configurada','Not set up yet'),drive.reelsEdit||"showTab('reels')")}
-    ${qrow('ti-pencil','var(--pdim)','var(--p)',tx('misGuiones'),drive.scripts?t('Para leer antes de grabar','Read before recording'):t('Aún no configurada','Not set up yet'),drive.scripts||"showTab('reels')")}
+    ${qrow('ti-video','var(--cdim)','var(--c)',tx('reelsEditados'),drive.reelsEdit?t('Carpeta de Drive','Drive folder'):t('Aún no configurada','Not set up yet'),drive.reelsEdit||"document.getElementById('ini-reels-anchor').scrollIntoView({behavior:'smooth'})")}
+    ${qrow('ti-pencil','var(--pdim)','var(--p)',tx('misGuiones'),drive.scripts?t('Para leer antes de grabar','Read before recording'):t('Aún no configurada','Not set up yet'),drive.scripts||"document.getElementById('ini-reels-anchor').scrollIntoView({behavior:'smooth'})")}
     ${qrow('ti-lock','rgba(245,158,11,.14)','var(--warn)',t('Credenciales','Credentials'),t('Tus accesos guardados','Your saved logins'),"showTab('ajustes')")}
     ${qrow('ti-calendar','rgba(34,197,94,.14)','#4ADE80',t('Calendario de contenido','Content calendar'),upcomingCount?`${upcomingCount} ${t('fechas próximas','upcoming dates')}`:t('Sin fechas próximas','No upcoming dates'),"showTab('calendario')")}
   </div>`;
@@ -789,12 +833,18 @@ function renderInicio(){
   html+=`<div class="card">
     <div class="card-t"><i class="ti ti-bolt"></i>${tx('accionesRapidas')}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button class="btn btn-block" onclick="showTab('reels')"><i class="ti ti-video"></i>${tx('verMisReels')}</button>
+      <button class="btn btn-block" onclick="document.getElementById('ini-reels-anchor').scrollIntoView({behavior:'smooth'})"><i class="ti ti-video"></i>${tx('verMisReels')}</button>
       <button class="btn btn-block" onclick="openMeetingModal()"><i class="ti ti-calendar-plus"></i>${tx('agendarReunion')}</button>
-      <button class="btn btn-block" onclick="showTab('chat')"><i class="ti ti-message-2"></i>${tx('hablarEquipo')}</button>
+      <button class="btn btn-block" onclick="document.getElementById('ini-chat').scrollIntoView({behavior:'smooth'})"><i class="ti ti-message-2"></i>${tx('hablarEquipo')}</button>
       <button class="btn btn-block" onclick="showTab('contrato')"><i class="ti ti-file-text"></i>${tx('miContrato')}</button>
     </div>
   </div>`;
+
+  // Secciones que antes eran pestañas propias, ahora forman parte del resumen
+  html+=`<div id="ini-reels-anchor">${sectionTitleHtml('ti-video',t('Tus reels','Your reels'))}</div><div id="ini-reels"></div>`;
+  html+=sectionTitleHtml('ti-message-2',t('Histórico y conversaciones','History & conversations'))+`<div id="ini-conversaciones"></div>`;
+  html+=sectionTitleHtml('ti-clipboard-list',t('Tus peticiones','Your requests'))+`<div id="ini-peticiones"></div>`;
+  html+=`<div id="ini-chat"></div>`;
 
   document.getElementById('view-inicio').innerHTML=html;
 
@@ -814,6 +864,12 @@ function renderInicio(){
       </div>
     </div>`+el.innerHTML;
   }
+
+  // Rellena las secciones que antes eran pestañas independientes
+  renderReels();
+  renderConversaciones();
+  renderPeticiones();
+  renderChat();
 }
 
 // ============================================================
@@ -937,7 +993,6 @@ function renderReels(){
   const trialUp=reels.filter(r=>r.trialSubido&&!r.subido).length;
   const ed=reels.filter(r=>r.editado&&!r.trialSubido&&!r.subido).length;
   const gr=reels.filter(r=>r.grabado&&!r.editado).length;
-  const drive=client.drive||{};
   const hasTiktok=!!(client.tiktokUrl);
   const hasStories=!!client.includeStories;
   const hasTrial=client.trialsEnabled!==false&&(client.socialNets||['instagram']).includes('instagram');
@@ -953,19 +1008,6 @@ function renderReels(){
     ${ed?`<span class="chip" style="background:linear-gradient(135deg,rgba(192,132,252,.12),transparent);color:#C084FC">✂️ ${ed} en edición</span>`:''}
     ${gr?`<span class="chip" style="background:linear-gradient(135deg,rgba(245,158,11,.12),transparent);color:var(--warn)">🎬 ${gr} grabados</span>`:''}
   </div>`;
-
-  if(drive.reelsEdit||drive.scripts||client.driveMain){
-    html+=`<div class="card" style="margin-bottom:14px">
-      <div class="card-t"><i class="ti ti-folder"></i>${tx('misCarpetas')}</div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${drive.reelsEdit?`<a href="${drive.reelsEdit}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-video" style="color:var(--c)"></i>${t('Reels editados','Edited reels')}</a>`:''}
-        ${drive.scripts?`<a href="${drive.scripts}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-pencil" style="color:var(--c)"></i>${t('Mis guiones','My scripts')}</a>`:''}
-        ${drive.pictures?`<a href="${drive.pictures}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-photo" style="color:var(--c)"></i>${t('Fotos / referencias','Photos / references')}</a>`:''}
-        ${drive.historias?`<a href="${drive.historias}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-circle-plus" style="color:var(--c)"></i>${t('Mis historias','My stories')}</a>`:''}
-        ${client.driveMain?`<a href="${client.driveMain}" target="_blank" class="btn" style="text-decoration:none;justify-content:flex-start"><i class="ti ti-folder" style="color:var(--c)"></i>${t('Carpeta principal','Main folder')}</a>`:''}
-      </div>
-    </div>`;
-  }
 
   html+=`<div class="card" style="margin-bottom:14px">
     <div class="card-t"><i class="ti ti-brand-instagram"></i>Reels Instagram — ${monthLabel(activeMonth)}</div>
@@ -1032,7 +1074,7 @@ function renderReels(){
     </div>`;
   });
   html+=`</div></div>`;
-  document.getElementById('view-reels').innerHTML=html;
+  const el=document.getElementById('ini-reels');if(el)el.innerHTML=html;
 }
 
 function setActiveMonth(m){activeMonth=m;renderReels();}
@@ -1297,11 +1339,8 @@ function renderChat(){
   const wa2=appConfig.whatsappAlan||'34000000000';
   const l1=appConfig.whatsappLabel1||'Adri (CEO)';
   const l2=appConfig.whatsappLabel2||'Alan (CEO)';
-  document.getElementById('view-chat').innerHTML=`
-    <div style="margin-bottom:16px">
-      <div style="font-size:18px;font-weight:600;margin-bottom:4px">💬 ${t('Habla con tu equipo','Talk to your team')}</div>
-      <div style="font-size:13px;color:var(--tx3)">${t('Escríbenos directamente por WhatsApp, te respondemos nosotros mismos.','Message us directly on WhatsApp, we reply ourselves.')}</div>
-    </div>
+  const el=document.getElementById('ini-chat');if(!el)return;
+  el.innerHTML=sectionTitleHtml('ti-message-2',t('Habla con tu equipo','Talk to your team'))+`
     <div class="card">
       <div class="card-t"><i class="ti ti-brand-whatsapp"></i>${t('Contacto directo','Direct contact')}</div>
       <a href="https://wa.me/${wa1}" target="_blank" class="btn btn-block" style="text-decoration:none;margin-bottom:8px;justify-content:center"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>WhatsApp ${l1}</a>
@@ -1393,6 +1432,7 @@ async function saveMyData(){
   if(type)client.type=type;
   await saveClientData();
   document.getElementById('hdr-name').textContent=client.name;
+  document.getElementById('sb-av').textContent=ini(client.name);
   showToast('Datos guardados ✓','ok');
 }
 
@@ -1498,6 +1538,7 @@ loadTheme();
   document.getElementById('loading').style.display='none';
   document.getElementById('app').classList.add('on');
   document.getElementById('hdr-name').textContent=client.name;
+  document.getElementById('sb-av').textContent=ini(client.name);
 
   // Set active month
   const months=Object.keys(client.reels||{}).sort();
