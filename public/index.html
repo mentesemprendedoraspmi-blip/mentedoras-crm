@@ -2438,6 +2438,7 @@ function showCalDay(ds,evt){
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div style="font-size:13px;font-weight:600">${label}</div>
       <div style="display:flex;gap:6px">
+        <button class="btn btn-s" onclick="openModal('task','',null,'${ds}')" title="Tarea de subir/editar un reel, ligada a un cliente"><i class="ti ti-brand-instagram"></i>Publicación</button>
         <button class="btn btn-s btn-p" onclick="openModal('event','',null,'${ds}')"><i class="ti ti-plus"></i>Añadir</button>
         <button class="btn btn-s" onclick="document.getElementById('cal-day-detail').innerHTML='';document.getElementById('cal-day-detail').dataset.date=''"><i class="ti ti-x"></i></button>
       </div>
@@ -3843,7 +3844,7 @@ function copyLinkStr(url){navigator.clipboard.writeText(url).then(()=>showToast(
 // ============================================================
 // MODAL
 // ============================================================
-function openModal(type,extra='',extra2=null){
+function openModal(type,extra='',extra2=null,extra3=''){
   const c=document.getElementById('modal-c');
   if(type==='client'){
     c.innerHTML=`<div class="modal-t">Nuevo cliente</div>
@@ -3926,7 +3927,7 @@ function openModal(type,extra='',extra2=null){
       <div class="f"><label>Tarea</label><input id="nt-title" value="${prefix}" placeholder="Descripción" oninput="ntTitleEdited=true"></div>
       <div class="fg2">
         <div class="f"><label>Columna</label><select id="nt-col">${boardCols.map(col=>`<option value="${col.id}"${col.id===extra?' selected':''}>${col.name}</option>`).join('')}</select></div>
-        <div class="f"><label>Fecha límite</label><input id="nt-date" type="date"></div>
+        <div class="f"><label>Fecha límite</label><input id="nt-date" type="date" value="${extra3||''}"></div>
       </div>
       <div class="f"><label>Cliente (opcional)</label><select id="nt-cl" onchange="ntClientChanged()"><option value="">— Sin cliente —</option>${clients.filter(isActiveClient).map(cl=>`<option value="${cl.id}">${cl.name}</option>`).join('')}</select></div>
       <div class="fg2" id="nt-reel-wrap" style="display:none">
