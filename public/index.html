@@ -1738,16 +1738,26 @@ async function toggleTask(colId,taskId){
   if(!t)return;
   t.done=!t.done;
   if(t.done)t.doneAt=today();
-  // Automatización: si esta tarjeta está enlazada a un reel, sincronizar su estado en la ficha del cliente
-  if(t.linkedClientId&&t.linkedReelId&&t.linkedProdStep){
+  // Automatización: si esta tarjeta está enlazada a un reel, sincronizar su estado y su fecha real
+  // de publicación en el calendario de contenido del cliente (no la fecha estimada al generar).
+  if(t.linkedClientId&&t.linkedReelId&&(t.linkedProdStep||t.network)){
     const lc=clients.find(c=>c.id===t.linkedClientId);
     if(lc){
       const monthsToCheck=t.linkedMonth?[t.linkedMonth]:Object.keys(lc.reels||{});
       for(const mk of monthsToCheck){
         const r=(lc.reels[mk]||[]).find(r=>r.id===t.linkedReelId);
         if(r){
-          r[t.linkedProdStep]=t.done;
-          if(t.done&&t.linkedProdStep==='subido')r.fechaSubidoTS=new Date().toISOString();
+          if(t.linkedProdStep){
+            r[t.linkedProdStep]=t.done;
+            if(t.done&&t.linkedProdStep==='subido')r.fechaSubidoTS=new Date().toISOString();
+          }
+          const pubField=NETWORK_PUBCAL_FIELD[t.network];
+          if(pubField&&t.done){
+            if(!lc.pubCal)lc.pubCal={};
+            if(!lc.pubCal[mk])lc.pubCal[mk]={};
+            if(!lc.pubCal[mk][r.id])lc.pubCal[mk][r.id]={};
+            lc.pubCal[mk][r.id][pubField]=t.doneAt;
+          }
           await saveClient_doc(lc);
           if(activeClient?.id===lc.id&&document.getElementById('view-profile')?.classList.contains('on'))renderProfile(lc);
           break;
@@ -3654,6 +3664,7 @@ function renderPubCalTab(c){
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${!c.cm?`<button class="btn btn-s${c.pubCalVisible?' btn-p':''}" onclick="togglePubCalVisibility('${c.id}')" title="Este cliente no tiene CM asignado, así que por defecto no aparece en nuestro Calendario interno — actívalo aquí si igual queréis llevarle un control"><i class="ti ti-calendar-${c.pubCalVisible?'check':'plus'}"></i>${c.pubCalVisible?'En nuestro calendario':'Mostrar en nuestro calendario'}</button>`:''}
+      ${c.pubCal?.[selMonth]&&Object.keys(c.pubCal[selMonth]).length?`<button class="btn btn-s" onclick="deletePubCal('${c.id}','${selMonth}')" title="Elimina el calendario de publicación generado automáticamente para este mes"><i class="ti ti-trash"></i>Eliminar</button>`:''}
       <button class="btn btn-s btn-p" onclick="generatePubCal('${c.id}','${selMonth}')"><i class="ti ti-wand"></i>Generar automático</button>
     </div>
   </div>`;
@@ -3703,6 +3714,13 @@ function generatePubCal(cid,mk){
     if(nets.includes('youtube')){c.pubCal[mk][r.id].youtube=pubDateStr;c.pubCal[mk][r.id].youtubeTime=pubTime;}
   });
   saveClient_doc(c);switchPubCalMonth(cid,mk);showToast('Calendario generado ✓','ok');
+}
+
+function deletePubCal(cid,mk){
+  const c=clients.find(c=>c.id===cid);if(!c||!c.pubCal?.[mk])return;
+  if(!confirm(`¿Eliminar el calendario de publicación generado para ${monthLabel(mk)}?`))return;
+  delete c.pubCal[mk];
+  saveClient_doc(c);switchPubCalMonth(cid,mk);showToast('Calendario eliminado','ok');
 }
 
 function switchPubCalMonth(cid,mk){
@@ -4082,6 +4100,7 @@ async function saveContract(id){
   closeModal();renderProfile(c);saveClient_doc(c);showToast('Contrato actualizado ✓','ok');
 }
 let ntTitleEdited=false;
+const NETWORK_PUBCAL_FIELD={ig:'pub',trial_ig:'trial',tiktok:'tiktok'};
 const NT_TYPE_META={
   editar:{label:'Editar',step:'editado',network:null,c:'var(--ok2, #4ADE80)',bg:'rgba(74,222,128,.14)'},
   trial_ig:{label:'Subir a Trial Instagram',step:null,network:'trial_ig',c:'#E1306C',bg:'rgba(225,48,108,.14)'},
