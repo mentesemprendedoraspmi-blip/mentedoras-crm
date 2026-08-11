@@ -1956,6 +1956,7 @@ function sortCol(id,by){
 }
 
 function taskCurrentType(t){
+  if(t.network==='historias')return'subir_historias';
   if(t.network==='trial_ig')return'trial_ig';
   if(t.network==='ig'&&t.linkedProdStep==='subido')return'subir_ig';
   if(t.network==='tiktok'&&t.linkedProdStep==='subido')return'subir_tiktok';
@@ -1990,10 +1991,11 @@ function openTaskDetail(colId,taskId){
     <select id="td-cl" onchange="autoAddDriveLink('${colId}','${taskId}',this.value);tdClientChanged('${colId}','${taskId}')">
       <option value="">— Sin cliente —</option>${clients.map(c=>`<option${t.client===c.name?' selected':''}>${c.name}</option>`).join('')}
     </select>
-    ${t.client?(()=>{const cl=clients.find(c=>c.name===t.client);const url=cl?.driveMain||(cl?.drive||{}).reelsEdit||'';const megaUrl=(cl?.drive||{}).mega||'';const scriptsUrl=(cl?.drive||{}).scripts||'';return`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+    ${t.client?(()=>{const cl=clients.find(c=>c.name===t.client);const url=cl?.driveMain||(cl?.drive||{}).reelsEdit||'';const megaUrl=(cl?.drive||{}).mega||'';const scriptsUrl=(cl?.drive||{}).scripts||'';const historiasUrl=(cl?.drive||{}).historias||'';return`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
       ${url?`<a href="${url}" target="_blank" class="btn btn-s btn-p" style="text-decoration:none;display:inline-flex"><i class="ti ti-folder"></i>Abrir Drive de ${t.client}</a>`:''}
       ${scriptsUrl?`<a href="${scriptsUrl}" target="_blank" class="btn btn-s" style="text-decoration:none;display:inline-flex;background:linear-gradient(135deg,#0F4C2E,#4ADE80 45%,#22C55E 55%,#0F4C2E);color:#fff;border-color:transparent;text-shadow:0 1px 1px rgba(0,0,0,.3)"><i class="ti ti-pencil"></i>Abrir Guiones de ${t.client}</a>`:''}
       ${megaUrl?`<a href="${megaUrl}" target="_blank" class="btn btn-s btn-mega" style="text-decoration:none;display:inline-flex"><i class="ti ti-cloud-upload"></i>Abrir Mega de ${t.client}</a>`:''}
+      ${historiasUrl?`<a href="${historiasUrl}" target="_blank" class="btn btn-s" style="text-decoration:none;display:inline-flex;background:linear-gradient(135deg,#0369A1,#38BDF8);color:#fff;border-color:transparent"><i class="ti ti-circle-plus"></i>Abrir Historias de ${t.client}</a>`:''}
     </div>`;})():''}
   </div>
   <div class="f"><label>Tipo de tarea</label><select id="td-type" onchange="tdTypeChanged('${colId}','${taskId}')">
@@ -2003,8 +2005,9 @@ function openTaskDetail(colId,taskId){
     <option value="subir_ig"${curType==='subir_ig'?' selected':''}>Subir a Instagram (sacar de trials)</option>
     <option value="subir_tiktok"${curType==='subir_tiktok'?' selected':''}>Subir a TikTok</option>
     <option value="subir_yt"${curType==='subir_yt'?' selected':''}>Subir a YouTube</option>
+    <option value="subir_historias"${curType==='subir_historias'?' selected':''}>Subir Historias</option>
   </select></div>
-  <div class="f" id="td-reel-wrap" style="display:${curType!=='normal'?'block':'none'}">
+  <div class="f" id="td-reel-wrap" style="display:${(curType!=='normal'&&curType!=='subir_historias')?'block':'none'}">
     <div class="fg2">
       <div class="f"><label>Mes</label><select id="td-month" onchange="tdMonthChanged('${colId}','${taskId}')">
         ${tdMonths.length?tdMonths.map(mk=>`<option value="${mk}"${mk===tdMonth?' selected':''}>${monthLabel(mk)}</option>`).join(''):`<option value="">— Sin meses —</option>`}
@@ -2186,6 +2189,11 @@ async function saveTaskDetail(colId,taskId){
   const tdType=document.getElementById('td-type')?.value||'normal';
   if(tdType==='normal'){
     t.linkedClientId=null;t.linkedReelId=null;t.linkedProdStep=null;t.network=null;t.linkedMonth=null;
+  }else if(tdType==='subir_historias'){
+    const meta=NT_TYPE_META[tdType];
+    const tc=clients.find(cl=>cl.name===t.client);
+    if(!tc)return showToast('Elige un cliente para este tipo de tarea','err');
+    t.linkedClientId=tc.id;t.linkedReelId=null;t.linkedProdStep=null;t.network=meta.network;t.linkedMonth=null;
   }else{
     const meta=NT_TYPE_META[tdType];
     const tc=clients.find(cl=>cl.name===t.client);
@@ -3931,6 +3939,7 @@ function openModal(type,extra='',extra2=null,extra3=''){
         <option value="subir_ig">Subir a Instagram (sacar de trials)</option>
         <option value="subir_tiktok">Subir a TikTok</option>
         <option value="subir_yt">Subir a YouTube</option>
+        <option value="subir_historias">Subir Historias</option>
       </select></div>
       <div id="nt-type-chip"></div>
       <div class="f"><label>Tarea</label><input id="nt-title" value="${prefix}" placeholder="Descripción" oninput="ntTitleEdited=true"></div>
@@ -4117,11 +4126,12 @@ const NT_TYPE_META={
   subir_ig:{label:'Subir a Instagram (sacar de trials)',step:'subido',network:'ig',c:'var(--p, #A855F7)',bg:'var(--pdim, rgba(168,85,247,.14))'},
   subir_tiktok:{label:'Subir a TikTok',step:'subido',network:'tiktok',c:'#06B6D4',bg:'rgba(6,182,212,.14)'},
   subir_yt:{label:'Subir a YouTube',step:'subido',network:null,c:'#F97316',bg:'rgba(249,115,22,.14)'},
+  subir_historias:{label:'Subir Historias',step:null,network:'historias',c:'#38BDF8',bg:'rgba(56,189,248,.14)'},
 };
 function ntTypeChanged(){
   const type=document.getElementById('nt-type').value;
   const isTyped=type!=='normal';
-  document.getElementById('nt-reel-wrap').style.display=isTyped?'block':'none';
+  document.getElementById('nt-reel-wrap').style.display=(isTyped&&type!=='subir_historias')?'block':'none';
   const chipEl=document.getElementById('nt-type-chip');
   const meta=NT_TYPE_META[type];
   chipEl.innerHTML=meta?`<span style="display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;background:linear-gradient(135deg,${meta.bg},transparent);color:${meta.c};margin:-8px 0 10px">${meta.label}</span>`:'';
@@ -4136,6 +4146,7 @@ function ntClientChanged(){
   const monthSel=document.getElementById('nt-month');
   const reelSel=document.getElementById('nt-reel');
   if(type==='normal'){reelSel.innerHTML='';monthSel.innerHTML='';return;}
+  if(type==='subir_historias'){reelSel.innerHTML='';monthSel.innerHTML='';ntUpdateTitlePreview();return;}
   const clientId=document.getElementById('nt-cl').value;
   const c=clients.find(cl=>cl.id===clientId);
   const months=allMonthsThisYear();
@@ -4161,6 +4172,11 @@ function ntUpdateTitlePreview(){
   const meta=NT_TYPE_META[type];
   if(!meta||!titleEl)return;
   const c=clients.find(cl=>cl.id===document.getElementById('nt-cl')?.value);
+  if(type==='subir_historias'){
+    if(!c)return;
+    titleEl.value=`${meta.label} — ${c.name}`;
+    return;
+  }
   const mk=document.getElementById('nt-month')?.value||monthKey();
   const reelId=document.getElementById('nt-reel')?.value;
   const reel=((c?.reels||{})[mk]||[]).find(r=>String(r.id)===String(reelId));
@@ -4169,7 +4185,7 @@ function ntUpdateTitlePreview(){
 }
 function tdTypeChanged(colId,taskId){
   const type=document.getElementById('td-type').value;
-  document.getElementById('td-reel-wrap').style.display=type!=='normal'?'block':'none';
+  document.getElementById('td-reel-wrap').style.display=(type!=='normal'&&type!=='subir_historias')?'block':'none';
   if(type!=='normal')tdClientChanged(colId,taskId);
 }
 function tdClientChanged(colId,taskId){
@@ -4177,7 +4193,7 @@ function tdClientChanged(colId,taskId){
   const monthSel=document.getElementById('td-month');
   const reelSel=document.getElementById('td-reel');
   if(!reelSel||!monthSel)return;
-  if(type==='normal'){reelSel.innerHTML='';monthSel.innerHTML='';return;}
+  if(type==='normal'||type==='subir_historias'){reelSel.innerHTML='';monthSel.innerHTML='';return;}
   const clientName=document.getElementById('td-cl').value;
   const c=clients.find(cl=>cl.name===clientName);
   const months=allMonthsThisYear();
@@ -4207,7 +4223,12 @@ async function saveTask(){
   const c=clients.find(cl=>cl.id===clientId);
   const col=boardCols.find(cc=>cc.id===colId);
   let linked=null;
-  if(type!=='normal'){
+  if(type==='subir_historias'){
+    const meta=NT_TYPE_META[type];
+    if(!c)return showToast('Elige un cliente para este tipo de tarea','err');
+    if(!title)title=`${meta.label} — ${c.name}`;
+    linked={linkedClientId:c.id,network:meta.network};
+  }else if(type!=='normal'){
     const meta=NT_TYPE_META[type];
     if(!c)return showToast('Elige un cliente para este tipo de tarea','err');
     const mk=document.getElementById('nt-month')?.value||monthKey();
