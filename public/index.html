@@ -2370,6 +2370,18 @@ function calToggleAllClients(on){
   calClientFilter=on?null:new Set();
   renderCal();
 }
+// Clientes sin CM asignado no entran por defecto al Calendario interno (calContentClients),
+// ya que no hay nadie llevándoles seguimiento ahí. Aun así, si les generamos un calendario de
+// publicación (p.ej. porque no contratan CM pero sí ese servicio), Adri necesita poder activar
+// que se vea aquí sin tener que entrar a la ficha de cada cliente uno por uno.
+function calNonCmClients(){return clients.filter(c=>!c.cm&&isActiveClient(c));}
+function toggleClientCalVisibilityFromCal(cid){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  c.pubCalVisible=!c.pubCalVisible;
+  saveClient_doc(c);
+  renderCal();
+  showToast(c.pubCalVisible?`📅 "${c.name}" ahora aparece en el Calendario interno`:`"${c.name}" ya no aparece en el Calendario interno`,'ok');
+}
 function calFilterPanelHtml(){
   const cc=calContentClients();
   const allOn=!calClientFilter;
@@ -2394,6 +2406,14 @@ function calFilterPanelHtml(){
         <span style="width:8px;height:8px;border-radius:50%;background:${clientColor(c.name)};flex-shrink:0"></span>
         <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
       </label>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">Sin CM</div>
+    <div style="display:flex;flex-direction:column;gap:2px;max-height:180px;overflow-y:auto">
+      ${calNonCmClients().length?calNonCmClients().map(c=>`<label style="display:flex;align-items:center;gap:7px;font-size:12px;padding:4px 6px;border-radius:var(--r);cursor:pointer" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='transparent'" title="Este cliente no tiene CM — actívalo para que su calendario de publicación aparezca aquí">
+        <input type="checkbox" style="${chk}" ${c.pubCalVisible?'checked':''} onchange="toggleClientCalVisibilityFromCal('${c.id}')">
+        <span style="width:8px;height:8px;border-radius:50%;background:${clientColor(c.name)};flex-shrink:0"></span>
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
+      </label>`).join(''):`<div style="font-size:11px;color:var(--tx3);padding:4px 6px">No hay clientes sin CM</div>`}
     </div>
   </div>`;
 }
