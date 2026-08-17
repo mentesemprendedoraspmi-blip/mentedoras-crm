@@ -3572,17 +3572,28 @@ function openEditorPickerModal(cid,mk,i){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   const reel=(c.reels[mk]||[])[i];if(!reel)return;
   const mc=document.getElementById('modal-c');
+  mc.style.maxWidth='720px';
   mc.innerHTML=`<div class="modal-t">¿A quién le asigno "${reel.label} — ${c.name}"?</div>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:4px">
       ${(c.editors||[]).map(ed=>{
         const col=findColumnByName(ed);
-        const pending=(col?.tasks||[]).filter(t=>!t.done);
-        return`<div style="border:1px solid var(--bd2);border-radius:var(--r);padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer" onclick="pickEditorForReel('${cid}','${mk}',${i},'${ed}')">
-          <div>
-            <div style="font-weight:600;font-size:13px">${ed}</div>
-            <div style="font-size:11px;color:var(--tx3);margin-top:2px">${pending.length} tarea${pending.length!==1?'s':''} pendiente${pending.length!==1?'s':''}${pending.length?': '+pending.slice(0,3).map(t=>t.title).join(', ')+(pending.length>3?'…':''):''}</div>
+        const pending=(col?.tasks||[]).filter(t=>!t.done).sort((a,b)=>{if(a.date&&b.date)return a.date.localeCompare(b.date);if(a.date)return -1;if(b.date)return 1;return 0;});
+        return`<div style="border:1px solid var(--bd2);border-radius:var(--rl);background:var(--bg2);display:flex;flex-direction:column;max-height:360px">
+          <div style="padding:9px 11px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+            <span style="font-weight:600;font-size:13px">${ed}</span>
+            <span class="bcc">${pending.length}</span>
           </div>
-          <button class="btn btn-s btn-p" onclick="event.stopPropagation();pickEditorForReel('${cid}','${mk}',${i},'${ed}')">Asignar</button>
+          <div style="padding:8px;display:flex;flex-direction:column;gap:0;overflow-y:auto;flex:1;min-height:60px">
+            ${pending.length?pending.slice(0,8).map(t=>`<div class="bcard" style="cursor:default">
+              <div class="bc-top"><div class="bc-title">${t.title}</div></div>
+              <div style="display:flex;flex-wrap:wrap;gap:3px">
+                ${t.client?`<span style="font-size:10px;background:var(--cdim);color:var(--c);padding:2px 6px;border-radius:20px">${t.client}</span>`:''}
+                ${t.date?`<span class="badge ${dstatus(t.date).cls}" style="font-size:10px">${dstatus(t.date).lbl}</span>`:''}
+              </div>
+            </div>`).join(''):`<div style="text-align:center;padding:16px 4px;color:var(--tx3);font-size:12px">Sin tareas pendientes 🎉</div>`}
+            ${pending.length>8?`<div style="text-align:center;font-size:11px;color:var(--tx3);padding:4px 0">+${pending.length-8} más</div>`:''}
+          </div>
+          <button class="btn btn-s btn-p" style="margin:8px;flex-shrink:0" onclick="pickEditorForReel('${cid}','${mk}',${i},'${ed}')">Asignar a ${ed}</button>
         </div>`;
       }).join('')}
     </div>
