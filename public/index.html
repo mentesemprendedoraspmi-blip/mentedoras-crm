@@ -3536,12 +3536,18 @@ async function toggleReel(cid,mk,i,field){
     }
     if(field==='enviado'){
       c.reels[mk][i].fechaEnviadoTS=new Date().toISOString();
-      // Automatización: crear tarea de edición para el editor asignado, ahora que el material ya se le ha enviado
+      // Automatización: crear tarea de edición para el editor asignado, ahora que el material ya se le ha enviado.
+      // Si el reel ya tiene un editor fijado a mano, se respeta. Si hay varios editores asignados al
+      // cliente y no hay uno fijado, se pregunta a cuál asignársela mostrando cuánto trabajo tiene cada uno.
       const rid=c.reels[mk][i].id;
-      const editorName=c.reels[mk][i].editor||(c.editors||[])[0];
-      if(editorName){
-        const t=createAutoTask(`✂️ Editar: ${c.reels[mk][i].label} — ${c.name}`,editorName,today(),c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'editado',linkedMonth:mk});
-        if(t)autoAddDriveLink(boardCols.find(col=>col.name.toLowerCase()===editorName.toLowerCase()||col.name.toLowerCase().includes(editorName.toLowerCase()))?.id,t.id,c.name);
+      const presetEditor=c.reels[mk][i].editor;
+      const assignedEditors=c.editors||[];
+      if(presetEditor){
+        assignEditTask(c,mk,rid,presetEditor);
+      }else if(assignedEditors.length>1){
+        openEditorPickerModal(cid,mk,i);
+      }else if(assignedEditors.length===1){
+        assignEditTask(c,mk,rid,assignedEditors[0]);
       }
     }
     if(field==='trialSubido'){
@@ -3556,6 +3562,38 @@ async function toggleReel(cid,mk,i,field){
   switchReelMonth(cid,mk); // Instant UI feedback
   showToast('Guardado ✓','ok');
   await saveClient_doc(c); // Save only this client - fast and avoids blocking on unrelated clients
+}
+function assignEditTask(c,mk,rid,editorName){
+  const reel=(c.reels[mk]||[]).find(r=>r.id===rid);if(!reel)return;
+  const t=createAutoTask(`✂️ Editar: ${reel.label} — ${c.name}`,editorName,today(),c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'editado',linkedMonth:mk});
+  if(t)autoAddDriveLink(findColumnByName(editorName)?.id,t.id,c.name);
+}
+function openEditorPickerModal(cid,mk,i){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  const reel=(c.reels[mk]||[])[i];if(!reel)return;
+  const mc=document.getElementById('modal-c');
+  mc.innerHTML=`<div class="modal-t">¿A quién le asigno "${reel.label} — ${c.name}"?</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+      ${(c.editors||[]).map(ed=>{
+        const col=findColumnByName(ed);
+        const pending=(col?.tasks||[]).filter(t=>!t.done);
+        return`<div style="border:1px solid var(--bd2);border-radius:var(--r);padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer" onclick="pickEditorForReel('${cid}','${mk}',${i},'${ed}')">
+          <div>
+            <div style="font-weight:600;font-size:13px">${ed}</div>
+            <div style="font-size:11px;color:var(--tx3);margin-top:2px">${pending.length} tarea${pending.length!==1?'s':''} pendiente${pending.length!==1?'s':''}${pending.length?': '+pending.slice(0,3).map(t=>t.title).join(', ')+(pending.length>3?'…':''):''}</div>
+          </div>
+          <button class="btn btn-s btn-p" onclick="event.stopPropagation();pickEditorForReel('${cid}','${mk}',${i},'${ed}')">Asignar</button>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Decidir luego</button></div>`;
+  document.getElementById('mo').classList.add('open');
+}
+function pickEditorForReel(cid,mk,i,editorName){
+  const c=clients.find(c=>c.id===cid);if(!c)return;
+  const reel=(c.reels[mk]||[])[i];if(!reel)return;
+  assignEditTask(c,mk,reel.id,editorName);
+  closeModal();
 }
 function updateReel(cid,mk,i,field,val){
   const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
