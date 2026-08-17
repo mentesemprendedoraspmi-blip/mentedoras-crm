@@ -3563,9 +3563,9 @@ async function toggleReel(cid,mk,i,field){
   showToast('Guardado ✓','ok');
   await saveClient_doc(c); // Save only this client - fast and avoids blocking on unrelated clients
 }
-function assignEditTask(c,mk,rid,editorName){
+function assignEditTask(c,mk,rid,editorName,date){
   const reel=(c.reels[mk]||[]).find(r=>r.id===rid);if(!reel)return;
-  const t=createAutoTask(`✂️ Editar: ${reel.label} — ${c.name}`,editorName,today(),c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'editado',linkedMonth:mk});
+  const t=createAutoTask(`✂️ Editar: ${reel.label} — ${c.name}`,editorName,date||today(),c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'editado',linkedMonth:mk});
   if(t)autoAddDriveLink(findColumnByName(editorName)?.id,t.id,c.name);
 }
 function openEditorPickerModal(cid,mk,i){
@@ -3574,7 +3574,8 @@ function openEditorPickerModal(cid,mk,i){
   const mc=document.getElementById('modal-c');
   mc.style.maxWidth='720px';
   mc.innerHTML=`<div class="modal-t">¿A quién le asigno "${reel.label} — ${c.name}"?</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:4px">
+    <div class="f" style="max-width:220px;margin-top:4px"><label>Fecha límite</label><input id="ep-date" type="date" value="${today()}"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:10px">
       ${(c.editors||[]).map(ed=>{
         const col=findColumnByName(ed);
         const pending=(col?.tasks||[]).filter(t=>!t.done).sort((a,b)=>{if(a.date&&b.date)return a.date.localeCompare(b.date);if(a.date)return -1;if(b.date)return 1;return 0;});
@@ -3603,7 +3604,8 @@ function openEditorPickerModal(cid,mk,i){
 function pickEditorForReel(cid,mk,i,editorName){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   const reel=(c.reels[mk]||[])[i];if(!reel)return;
-  assignEditTask(c,mk,reel.id,editorName);
+  const date=document.getElementById('ep-date')?.value||today();
+  assignEditTask(c,mk,reel.id,editorName,date);
   closeModal();
 }
 function updateReel(cid,mk,i,field,val){
