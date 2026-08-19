@@ -448,7 +448,6 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
     <div class="cnt" id="cnt">
       <div class="view on" id="view-dash"></div>
       <div class="view" id="view-daily"></div>
-      <div class="view" id="view-mindmap"></div>
       <div class="view" id="view-board"></div>
       <div class="view" id="view-ideas"></div>
       <div class="view" id="view-clients"></div>
@@ -1246,7 +1245,6 @@ function buildSBNav(){
   let html='<div class="nl">Panel</div>';
   html+=nav('dash','ti-layout-dashboard','Resumen');
   if(isPMup())html+=nav('daily','ti-report','Control diario');
-  if(isCEO())html+=nav('mindmap','ti-brain','Mapa de contenido');
   html+=nav('board','ti-layout-kanban','Tablero','<span class="nbadge" id="bbadge">0</span>');
   html+=nav('ideas','ti-bulb','Mejoras');
   html+=nav('clients','ti-users','Clientes');
@@ -1328,15 +1326,14 @@ function showView(name){
   document.getElementById('view-'+name)?.classList.add('on');
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('ni-'+name)?.classList.add('on');
-  const icons={dash:'ti-layout-dashboard',daily:'ti-report',mindmap:'ti-brain',pipeline:'ti-columns',board:'ti-layout-kanban',ideas:'ti-bulb',clients:'ti-users',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',config:'ti-settings',profile:'ti-user'};
-  const titles={dash:'Resumen general',daily:'Control diario',mindmap:'Mapa de contenido',pipeline:'Pipeline de contenido',board:'Tablero del equipo',ideas:'Ideas de mejora',clients:'Clientes',cal:'Calendario',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
+  const icons={dash:'ti-layout-dashboard',daily:'ti-report',pipeline:'ti-columns',board:'ti-layout-kanban',ideas:'ti-bulb',clients:'ti-users',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',config:'ti-settings',profile:'ti-user'};
+  const titles={dash:'Resumen general',daily:'Control diario',pipeline:'Pipeline de contenido',board:'Tablero del equipo',ideas:'Ideas de mejora',clients:'Clientes',cal:'Calendario',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
   document.getElementById('tb-ic').className='ti '+(icons[name]||'ti-layout-dashboard');
   document.getElementById('tb-t').textContent=titles[name]||'';
   const acts={dash:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,profile:'',ideas:`<button class="btn btn-s btn-p" onclick="openModal('idea')"><i class="ti ti-plus"></i>Nueva idea</button>`,clients:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,board:isCMup()?`<button class="btn btn-s" onclick="showArchiveModal()"><i class="ti ti-archive"></i>Archivo</button>`:''};
   document.getElementById('top-acts').innerHTML=acts[name]||'';
   if(name==='dash')renderDash();
   if(name==='daily')renderDailyControl();
-  if(name==='mindmap')loadMindmap().then(renderMindmap);
   if(name==='board')renderBoard();
   if(name==='ideas')renderIdeasBoard();
   if(name==='clients')renderClientsView();
@@ -1406,22 +1403,40 @@ function clientStalenessHtml(){
 // ============================================================
 // CONTROL DIARIO (solo CEO/PM)
 // ============================================================
+// 'resumen' o 'mapa' — un único apartado "Control diario" con las dos vistas dentro,
+// para no tener dos sitios distintos en el sidebar cuando en la práctica solo se mira
+// una cosa u otra en cada momento.
+let dailyControlTab='resumen';
+function switchDailyTab(tab){
+  dailyControlTab=tab;
+  renderDailyControl();
+}
 function renderDailyControl(){
-  const html=`<div class="card" style="margin-bottom:14px">
-    <div class="card-t"><i class="ti ti-users-group"></i>Equipo — hoy</div>
-    ${teamTodayGridHtml()}
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
-    <div class="card" style="margin-bottom:0">
-      <div class="card-t"><i class="ti ti-upload"></i>Últimas publicaciones</div>
-      ${latestUploadsHtml()}
-    </div>
-    <div class="card" style="margin-bottom:0">
-      <div class="card-t"><i class="ti ti-clock-exclamation"></i>Tiempo sin publicar</div>
-      ${clientStalenessHtml()}
-    </div>
+  const canMap=isCEO();
+  let html=`<div class="month-row">
+    <button class="mbtn${dailyControlTab==='resumen'?' on':''}" onclick="switchDailyTab('resumen')">📋 Resumen</button>
+    ${canMap?`<button class="mbtn${dailyControlTab==='mapa'?' on':''}" onclick="switchDailyTab('mapa')">🧠 Mapa</button>`:''}
   </div>`;
+  if(dailyControlTab==='mapa'&&canMap){
+    html+=`<div id="view-mindmap"></div>`;
+  }else{
+    html+=`<div class="card" style="margin-bottom:14px">
+      <div class="card-t"><i class="ti ti-users-group"></i>Equipo — hoy</div>
+      ${teamTodayGridHtml()}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-t"><i class="ti ti-upload"></i>Últimas publicaciones</div>
+        ${latestUploadsHtml()}
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-t"><i class="ti ti-clock-exclamation"></i>Tiempo sin publicar</div>
+        ${clientStalenessHtml()}
+      </div>
+    </div>`;
+  }
   document.getElementById('view-daily').innerHTML=html;
+  if(dailyControlTab==='mapa'&&canMap)loadMindmap().then(renderMindmap);
 }
 
 // ============================================================
