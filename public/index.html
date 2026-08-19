@@ -1011,12 +1011,19 @@ async function loadAll(){
       });
     }catch(e){console.warn('improvement_ideas listener:',e);}
     try{
-      db.collection('crm').doc('mindmap').onSnapshot(snap=>{
-        if(!snap||!snap.exists||mindmapDrag)return; // no interrumpir mientras alguien arrastra algo
-        mindmapCards=snap.data().cards||[];
+      db.collection('mindmap_cards').onSnapshot(snap=>{
+        if(!snap||mindmapDrag)return; // no interrumpir mientras alguien arrastra algo
+        mindmapCards=snap.docs.map(d=>d.data());
         if(document.getElementById('view-mindmap')?.classList.contains('on'))renderMindmap();
       });
-    }catch(e){console.warn('mindmap listener:',e);}
+    }catch(e){console.warn('mindmap_cards listener:',e);}
+    try{
+      db.collection('crm').doc('mindmap_lines').onSnapshot(snap=>{
+        if(!snap||!snap.exists||mindmapDrag)return;
+        mindmapLines=snap.data().lines||[];
+        if(document.getElementById('view-mindmap')?.classList.contains('on'))renderMindmap();
+      });
+    }catch(e){console.warn('mindmap_lines listener:',e);}
     try{
       db.collection('board_tasks').onSnapshot(snap=>{
         if(!snap)return;
@@ -1420,14 +1427,34 @@ function renderDailyControl(){
 // ============================================================
 // MAPA DE CONTENIDO (lienzo libre, solo CEO)
 // ============================================================
+// Cada tarjeta es su propio documento en Firestore (colección mindmap_cards) en vez de
+// un array dentro de un único documento — así las tarjetas con fotos no chocan con el
+// límite de 1MB por documento de Firestore, y guardar una tarjeta no reescribe las demás.
 const MM_NOTE_COLORS=['#F5D76E','#A7D8F0','#F5A3C7','#B8E6B8','#F0B88F'];
+let mindmapLines=[];
+let mindmapConnectMode=false;
+let mindmapConnectFrom=null;
+let mindmapCardSaveTimers={};
+let mindmapLinesSaveTimer=null;
 async function loadMindmap(){
-  const d=await fbGet('crm','mindmap');
-  mindmapCards=(d&&d.cards)||[];
+  try{
+    if(!fbReady)await initFB();
+    const snap=await db.collection('mindmap_cards').get();
+    mindmapCards=snap.docs.map(d=>d.data());
+  }catch(e){console.warn('loadMindmap:',e);}
+  const ld=await fbGet('crm','mindmap_lines');
+  mindmapLines=(ld&&ld.lines)||[];
 }
-function saveMindmapDebounced(){
-  clearTimeout(mindmapSaveTimer);
-  mindmapSaveTimer=setTimeout(()=>{fbSet('crm','mindmap',{cards:mindmapCards,u:new Date().toISOString()});},600);
+function saveMindmapCardDebounced(card){
+  clearTimeout(mindmapCardSaveTimers[card.id]);
+  mindmapCardSaveTimers[card.id]=setTimeout(()=>{fbSet('mindmap_cards',String(card.id),card);},500);
+}
+async function deleteMindmapCardRemote(id){
+  try{if(!fbReady)await initFB();await db.collection('mindmap_cards').doc(String(id)).delete();}catch(e){}
+}
+function saveMindmapLinesDebounced(){
+  clearTimeout(mindmapLinesSaveTimer);
+  mindmapLinesSaveTimer=setTimeout(()=>{fbSet('crm','mindmap_lines',{lines:mindmapLines,u:new Date().toISOString()});},500);
 }
 // Estado del reel se calcula siempre en vivo desde la ficha del cliente — la tarjeta solo
 // guarda el enlace (cliente+reel+mes), nunca el estado, para que refleje lo real.
@@ -1442,10 +1469,24 @@ function mmReelStatus(card){
   if(reel.grabado)return{status:'Grabado',color:'var(--warn)',clientName,reelLabel};
   return{status:'Pendiente',color:'var(--tx3)',clientName,reelLabel};
 }
+// Tamaño aproximado de cada tipo de tarjeta, solo para calcular dónde terminan las líneas.
+function mmCardW(c){return c.type==='image'?Math.min(c.w||220,240):c.type==='emoji'?70:c.type==='video'?200:180;}
+function mmCardH(c){
+  if(c.type==='image')return c.w?Math.round((c.h||c.w)*Math.min(c.w,240)/c.w):160;
+  if(c.type==='emoji')return 70;
+  if(c.type==='video')return 130;
+  if(c.type==='reel')return 80;
+  return 110;
+}
+function mmYoutubeThumb(url){
+  const m=(url||'').match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m?`https://img.youtube.com/vi/${m[1]}/hqdefault.jpg`:null;
+}
 function mmCardHtml(card){
+  const sel=card.id===mindmapConnectFrom?'box-shadow:0 0 0 2px var(--c)':'';
   if(card.type==='reel'){
     const st=mmReelStatus(card);
-    return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;background:linear-gradient(160deg,var(--bg2),var(--bg3));border:1px solid var(--bd2);border-left:4px solid ${st.color}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+    return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;background:linear-gradient(160deg,var(--bg2),var(--bg3));border:1px solid var(--bd2);border-left:4px solid ${st.color};${sel}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:6px">
         <div style="font-size:12px;font-weight:600;color:var(--tx)">${st.reelLabel}</div>
         <div class="dot-btn" style="width:18px;height:18px;flex-shrink:0" onmousedown="event.stopPropagation()" onclick="mmDeleteCard('${card.id}')"><i class="ti ti-x" style="font-size:11px"></i></div>
@@ -1454,10 +1495,45 @@ function mmCardHtml(card){
       <span class="badge" style="background:${st.color}22;color:${st.color}">${st.status}</span>
     </div>`;
   }
-  return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;background:${card.color||MM_NOTE_COLORS[0]}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+  if(card.type==='image'){
+    const w=Math.min(card.w||220,240);
+    return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;width:${w}px;padding:6px;background:var(--bg2);border:1px solid var(--bd2);${sel}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:2px"><div class="dot-btn" style="width:18px;height:18px" onmousedown="event.stopPropagation()" onclick="mmDeleteCard('${card.id}')"><i class="ti ti-x" style="font-size:11px"></i></div></div>
+      <img src="${card.dataUrl}" style="width:100%;height:auto;display:block;border-radius:6px;pointer-events:none">
+    </div>`;
+  }
+  if(card.type==='video'){
+    const thumb=mmYoutubeThumb(card.url);
+    return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;width:200px;padding:0;overflow:hidden;background:var(--bg2);border:1px solid var(--bd2);${sel}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+      <a href="${card.url}" target="_blank" onmousedown="event.stopPropagation()" style="text-decoration:none;color:inherit">
+        ${thumb?`<img src="${thumb}" style="width:100%;height:100px;object-fit:cover;display:block">`:`<div style="width:100%;height:70px;background:var(--bg3);display:flex;align-items:center;justify-content:center"><i class="ti ti-video" style="font-size:24px;color:var(--tx3)"></i></div>`}
+        <div style="padding:8px;font-size:11px;color:var(--c);word-break:break-all">${card.title||card.url}</div>
+      </a>
+      <div style="position:absolute;top:4px;right:4px" onmousedown="event.stopPropagation()"><div class="dot-btn" style="width:18px;height:18px;background:var(--bg2);border-radius:50%" onclick="mmDeleteCard('${card.id}')"><i class="ti ti-x" style="font-size:11px"></i></div></div>
+    </div>`;
+  }
+  if(card.type==='emoji'){
+    return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;width:70px;text-align:center;background:transparent;box-shadow:none;padding:4px;${sel}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+      <div style="font-size:44px;line-height:1;pointer-events:none">${card.emoji}</div>
+      <div class="dot-btn" style="width:16px;height:16px;position:absolute;top:-4px;right:-4px;background:var(--bg2);border-radius:50%" onmousedown="event.stopPropagation()" onclick="mmDeleteCard('${card.id}')"><i class="ti ti-x" style="font-size:10px"></i></div>
+    </div>`;
+  }
+  return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;background:${card.color||MM_NOTE_COLORS[0]};${sel}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
     <div style="display:flex;justify-content:flex-end;margin-bottom:2px"><div class="dot-btn" style="width:18px;height:18px;color:#1A2332" onmousedown="event.stopPropagation()" onclick="mmDeleteCard('${card.id}')"><i class="ti ti-x" style="font-size:11px"></i></div></div>
     <textarea onmousedown="event.stopPropagation()" oninput="mmUpdateNoteText('${card.id}',this.value)" placeholder="Escribe aquí...">${card.text||''}</textarea>
   </div>`;
+}
+function mmLinesHtml(){
+  const defs=`<defs><marker id="mm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--c)"/></marker></defs>`;
+  const lines=mindmapLines.map(l=>{
+    const a=mindmapCards.find(c=>c.id===l.fromId);
+    const b=mindmapCards.find(c=>c.id===l.toId);
+    if(!a||!b)return'';
+    const ax=a.x+mmCardW(a)/2,ay=a.y+mmCardH(a)/2,bx=b.x+mmCardW(b)/2,by=b.y+mmCardH(b)/2;
+    return`<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="transparent" stroke-width="14" style="pointer-events:auto;cursor:pointer" onclick="mmDeleteLine('${l.id}')"/>
+      <line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="var(--c)" stroke-width="2" marker-end="url(#mm-arrow)" style="pointer-events:none"/>`;
+  }).join('');
+  return`<svg style="position:absolute;top:0;left:0;width:6000px;height:6000px;overflow:visible;pointer-events:none">${defs}${lines}</svg>`;
 }
 function renderMindmap(){
   const el=document.getElementById('view-mindmap');
@@ -1466,6 +1542,11 @@ function renderMindmap(){
     <div class="mm-toolbar">
       <button class="btn btn-s btn-p" onclick="mmAddNote()"><i class="ti ti-note"></i>Nota</button>
       <button class="btn btn-s" onclick="mmOpenReelPicker()"><i class="ti ti-video"></i>Reel</button>
+      <button class="btn btn-s" onclick="document.getElementById('mm-img-input').click()"><i class="ti ti-photo"></i>Imagen</button>
+      <button class="btn btn-s" onclick="mmAddVideo()"><i class="ti ti-brand-youtube"></i>Vídeo</button>
+      <button class="btn btn-s" onclick="mmAddEmoji()"><i class="ti ti-mood-smile"></i>Emoji</button>
+      <button class="btn btn-s${mindmapConnectMode?' btn-p':''}" onclick="mmToggleConnectMode()" title="Clica una tarjeta y luego otra para conectarlas"><i class="ti ti-line"></i>${mindmapConnectMode?'Conectando…':'Conectar'}</button>
+      <input type="file" id="mm-img-input" accept="image/*" style="display:none" onchange="mmAddImage(event)">
     </div>
     <div class="mm-zoom">
       <button class="btn btn-s" onclick="mmZoom(-0.1)">−</button>
@@ -1474,6 +1555,7 @@ function renderMindmap(){
       <button class="btn btn-s" onclick="mmResetView()" title="Centrar"><i class="ti ti-focus-2"></i></button>
     </div>
     <div class="mm-canvas" id="mm-canvas" style="transform:translate(${mindmapPan.x}px,${mindmapPan.y}px) scale(${mindmapZoom})">
+      ${mmLinesHtml()}
       ${mindmapCards.map(mmCardHtml).join('')}
     </div>
   </div>`;
@@ -1485,19 +1567,23 @@ function mmCanvasCenter(offX,offY){
 }
 function mmAddNote(){
   const p=mmCanvasCenter(90,60);
-  mindmapCards.push({id:'c'+Date.now(),type:'note',x:p.x,y:p.y,text:'',color:MM_NOTE_COLORS[Math.floor(Math.random()*MM_NOTE_COLORS.length)]});
+  const card={id:'c'+Date.now(),type:'note',x:p.x,y:p.y,text:'',color:MM_NOTE_COLORS[Math.floor(Math.random()*MM_NOTE_COLORS.length)]};
+  mindmapCards.push(card);
   renderMindmap();
-  saveMindmapDebounced();
+  saveMindmapCardDebounced(card);
 }
 function mmDeleteCard(id){
   mindmapCards=mindmapCards.filter(c=>c.id!==id);
+  const before=mindmapLines.length;
+  mindmapLines=mindmapLines.filter(l=>l.fromId!==id&&l.toId!==id);
   renderMindmap();
-  saveMindmapDebounced();
+  deleteMindmapCardRemote(id);
+  if(mindmapLines.length!==before)saveMindmapLinesDebounced();
 }
 function mmUpdateNoteText(id,val){
   const c=mindmapCards.find(c=>c.id===id);if(!c)return;
   c.text=val;
-  saveMindmapDebounced();
+  saveMindmapCardDebounced(c);
 }
 function mmOpenReelPicker(){
   const mc=document.getElementById('modal-c');
@@ -1534,10 +1620,80 @@ function mmAddReelCard(){
   const reel=(c.reels[mk]||[]).find(r=>String(r.id)===String(reelId));
   if(!reel)return showToast('Elige un reel válido','err');
   const p=mmCanvasCenter(90,40);
-  mindmapCards.push({id:'c'+Date.now(),type:'reel',x:p.x,y:p.y,linkedClientId:c.id,linkedReelId:reel.id,linkedMonth:mk,clientName:c.name,reelLabel:reel.label});
+  const card={id:'c'+Date.now(),type:'reel',x:p.x,y:p.y,linkedClientId:c.id,linkedReelId:reel.id,linkedMonth:mk,clientName:c.name,reelLabel:reel.label};
+  mindmapCards.push(card);
   closeModal();
   renderMindmap();
-  saveMindmapDebounced();
+  saveMindmapCardDebounced(card);
+}
+// Redimensiona a un máximo de 1000px y reencodea en JPEG para que cada tarjeta de imagen
+// quepa cómoda en un documento de Firestore (límite 1MB) aunque la foto original sea grande.
+function mmCompressImage(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const maxDim=1000;
+        let w=img.width,h=img.height;
+        if(w>maxDim||h>maxDim){
+          if(w>h){h=Math.round(h*maxDim/w);w=maxDim;}else{w=Math.round(w*maxDim/h);h=maxDim;}
+        }
+        const canvas=document.createElement('canvas');
+        canvas.width=w;canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve({dataUrl:canvas.toDataURL('image/jpeg',0.8),w,h});
+      };
+      img.onerror=reject;
+      img.src=e.target.result;
+    };
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function mmAddImage(evt){
+  const file=evt.target.files?.[0];
+  evt.target.value='';
+  if(!file)return;
+  showToast('Subiendo imagen…','ok');
+  try{
+    const{dataUrl,w,h}=await mmCompressImage(file);
+    const p=mmCanvasCenter(110,80);
+    const card={id:'c'+Date.now(),type:'image',x:p.x,y:p.y,dataUrl,w,h};
+    mindmapCards.push(card);
+    renderMindmap();
+    saveMindmapCardDebounced(card);
+  }catch(e){showToast('No se pudo procesar la imagen','err');}
+}
+function mmAddVideo(){
+  const url=prompt('Enlace del vídeo (YouTube, Drive, Loom...):');
+  if(!url)return;
+  const title=prompt('Título (opcional):','')||'';
+  const p=mmCanvasCenter(100,65);
+  const card={id:'c'+Date.now(),type:'video',x:p.x,y:p.y,url,title};
+  mindmapCards.push(card);
+  renderMindmap();
+  saveMindmapCardDebounced(card);
+}
+function mmAddEmoji(){
+  const emoji=prompt('Pega o escribe un emoji:','💡');
+  if(!emoji)return;
+  const p=mmCanvasCenter(35,35);
+  const card={id:'c'+Date.now(),type:'emoji',x:p.x,y:p.y,emoji};
+  mindmapCards.push(card);
+  renderMindmap();
+  saveMindmapCardDebounced(card);
+}
+function mmToggleConnectMode(){
+  mindmapConnectMode=!mindmapConnectMode;
+  mindmapConnectFrom=null;
+  renderMindmap();
+}
+function mmDeleteLine(id){
+  if(!confirm('¿Quitar esta conexión?'))return;
+  mindmapLines=mindmapLines.filter(l=>l.id!==id);
+  renderMindmap();
+  saveMindmapLinesDebounced();
 }
 function mmPanStart(evt){
   if(evt.target.closest('.mm-card'))return;
@@ -1550,6 +1706,16 @@ function mmCardDragStart(evt,id){
   evt.stopPropagation();
   if(evt.target.tagName==='TEXTAREA')return;
   const card=mindmapCards.find(c=>c.id===id);if(!card)return;
+  if(mindmapConnectMode){
+    if(!mindmapConnectFrom){mindmapConnectFrom=id;renderMindmap();}
+    else if(mindmapConnectFrom!==id){
+      mindmapLines.push({id:'l'+Date.now(),fromId:mindmapConnectFrom,toId:id});
+      mindmapConnectFrom=null;
+      renderMindmap();
+      saveMindmapLinesDebounced();
+    }
+    return;
+  }
   mindmapDrag={type:'card',id,startX:evt.clientX,startY:evt.clientY,origX:card.x,origY:card.y};
   document.addEventListener('mousemove',mmMouseMove);
   document.addEventListener('mouseup',mmMouseUp);
@@ -1567,18 +1733,28 @@ function mmMouseMove(evt){
     const card=mindmapCards.find(c=>c.id===mindmapDrag.id);if(!card)return;
     card.x=mindmapDrag.origX+dx/mindmapZoom;
     card.y=mindmapDrag.origY+dy/mindmapZoom;
-    const cardEl=document.querySelector(`.mm-card[data-id="${mindmapDrag.id}"]`);
-    if(cardEl){cardEl.style.left=card.x+'px';cardEl.style.top=card.y+'px';}
+    // Si esta tarjeta tiene líneas conectadas, hay que redibujar el lienzo entero para
+    // que las flechas la sigan en tiempo real (el resto de tarjetas no se ve afectado).
+    if(mindmapLines.some(l=>l.fromId===card.id||l.toId===card.id)){
+      renderMindmap();
+    }else{
+      const cardEl=document.querySelector(`.mm-card[data-id="${mindmapDrag.id}"]`);
+      if(cardEl){cardEl.style.left=card.x+'px';cardEl.style.top=card.y+'px';}
+    }
   }
 }
 function mmMouseUp(){
   if(!mindmapDrag)return;
   const wasCard=mindmapDrag.type==='card';
+  const draggedId=mindmapDrag.id;
   mindmapDrag=null;
   document.getElementById('mm-wrap')?.classList.remove('panning');
   document.removeEventListener('mousemove',mmMouseMove);
   document.removeEventListener('mouseup',mmMouseUp);
-  if(wasCard)saveMindmapDebounced();
+  if(wasCard){
+    const card=mindmapCards.find(c=>c.id===draggedId);
+    if(card)saveMindmapCardDebounced(card);
+  }
 }
 function mmWheel(evt){
   evt.preventDefault();
