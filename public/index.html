@@ -231,7 +231,13 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
 .mm-card:active{cursor:grabbing}
 .mm-card textarea{width:100%;min-height:60px;background:transparent;border:none;resize:none;font-family:'DM Sans',sans-serif;font-size:12px;color:#1A2332;cursor:text}
 .mm-card textarea:focus{outline:none}
-.mm-toolbar{position:absolute;top:10px;left:10px;z-index:10;display:flex;gap:6px}
+.mm-handle{position:absolute;width:12px;height:12px;border-radius:50%;background:var(--c);border:2px solid var(--bg2);display:none;cursor:crosshair;z-index:6}
+.mm-card:hover .mm-handle{display:block}
+.mm-handle.top{top:-6px;left:50%;transform:translateX(-50%)}
+.mm-handle.bottom{bottom:-6px;left:50%;transform:translateX(-50%)}
+.mm-handle.left{left:-6px;top:50%;transform:translateY(-50%)}
+.mm-handle.right{right:-6px;top:50%;transform:translateY(-50%)}
+.mm-toolbar{position:absolute;top:10px;left:10px;z-index:10;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 20px)}
 .mm-zoom{position:absolute;bottom:10px;right:10px;z-index:10;display:flex;gap:4px;align-items:center;background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--r);padding:4px 8px}
 .drop-menu{position:absolute;right:0;top:100%;background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--r);padding:4px;z-index:50;min-width:170px;box-shadow:var(--s3);display:none}
 .drop-menu.open{display:block}
@@ -1447,8 +1453,7 @@ function renderDailyControl(){
 // límite de 1MB por documento de Firestore, y guardar una tarjeta no reescribe las demás.
 const MM_NOTE_COLORS=['#F5D76E','#A7D8F0','#F5A3C7','#B8E6B8','#F0B88F'];
 let mindmapLines=[];
-let mindmapConnectMode=false;
-let mindmapConnectFrom=null;
+let mindmapConnectDrag=null; // {fromId} mientras se arrastra desde un tirador de borde
 let mindmapCardSaveTimers={};
 let mindmapLinesSaveTimer=null;
 async function loadMindmap(){
@@ -1497,11 +1502,18 @@ function mmYoutubeThumb(url){
   const m=(url||'').match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
   return m?`https://img.youtube.com/vi/${m[1]}/hqdefault.jpg`:null;
 }
+// Los 4 puntos de conexión en los bordes — solo visibles al pasar el ratón por la
+// tarjeta (ver CSS .mm-handle), arrastrar desde uno de ellos crea una conexión.
+function mmHandlesHtml(id){
+  return['top','right','bottom','left'].map(pos=>
+    `<div class="mm-handle ${pos}" onmousedown="mmStartConnectDrag(event,'${id}','${pos}')"></div>`
+  ).join('');
+}
 function mmCardHtml(card){
-  const sel=card.id===mindmapConnectFrom?'box-shadow:0 0 0 2px var(--c)':'';
   if(card.type==='reel'){
     const st=mmReelStatus(card);
-    return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;background:linear-gradient(160deg,var(--bg2),var(--bg3));border:1px solid var(--bd2);border-left:4px solid ${st.color};${sel}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+    return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;background:linear-gradient(160deg,var(--bg2),var(--bg3));border:1px solid var(--bd2);border-left:4px solid ${st.color}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+      ${mmHandlesHtml(card.id)}
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:6px">
         <div style="font-size:12px;font-weight:600;color:var(--tx)">${st.reelLabel}</div>
         <div class="dot-btn" style="width:18px;height:18px;flex-shrink:0" onmousedown="event.stopPropagation()" onclick="mmDeleteCard('${card.id}')"><i class="ti ti-x" style="font-size:11px"></i></div>
@@ -1512,14 +1524,16 @@ function mmCardHtml(card){
   }
   if(card.type==='image'){
     const w=Math.min(card.w||220,240);
-    return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;width:${w}px;padding:6px;background:var(--bg2);border:1px solid var(--bd2);${sel}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+    return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;width:${w}px;padding:6px;background:var(--bg2);border:1px solid var(--bd2)" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+      ${mmHandlesHtml(card.id)}
       <div style="display:flex;justify-content:flex-end;margin-bottom:2px"><div class="dot-btn" style="width:18px;height:18px" onmousedown="event.stopPropagation()" onclick="mmDeleteCard('${card.id}')"><i class="ti ti-x" style="font-size:11px"></i></div></div>
       <img src="${card.dataUrl}" style="width:100%;height:auto;display:block;border-radius:6px;pointer-events:none">
     </div>`;
   }
   if(card.type==='video'){
     const thumb=mmYoutubeThumb(card.url);
-    return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;width:200px;padding:0;overflow:hidden;background:var(--bg2);border:1px solid var(--bd2);${sel}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+    return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;width:200px;padding:0;overflow:hidden;background:var(--bg2);border:1px solid var(--bd2)" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+      ${mmHandlesHtml(card.id)}
       <a href="${card.url}" target="_blank" onmousedown="event.stopPropagation()" style="text-decoration:none;color:inherit">
         ${thumb?`<img src="${thumb}" style="width:100%;height:100px;object-fit:cover;display:block">`:`<div style="width:100%;height:70px;background:var(--bg3);display:flex;align-items:center;justify-content:center"><i class="ti ti-video" style="font-size:24px;color:var(--tx3)"></i></div>`}
         <div style="padding:8px;font-size:11px;color:var(--c);word-break:break-all">${card.title||card.url}</div>
@@ -1528,27 +1542,52 @@ function mmCardHtml(card){
     </div>`;
   }
   if(card.type==='emoji'){
-    return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;width:70px;text-align:center;background:transparent;box-shadow:none;padding:4px;${sel}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+    return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;width:70px;text-align:center;background:transparent;box-shadow:none;padding:4px" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+      ${mmHandlesHtml(card.id)}
       <div style="font-size:44px;line-height:1;pointer-events:none">${card.emoji}</div>
       <div class="dot-btn" style="width:16px;height:16px;position:absolute;top:-4px;right:-4px;background:var(--bg2);border-radius:50%" onmousedown="event.stopPropagation()" onclick="mmDeleteCard('${card.id}')"><i class="ti ti-x" style="font-size:10px"></i></div>
     </div>`;
   }
-  return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;background:${card.color||MM_NOTE_COLORS[0]};${sel}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+  return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;background:${card.color||MM_NOTE_COLORS[0]}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+    ${mmHandlesHtml(card.id)}
     <div style="display:flex;justify-content:flex-end;margin-bottom:2px"><div class="dot-btn" style="width:18px;height:18px;color:#1A2332" onmousedown="event.stopPropagation()" onclick="mmDeleteCard('${card.id}')"><i class="ti ti-x" style="font-size:11px"></i></div></div>
     <textarea onmousedown="event.stopPropagation()" oninput="mmUpdateNoteText('${card.id}',this.value)" placeholder="Escribe aquí...">${card.text||''}</textarea>
   </div>`;
 }
+function mmEdgePoint(card,side){
+  const w=mmCardW(card),h=mmCardH(card);
+  if(side==='top')return{x:card.x+w/2,y:card.y};
+  if(side==='bottom')return{x:card.x+w/2,y:card.y+h};
+  if(side==='left')return{x:card.x,y:card.y+h/2};
+  return{x:card.x+w,y:card.y+h/2};
+}
+// Curva suave estilo Miro entre dos puntos, en vez de una línea recta.
+function mmCurvePath(p1,p2){
+  const dx=p2.x-p1.x;
+  const c1x=p1.x+dx*0.5,c1y=p1.y;
+  const c2x=p1.x+dx*0.5,c2y=p2.y;
+  return`M${p1.x},${p1.y} C${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`;
+}
+function mmNearestSide(card,fromPoint){
+  const w=mmCardW(card),h=mmCardH(card);
+  const cx=card.x+w/2,cy=card.y+h/2;
+  const dx=fromPoint.x-cx,dy=fromPoint.y-cy;
+  // El punto de origen está a un lado del centro del destino — la línea entra por
+  // el borde de ese mismo lado (si viene de la derecha, entra por la derecha).
+  if(Math.abs(dx)>Math.abs(dy))return dx>0?'right':'left';
+  return dy>0?'bottom':'top';
+}
 function mmLinesHtml(){
   const defs=`<defs><marker id="mm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--c)"/></marker></defs>`;
-  const lines=mindmapLines.map(l=>{
+  const paths=mindmapLines.map(l=>{
     const a=mindmapCards.find(c=>c.id===l.fromId);
     const b=mindmapCards.find(c=>c.id===l.toId);
     if(!a||!b)return'';
-    const ax=a.x+mmCardW(a)/2,ay=a.y+mmCardH(a)/2,bx=b.x+mmCardW(b)/2,by=b.y+mmCardH(b)/2;
-    return`<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="transparent" stroke-width="14" style="pointer-events:auto;cursor:pointer" onclick="mmDeleteLine('${l.id}')"/>
-      <line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="var(--c)" stroke-width="2" marker-end="url(#mm-arrow)" style="pointer-events:none"/>`;
+    const d=mmCurvePath(mmEdgePoint(a,l.fromSide||'right'),mmEdgePoint(b,l.toSide||'left'));
+    return`<path d="${d}" fill="none" stroke="transparent" stroke-width="14" style="pointer-events:auto;cursor:pointer" onclick="mmDeleteLine('${l.id}')"/>
+      <path d="${d}" fill="none" stroke="var(--c)" stroke-width="2" marker-end="url(#mm-arrow)" style="pointer-events:none"/>`;
   }).join('');
-  return`<svg style="position:absolute;top:0;left:0;width:6000px;height:6000px;overflow:visible;pointer-events:none">${defs}${lines}</svg>`;
+  return`<svg style="position:absolute;top:0;left:0;width:6000px;height:6000px;overflow:visible;pointer-events:none">${defs}${paths}<path id="mm-temp-path" d="" fill="none" stroke="var(--c)" stroke-width="2" stroke-dasharray="4 3" style="pointer-events:none;display:none"/></svg>`;
 }
 function renderMindmap(){
   const el=document.getElementById('view-mindmap');
@@ -1560,7 +1599,7 @@ function renderMindmap(){
       <button class="btn btn-s" onclick="document.getElementById('mm-img-input').click()"><i class="ti ti-photo"></i>Imagen</button>
       <button class="btn btn-s" onclick="mmAddVideo()"><i class="ti ti-brand-youtube"></i>Vídeo</button>
       <button class="btn btn-s" onclick="mmAddEmoji()"><i class="ti ti-mood-smile"></i>Emoji</button>
-      <button class="btn btn-s${mindmapConnectMode?' btn-p':''}" onclick="mmToggleConnectMode()" title="Clica una tarjeta y luego otra para conectarlas"><i class="ti ti-line"></i>${mindmapConnectMode?'Conectando…':'Conectar'}</button>
+      <span style="font-size:11px;color:var(--tx3);align-self:center;margin-left:4px">Pasa el ratón por una tarjeta y arrastra desde el borde para conectar</span>
       <input type="file" id="mm-img-input" accept="image/*" style="display:none" onchange="mmAddImage(event)">
     </div>
     <div class="mm-zoom">
@@ -1699,16 +1738,55 @@ function mmAddEmoji(){
   renderMindmap();
   saveMindmapCardDebounced(card);
 }
-function mmToggleConnectMode(){
-  mindmapConnectMode=!mindmapConnectMode;
-  mindmapConnectFrom=null;
-  renderMindmap();
-}
 function mmDeleteLine(id){
   if(!confirm('¿Quitar esta conexión?'))return;
   mindmapLines=mindmapLines.filter(l=>l.id!==id);
   renderMindmap();
   saveMindmapLinesDebounced();
+}
+// Arrastrar desde un tirador de borde (ver mmHandlesHtml) dibuja una curva que sigue al
+// ratón; soltar encima de otra tarjeta crea la conexión. Soltar en el vacío no hace nada.
+function mmStartConnectDrag(evt,fromId,fromSide){
+  evt.stopPropagation();
+  evt.preventDefault();
+  mindmapConnectDrag={fromId,fromSide};
+  document.addEventListener('mousemove',mmConnectDragMove);
+  document.addEventListener('mouseup',mmConnectDragEnd);
+}
+function mmConnectDragMove(evt){
+  if(!mindmapConnectDrag)return;
+  const wrap=document.getElementById('mm-wrap');if(!wrap)return;
+  const rect=wrap.getBoundingClientRect();
+  const x=(evt.clientX-rect.left-mindmapPan.x)/mindmapZoom;
+  const y=(evt.clientY-rect.top-mindmapPan.y)/mindmapZoom;
+  const fromCard=mindmapCards.find(c=>c.id===mindmapConnectDrag.fromId);
+  if(!fromCard)return;
+  const temp=document.getElementById('mm-temp-path');
+  if(temp){
+    temp.setAttribute('d',mmCurvePath(mmEdgePoint(fromCard,mindmapConnectDrag.fromSide),{x,y}));
+    temp.style.display='block';
+  }
+}
+function mmConnectDragEnd(evt){
+  document.removeEventListener('mousemove',mmConnectDragMove);
+  document.removeEventListener('mouseup',mmConnectDragEnd);
+  const temp=document.getElementById('mm-temp-path');
+  if(temp){temp.style.display='none';temp.setAttribute('d','');}
+  if(!mindmapConnectDrag)return;
+  const{fromId,fromSide}=mindmapConnectDrag;
+  mindmapConnectDrag=null;
+  const targetEl=document.elementFromPoint(evt.clientX,evt.clientY)?.closest('.mm-card');
+  if(targetEl){
+    const toId=targetEl.dataset.id;
+    const fromCard=mindmapCards.find(c=>c.id===fromId);
+    const toCard=mindmapCards.find(c=>c.id===toId);
+    if(toId&&toId!==fromId&&fromCard&&toCard){
+      const toSide=mmNearestSide(toCard,mmEdgePoint(fromCard,fromSide));
+      mindmapLines.push({id:'l'+Date.now(),fromId,toId,fromSide,toSide});
+      saveMindmapLinesDebounced();
+    }
+  }
+  renderMindmap();
 }
 function mmPanStart(evt){
   if(evt.target.closest('.mm-card'))return;
@@ -1721,16 +1799,6 @@ function mmCardDragStart(evt,id){
   evt.stopPropagation();
   if(evt.target.tagName==='TEXTAREA')return;
   const card=mindmapCards.find(c=>c.id===id);if(!card)return;
-  if(mindmapConnectMode){
-    if(!mindmapConnectFrom){mindmapConnectFrom=id;renderMindmap();}
-    else if(mindmapConnectFrom!==id){
-      mindmapLines.push({id:'l'+Date.now(),fromId:mindmapConnectFrom,toId:id});
-      mindmapConnectFrom=null;
-      renderMindmap();
-      saveMindmapLinesDebounced();
-    }
-    return;
-  }
   mindmapDrag={type:'card',id,startX:evt.clientX,startY:evt.clientY,origX:card.x,origY:card.y};
   document.addEventListener('mousemove',mmMouseMove);
   document.addEventListener('mouseup',mmMouseUp);
