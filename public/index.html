@@ -436,6 +436,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
     </div>
     <div class="cnt" id="cnt">
       <div class="view on" id="view-dash"></div>
+      <div class="view" id="view-daily"></div>
       <div class="view" id="view-board"></div>
       <div class="view" id="view-ideas"></div>
       <div class="view" id="view-clients"></div>
@@ -1212,6 +1213,7 @@ function buildSBNav(){
   const el=document.getElementById('sb-nav');
   let html='<div class="nl">Panel</div>';
   html+=nav('dash','ti-layout-dashboard','Resumen');
+  if(isPMup())html+=nav('daily','ti-report','Control diario');
   html+=nav('board','ti-layout-kanban','Tablero','<span class="nbadge" id="bbadge">0</span>');
   html+=nav('ideas','ti-bulb','Mejoras');
   html+=nav('clients','ti-users','Clientes');
@@ -1293,13 +1295,14 @@ function showView(name){
   document.getElementById('view-'+name)?.classList.add('on');
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('ni-'+name)?.classList.add('on');
-  const icons={dash:'ti-layout-dashboard',pipeline:'ti-columns',board:'ti-layout-kanban',ideas:'ti-bulb',clients:'ti-users',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',config:'ti-settings',profile:'ti-user'};
-  const titles={dash:'Resumen general',pipeline:'Pipeline de contenido',board:'Tablero del equipo',ideas:'Ideas de mejora',clients:'Clientes',cal:'Calendario',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
+  const icons={dash:'ti-layout-dashboard',daily:'ti-report',pipeline:'ti-columns',board:'ti-layout-kanban',ideas:'ti-bulb',clients:'ti-users',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',config:'ti-settings',profile:'ti-user'};
+  const titles={dash:'Resumen general',daily:'Control diario',pipeline:'Pipeline de contenido',board:'Tablero del equipo',ideas:'Ideas de mejora',clients:'Clientes',cal:'Calendario',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
   document.getElementById('tb-ic').className='ti '+(icons[name]||'ti-layout-dashboard');
   document.getElementById('tb-t').textContent=titles[name]||'';
   const acts={dash:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,profile:'',ideas:`<button class="btn btn-s btn-p" onclick="openModal('idea')"><i class="ti ti-plus"></i>Nueva idea</button>`,clients:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,board:isCMup()?`<button class="btn btn-s" onclick="showArchiveModal()"><i class="ti ti-archive"></i>Archivo</button>`:''};
   document.getElementById('top-acts').innerHTML=acts[name]||'';
   if(name==='dash')renderDash();
+  if(name==='daily')renderDailyControl();
   if(name==='board')renderBoard();
   if(name==='ideas')renderIdeasBoard();
   if(name==='clients')renderClientsView();
@@ -1366,6 +1369,26 @@ function clientStalenessHtml(){
     ${rows.map(r=>`<div class="pf"><span style="font-size:12px">${r.client}</span><span class="badge ${r.days===null?'badge-err':r.days>14?'badge-err':r.days>7?'badge-warn':'badge-ok'}" style="font-size:10px">${r.days===null?'Nunca':r.days===0?'Hoy':r.days+'d'}</span></div>`).join('')}
   </div>`;
 }
+// ============================================================
+// CONTROL DIARIO (solo CEO/PM)
+// ============================================================
+function renderDailyControl(){
+  const html=`<div class="card" style="margin-bottom:14px">
+    <div class="card-t"><i class="ti ti-users-group"></i>Equipo — hoy</div>
+    ${teamTodayGridHtml()}
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-t"><i class="ti ti-upload"></i>Últimas publicaciones</div>
+      ${latestUploadsHtml()}
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-t"><i class="ti ti-clock-exclamation"></i>Tiempo sin publicar</div>
+      ${clientStalenessHtml()}
+    </div>
+  </div>`;
+  document.getElementById('view-daily').innerHTML=html;
+}
 function renderDash(){
   const mk=monthKey();
   let totalGrab=0,totalReels=0,editing=0,pendSubir=0;
@@ -1398,25 +1421,6 @@ function renderDash(){
         <span style="color:var(--tx3);font-size:10px">${t.colName}</span>
       </div>`).join('')}
       ${todayTasks.length>5?`<div style="font-size:11px;color:var(--tx3);margin-top:6px">+${todayTasks.length-5} más en el tablero</div>`:''}
-    </div>`;
-  }
-
-  // Visión de equipo — solo CEO/PM: qué tiene cada uno para hoy, últimas publicaciones
-  // y qué clientes llevan tiempo sin subir nada.
-  if(isPMup()){
-    html+=`<div class="card" style="margin-bottom:14px">
-      <div class="card-t"><i class="ti ti-users-group"></i>Equipo — hoy</div>
-      ${teamTodayGridHtml()}
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:14px">
-      <div class="card" style="margin-bottom:0">
-        <div class="card-t"><i class="ti ti-upload"></i>Últimas publicaciones</div>
-        ${latestUploadsHtml()}
-      </div>
-      <div class="card" style="margin-bottom:0">
-        <div class="card-t"><i class="ti ti-clock-exclamation"></i>Tiempo sin publicar</div>
-        ${clientStalenessHtml()}
-      </div>
     </div>`;
   }
   if(CU?.level==='cm'){
