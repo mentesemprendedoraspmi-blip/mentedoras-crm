@@ -1316,6 +1316,56 @@ function render(){renderDash();renderSB();renderBoardBadge();}
 // ============================================================
 // DASHBOARD
 // ============================================================
+// Visión de equipo (solo CEO/PM): una caja por persona con sus tareas de hoy, para saber
+// de un vistazo quién tiene trabajo pendiente hoy y quién no tiene nada.
+function teamTodayGridHtml(){
+  const t0=today();
+  const cols=boardCols.filter(c=>!c.isFinal);
+  return`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+    ${cols.map(col=>{
+      const todayT=(col.tasks||[]).filter(t=>!t.archived&&t.date===t0&&!t.done);
+      return`<div style="border:1px solid var(--bd2);border-radius:var(--rl);background:var(--bg2);padding:10px 11px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font-weight:600;font-size:13px">${col.name}</span>
+          <span class="bcc" style="${todayT.length?'':'opacity:.5'}">${todayT.length}</span>
+        </div>
+        ${todayT.length?todayT.slice(0,5).map(t=>`<div style="font-size:11px;padding:4px 0;border-top:1px solid var(--bd);cursor:pointer" onclick="openTaskDetail('${col.id}','${t.id}')">${t.title}</div>`).join(''):`<div style="font-size:11px;color:var(--tx3);padding:4px 0">Sin tareas para hoy 🎉</div>`}
+        ${todayT.length>5?`<div style="font-size:10px;color:var(--tx3);margin-top:4px">+${todayT.length-5} más</div>`:''}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+// Últimos reels publicados en cualquier cliente, más recientes primero.
+function latestUploadsHtml(){
+  const items=[];
+  clients.filter(isActiveClient).forEach(c=>{
+    Object.values(c.reels||{}).flat().forEach(r=>{
+      if(r.subido&&r.fechaSubidoTS)items.push({client:c.name,label:r.label,ts:r.fechaSubidoTS});
+    });
+  });
+  items.sort((a,b)=>b.ts.localeCompare(a.ts));
+  const top=items.slice(0,8);
+  if(!top.length)return`<div style="font-size:12px;color:var(--tx3);padding:8px 0">Todavía no hay publicaciones registradas.</div>`;
+  return top.map(i=>`<div class="pf"><span style="font-size:12px"><strong>${i.client}</strong> — ${i.label}</span><span style="font-size:11px;color:var(--tx3)">${fmtDate(i.ts.slice(0,10))}</span></div>`).join('');
+}
+// Días desde la última publicación de cada cliente con servicio de reels, para detectar
+// quién lleva tiempo sin subir nada. Ordenado de más a menos silencio.
+function clientStalenessHtml(){
+  const rows=[];
+  clients.filter(isActiveClient).forEach(c=>{
+    const hasReels=(Array.isArray(c.services)?c.services:[]).some(s=>['content_5','content_8_cm','podcast_reels_edit'].includes(s));
+    if(!hasReels)return;
+    let lastTs=null;
+    Object.values(c.reels||{}).flat().forEach(r=>{if(r.subido&&r.fechaSubidoTS&&(!lastTs||r.fechaSubidoTS>lastTs))lastTs=r.fechaSubidoTS;});
+    const days=lastTs?Math.floor((Date.now()-new Date(lastTs).getTime())/864e5):null;
+    rows.push({client:c.name,days});
+  });
+  rows.sort((a,b)=>{if(a.days===null)return-1;if(b.days===null)return 1;return b.days-a.days;});
+  if(!rows.length)return`<div style="font-size:12px;color:var(--tx3);padding:8px 0">No hay clientes con servicio de reels.</div>`;
+  return`<div style="max-height:260px;overflow-y:auto">
+    ${rows.map(r=>`<div class="pf"><span style="font-size:12px">${r.client}</span><span class="badge ${r.days===null?'badge-err':r.days>14?'badge-err':r.days>7?'badge-warn':'badge-ok'}" style="font-size:10px">${r.days===null?'Nunca':r.days===0?'Hoy':r.days+'d'}</span></div>`).join('')}
+  </div>`;
+}
 function renderDash(){
   const mk=monthKey();
   let totalGrab=0,totalReels=0,editing=0,pendSubir=0;
@@ -1348,6 +1398,25 @@ function renderDash(){
         <span style="color:var(--tx3);font-size:10px">${t.colName}</span>
       </div>`).join('')}
       ${todayTasks.length>5?`<div style="font-size:11px;color:var(--tx3);margin-top:6px">+${todayTasks.length-5} más en el tablero</div>`:''}
+    </div>`;
+  }
+
+  // Visión de equipo — solo CEO/PM: qué tiene cada uno para hoy, últimas publicaciones
+  // y qué clientes llevan tiempo sin subir nada.
+  if(isPMup()){
+    html+=`<div class="card" style="margin-bottom:14px">
+      <div class="card-t"><i class="ti ti-users-group"></i>Equipo — hoy</div>
+      ${teamTodayGridHtml()}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:14px">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-t"><i class="ti ti-upload"></i>Últimas publicaciones</div>
+        ${latestUploadsHtml()}
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-t"><i class="ti ti-clock-exclamation"></i>Tiempo sin publicar</div>
+        ${clientStalenessHtml()}
+      </div>
     </div>`;
   }
   if(CU?.level==='cm'){
