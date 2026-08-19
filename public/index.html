@@ -222,6 +222,17 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
 .bcc{background:var(--bg3);font-size:10px;padding:1px 6px;border-radius:20px;color:var(--tx3)}
 .dot-btn{cursor:pointer;color:var(--tx3);font-size:16px;padding:2px 4px;border-radius:4px}
 .dot-btn:hover{background:var(--bg4);color:var(--tx)}
+.mm-wrap{position:relative;height:calc(100vh - 150px);min-height:400px;overflow:hidden;background:
+  radial-gradient(circle,var(--bd) 1px,transparent 1px) 0 0/22px 22px, var(--bg);
+  border:1px solid var(--bd);border-radius:var(--rl);cursor:grab}
+.mm-wrap.panning{cursor:grabbing}
+.mm-canvas{position:absolute;top:0;left:0;width:0;height:0;transform-origin:0 0}
+.mm-card{position:absolute;width:180px;border-radius:var(--r);padding:10px;box-shadow:var(--s2);cursor:grab;user-select:none}
+.mm-card:active{cursor:grabbing}
+.mm-card textarea{width:100%;min-height:60px;background:transparent;border:none;resize:none;font-family:'DM Sans',sans-serif;font-size:12px;color:#1A2332;cursor:text}
+.mm-card textarea:focus{outline:none}
+.mm-toolbar{position:absolute;top:10px;left:10px;z-index:10;display:flex;gap:6px}
+.mm-zoom{position:absolute;bottom:10px;right:10px;z-index:10;display:flex;gap:4px;align-items:center;background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--r);padding:4px 8px}
 .drop-menu{position:absolute;right:0;top:100%;background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--r);padding:4px;z-index:50;min-width:170px;box-shadow:var(--s3);display:none}
 .drop-menu.open{display:block}
 .dm-item{padding:7px 10px;font-size:12px;color:var(--tx2);cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:7px}
@@ -437,6 +448,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif}
     <div class="cnt" id="cnt">
       <div class="view on" id="view-dash"></div>
       <div class="view" id="view-daily"></div>
+      <div class="view" id="view-mindmap"></div>
       <div class="view" id="view-board"></div>
       <div class="view" id="view-ideas"></div>
       <div class="view" id="view-clients"></div>
@@ -687,6 +699,12 @@ let boardCols=[
 // equipo, solo sirven para que la fecha aparezca en el Calendario interno y en el calendario
 // de contenido del propio cliente (útil sobre todo para clientes sin CM asignado).
 let unassignedTasks=[];
+// Mapa de contenido: lienzo libre compartido entre CEOs para mapas mentales de contenido.
+let mindmapCards=[];
+let mindmapPan={x:0,y:0};
+let mindmapZoom=1;
+let mindmapDrag=null;
+let mindmapSaveTimer=null;
 let calEvents=[];
 let paymentsList=[];
 let cobrosList=[];
@@ -993,6 +1011,13 @@ async function loadAll(){
       });
     }catch(e){console.warn('improvement_ideas listener:',e);}
     try{
+      db.collection('crm').doc('mindmap').onSnapshot(snap=>{
+        if(!snap||!snap.exists||mindmapDrag)return; // no interrumpir mientras alguien arrastra algo
+        mindmapCards=snap.data().cards||[];
+        if(document.getElementById('view-mindmap')?.classList.contains('on'))renderMindmap();
+      });
+    }catch(e){console.warn('mindmap listener:',e);}
+    try{
       db.collection('board_tasks').onSnapshot(snap=>{
         if(!snap)return;
         const allTasks={};
@@ -1214,6 +1239,7 @@ function buildSBNav(){
   let html='<div class="nl">Panel</div>';
   html+=nav('dash','ti-layout-dashboard','Resumen');
   if(isPMup())html+=nav('daily','ti-report','Control diario');
+  if(isCEO())html+=nav('mindmap','ti-brain','Mapa de contenido');
   html+=nav('board','ti-layout-kanban','Tablero','<span class="nbadge" id="bbadge">0</span>');
   html+=nav('ideas','ti-bulb','Mejoras');
   html+=nav('clients','ti-users','Clientes');
@@ -1295,14 +1321,15 @@ function showView(name){
   document.getElementById('view-'+name)?.classList.add('on');
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('ni-'+name)?.classList.add('on');
-  const icons={dash:'ti-layout-dashboard',daily:'ti-report',pipeline:'ti-columns',board:'ti-layout-kanban',ideas:'ti-bulb',clients:'ti-users',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',config:'ti-settings',profile:'ti-user'};
-  const titles={dash:'Resumen general',daily:'Control diario',pipeline:'Pipeline de contenido',board:'Tablero del equipo',ideas:'Ideas de mejora',clients:'Clientes',cal:'Calendario',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
+  const icons={dash:'ti-layout-dashboard',daily:'ti-report',mindmap:'ti-brain',pipeline:'ti-columns',board:'ti-layout-kanban',ideas:'ti-bulb',clients:'ti-users',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',config:'ti-settings',profile:'ti-user'};
+  const titles={dash:'Resumen general',daily:'Control diario',mindmap:'Mapa de contenido',pipeline:'Pipeline de contenido',board:'Tablero del equipo',ideas:'Ideas de mejora',clients:'Clientes',cal:'Calendario',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
   document.getElementById('tb-ic').className='ti '+(icons[name]||'ti-layout-dashboard');
   document.getElementById('tb-t').textContent=titles[name]||'';
   const acts={dash:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,profile:'',ideas:`<button class="btn btn-s btn-p" onclick="openModal('idea')"><i class="ti ti-plus"></i>Nueva idea</button>`,clients:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,board:isCMup()?`<button class="btn btn-s" onclick="showArchiveModal()"><i class="ti ti-archive"></i>Archivo</button>`:''};
   document.getElementById('top-acts').innerHTML=acts[name]||'';
   if(name==='dash')renderDash();
   if(name==='daily')renderDailyControl();
+  if(name==='mindmap')loadMindmap().then(renderMindmap);
   if(name==='board')renderBoard();
   if(name==='ideas')renderIdeasBoard();
   if(name==='clients')renderClientsView();
@@ -1388,6 +1415,186 @@ function renderDailyControl(){
     </div>
   </div>`;
   document.getElementById('view-daily').innerHTML=html;
+}
+
+// ============================================================
+// MAPA DE CONTENIDO (lienzo libre, solo CEO)
+// ============================================================
+const MM_NOTE_COLORS=['#F5D76E','#A7D8F0','#F5A3C7','#B8E6B8','#F0B88F'];
+async function loadMindmap(){
+  const d=await fbGet('crm','mindmap');
+  mindmapCards=(d&&d.cards)||[];
+}
+function saveMindmapDebounced(){
+  clearTimeout(mindmapSaveTimer);
+  mindmapSaveTimer=setTimeout(()=>{fbSet('crm','mindmap',{cards:mindmapCards,u:new Date().toISOString()});},600);
+}
+// Estado del reel se calcula siempre en vivo desde la ficha del cliente — la tarjeta solo
+// guarda el enlace (cliente+reel+mes), nunca el estado, para que refleje lo real.
+function mmReelStatus(card){
+  const c=clients.find(cl=>cl.id===card.linkedClientId);
+  const reel=c&&((c.reels||{})[card.linkedMonth]||[]).find(r=>String(r.id)===String(card.linkedReelId));
+  const clientName=c?.name||card.clientName||'(cliente eliminado)';
+  const reelLabel=reel?.label||card.reelLabel||'(reel eliminado)';
+  if(!reel)return{status:'—',color:'var(--tx3)',clientName,reelLabel};
+  if(reel.subido)return{status:'Subido',color:'#4ADE80',clientName,reelLabel};
+  if(reel.editado)return{status:'Editado',color:'#C084FC',clientName,reelLabel};
+  if(reel.grabado)return{status:'Grabado',color:'var(--warn)',clientName,reelLabel};
+  return{status:'Pendiente',color:'var(--tx3)',clientName,reelLabel};
+}
+function mmCardHtml(card){
+  if(card.type==='reel'){
+    const st=mmReelStatus(card);
+    return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;background:linear-gradient(160deg,var(--bg2),var(--bg3));border:1px solid var(--bd2);border-left:4px solid ${st.color}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:6px">
+        <div style="font-size:12px;font-weight:600;color:var(--tx)">${st.reelLabel}</div>
+        <div class="dot-btn" style="width:18px;height:18px;flex-shrink:0" onmousedown="event.stopPropagation()" onclick="mmDeleteCard('${card.id}')"><i class="ti ti-x" style="font-size:11px"></i></div>
+      </div>
+      <div style="font-size:11px;color:var(--tx3);margin-bottom:6px">${st.clientName}</div>
+      <span class="badge" style="background:${st.color}22;color:${st.color}">${st.status}</span>
+    </div>`;
+  }
+  return`<div class="mm-card" style="left:${card.x}px;top:${card.y}px;background:${card.color||MM_NOTE_COLORS[0]}" data-id="${card.id}" onmousedown="mmCardDragStart(event,'${card.id}')">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:2px"><div class="dot-btn" style="width:18px;height:18px;color:#1A2332" onmousedown="event.stopPropagation()" onclick="mmDeleteCard('${card.id}')"><i class="ti ti-x" style="font-size:11px"></i></div></div>
+    <textarea onmousedown="event.stopPropagation()" oninput="mmUpdateNoteText('${card.id}',this.value)" placeholder="Escribe aquí...">${card.text||''}</textarea>
+  </div>`;
+}
+function renderMindmap(){
+  const el=document.getElementById('view-mindmap');
+  if(!el)return;
+  el.innerHTML=`<div class="mm-wrap" id="mm-wrap" onmousedown="mmPanStart(event)" onwheel="mmWheel(event)">
+    <div class="mm-toolbar">
+      <button class="btn btn-s btn-p" onclick="mmAddNote()"><i class="ti ti-note"></i>Nota</button>
+      <button class="btn btn-s" onclick="mmOpenReelPicker()"><i class="ti ti-video"></i>Reel</button>
+    </div>
+    <div class="mm-zoom">
+      <button class="btn btn-s" onclick="mmZoom(-0.1)">−</button>
+      <span id="mm-zoom-lbl" style="font-size:11px;color:var(--tx3);min-width:36px;text-align:center">${Math.round(mindmapZoom*100)}%</span>
+      <button class="btn btn-s" onclick="mmZoom(0.1)">+</button>
+      <button class="btn btn-s" onclick="mmResetView()" title="Centrar"><i class="ti ti-focus-2"></i></button>
+    </div>
+    <div class="mm-canvas" id="mm-canvas" style="transform:translate(${mindmapPan.x}px,${mindmapPan.y}px) scale(${mindmapZoom})">
+      ${mindmapCards.map(mmCardHtml).join('')}
+    </div>
+  </div>`;
+}
+function mmCanvasCenter(offX,offY){
+  const wrap=document.getElementById('mm-wrap');
+  const w=wrap?.clientWidth||600,h=wrap?.clientHeight||400;
+  return{x:(-mindmapPan.x+w/2)/mindmapZoom-offX,y:(-mindmapPan.y+h/2)/mindmapZoom-offY};
+}
+function mmAddNote(){
+  const p=mmCanvasCenter(90,60);
+  mindmapCards.push({id:'c'+Date.now(),type:'note',x:p.x,y:p.y,text:'',color:MM_NOTE_COLORS[Math.floor(Math.random()*MM_NOTE_COLORS.length)]});
+  renderMindmap();
+  saveMindmapDebounced();
+}
+function mmDeleteCard(id){
+  mindmapCards=mindmapCards.filter(c=>c.id!==id);
+  renderMindmap();
+  saveMindmapDebounced();
+}
+function mmUpdateNoteText(id,val){
+  const c=mindmapCards.find(c=>c.id===id);if(!c)return;
+  c.text=val;
+  saveMindmapDebounced();
+}
+function mmOpenReelPicker(){
+  const mc=document.getElementById('modal-c');
+  mc.innerHTML=`<div class="modal-t">Añadir tarjeta de reel</div>
+    <div class="f"><label>Cliente</label><select id="mm-cl" onchange="mmPickerClientChanged()"><option value="">— Elige un cliente —</option>${clients.filter(isActiveClient).map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}</select></div>
+    <div class="fg2">
+      <div class="f"><label>Mes</label><select id="mm-month" onchange="mmPickerMonthChanged()"></select></div>
+      <div class="f"><label>Reel</label><select id="mm-reel"></select></div>
+    </div>
+    <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="mmAddReelCard()">Añadir</button></div>`;
+  document.getElementById('mo').classList.add('open');
+}
+function mmPickerClientChanged(){
+  const c=clients.find(cl=>cl.id===document.getElementById('mm-cl').value);
+  const monthSel=document.getElementById('mm-month');
+  if(!c){monthSel.innerHTML='';document.getElementById('mm-reel').innerHTML='';return;}
+  const months=allMonthsThisYear();
+  const curMk=monthKey();
+  monthSel.innerHTML=months.map(mk=>`<option value="${mk}"${mk===curMk?' selected':''}>${monthLabel(mk)}</option>`).join('');
+  mmPickerMonthChanged();
+}
+function mmPickerMonthChanged(){
+  const c=clients.find(cl=>cl.id===document.getElementById('mm-cl').value);
+  const mk=document.getElementById('mm-month').value;
+  const reelSel=document.getElementById('mm-reel');
+  const reels=(c?.reels||{})[mk]||[];
+  reelSel.innerHTML=reels.length?reels.map(r=>`<option value="${r.id}">${r.label}</option>`).join(''):`<option value="">— Sin reels ese mes —</option>`;
+}
+function mmAddReelCard(){
+  const c=clients.find(cl=>cl.id===document.getElementById('mm-cl')?.value);
+  const mk=document.getElementById('mm-month')?.value;
+  const reelId=document.getElementById('mm-reel')?.value;
+  if(!c||!reelId)return showToast('Elige cliente y reel','err');
+  const reel=(c.reels[mk]||[]).find(r=>String(r.id)===String(reelId));
+  if(!reel)return showToast('Elige un reel válido','err');
+  const p=mmCanvasCenter(90,40);
+  mindmapCards.push({id:'c'+Date.now(),type:'reel',x:p.x,y:p.y,linkedClientId:c.id,linkedReelId:reel.id,linkedMonth:mk,clientName:c.name,reelLabel:reel.label});
+  closeModal();
+  renderMindmap();
+  saveMindmapDebounced();
+}
+function mmPanStart(evt){
+  if(evt.target.closest('.mm-card'))return;
+  mindmapDrag={type:'pan',startX:evt.clientX,startY:evt.clientY,origX:mindmapPan.x,origY:mindmapPan.y};
+  document.getElementById('mm-wrap')?.classList.add('panning');
+  document.addEventListener('mousemove',mmMouseMove);
+  document.addEventListener('mouseup',mmMouseUp);
+}
+function mmCardDragStart(evt,id){
+  evt.stopPropagation();
+  if(evt.target.tagName==='TEXTAREA')return;
+  const card=mindmapCards.find(c=>c.id===id);if(!card)return;
+  mindmapDrag={type:'card',id,startX:evt.clientX,startY:evt.clientY,origX:card.x,origY:card.y};
+  document.addEventListener('mousemove',mmMouseMove);
+  document.addEventListener('mouseup',mmMouseUp);
+}
+function mmMouseMove(evt){
+  if(!mindmapDrag)return;
+  const dx=evt.clientX-mindmapDrag.startX;
+  const dy=evt.clientY-mindmapDrag.startY;
+  if(mindmapDrag.type==='pan'){
+    mindmapPan.x=mindmapDrag.origX+dx;
+    mindmapPan.y=mindmapDrag.origY+dy;
+    const canvas=document.getElementById('mm-canvas');
+    if(canvas)canvas.style.transform=`translate(${mindmapPan.x}px,${mindmapPan.y}px) scale(${mindmapZoom})`;
+  }else if(mindmapDrag.type==='card'){
+    const card=mindmapCards.find(c=>c.id===mindmapDrag.id);if(!card)return;
+    card.x=mindmapDrag.origX+dx/mindmapZoom;
+    card.y=mindmapDrag.origY+dy/mindmapZoom;
+    const cardEl=document.querySelector(`.mm-card[data-id="${mindmapDrag.id}"]`);
+    if(cardEl){cardEl.style.left=card.x+'px';cardEl.style.top=card.y+'px';}
+  }
+}
+function mmMouseUp(){
+  if(!mindmapDrag)return;
+  const wasCard=mindmapDrag.type==='card';
+  mindmapDrag=null;
+  document.getElementById('mm-wrap')?.classList.remove('panning');
+  document.removeEventListener('mousemove',mmMouseMove);
+  document.removeEventListener('mouseup',mmMouseUp);
+  if(wasCard)saveMindmapDebounced();
+}
+function mmWheel(evt){
+  evt.preventDefault();
+  mindmapZoom=Math.min(2,Math.max(0.3,mindmapZoom+(evt.deltaY>0?-0.08:0.08)));
+  const canvas=document.getElementById('mm-canvas');
+  if(canvas)canvas.style.transform=`translate(${mindmapPan.x}px,${mindmapPan.y}px) scale(${mindmapZoom})`;
+  const zEl=document.getElementById('mm-zoom-lbl');
+  if(zEl)zEl.textContent=Math.round(mindmapZoom*100)+'%';
+}
+function mmZoom(delta){
+  mindmapZoom=Math.min(2,Math.max(0.3,mindmapZoom+delta));
+  renderMindmap();
+}
+function mmResetView(){
+  mindmapPan={x:0,y:0};mindmapZoom=1;
+  renderMindmap();
 }
 function renderDash(){
   const mk=monthKey();
