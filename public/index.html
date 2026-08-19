@@ -682,6 +682,10 @@ let boardCols=[
   {id:'oscar',name:'Oscar',color:'#F59E0B',tasks:[]},
 ];
 
+// Tareas creadas con "— Sin asignar —" como columna: no pertenecen al tablero de nadie del
+// equipo, solo sirven para que la fecha aparezca en el Calendario interno y en el calendario
+// de contenido del propio cliente (útil sobre todo para clientes sin CM asignado).
+let unassignedTasks=[];
 let calEvents=[];
 let paymentsList=[];
 let cobrosList=[];
@@ -899,7 +903,8 @@ async function loadBoard(){
       if(!fbReady)await initFB();
       const snap=await db.collection('board_tasks').get();
       const allTasks={};
-      snap.forEach(doc=>{const d=doc.data();if(d&&d.colId){if(!allTasks[d.colId])allTasks[d.colId]=[];allTasks[d.colId].push(d);}});
+      unassignedTasks=[];
+      snap.forEach(doc=>{const d=doc.data();if(!d)return;if(d.colId){if(!allTasks[d.colId])allTasks[d.colId]=[];allTasks[d.colId].push(d);}else unassignedTasks.push(d);});
       boardCols=index.cols.map(meta=>({...meta,tasks:(allTasks[meta.id]||[])}));
       try{const si=await fbGet('crm','board_images');if(si&&si.data){boardCols.forEach(col=>{(col.tasks||[]).forEach(t=>{if(si.data[t.id])t.images=si.data[t.id];});});}}catch(e){}
       return true;
@@ -990,12 +995,15 @@ async function loadAll(){
       db.collection('board_tasks').onSnapshot(snap=>{
         if(!snap)return;
         const allTasks={};
-        snap.forEach(doc=>{const d=doc.data();if(d&&d.colId){if(!allTasks[d.colId])allTasks[d.colId]=[];allTasks[d.colId].push(d);}});
+        const unassigned=[];
+        snap.forEach(doc=>{const d=doc.data();if(!d)return;if(d.colId){if(!allTasks[d.colId])allTasks[d.colId]=[];allTasks[d.colId].push(d);}else unassigned.push(d);});
+        unassignedTasks=unassigned;
         boardCols.forEach(col=>{
           const imgs={};(col.tasks||[]).forEach(t=>{if(t.images)imgs[t.id]=t.images;});
           col.tasks=(allTasks[col.id]||[]).map(t=>({...t,images:imgs[t.id]||[]}));
         });
         if(document.getElementById('view-board')?.classList.contains('on'))renderBoard();
+        if(document.getElementById('view-cal')?.classList.contains('on'))renderCal();
         renderBoardBadge();
       });
     }catch(e){console.warn('board_tasks listener:',e);}
@@ -2425,6 +2433,9 @@ function calFormatTaskEvent(t){
   if(m)return{title:`${m[2]} — ${m[1]}`,client:m[3]};
   return{title:t.title,client:t.client||''};
 }
+// Tareas del tablero + las "sin asignar" (sin columna), para que el Calendario interno
+// las muestre a todas igual, tengan o no un editor/CM detrás.
+function calBoardTasks(){return[...(boardCols||[]).flatMap(col=>col.tasks||[]),...unassignedTasks];}
 function renderCal(){
   loadGCalEvents();
   if(calView==='week'){renderCalWeek();return;}
@@ -2441,7 +2452,7 @@ function renderCal(){
   for(let d=1;d<=last.getDate();d++){
     const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isT=ds===today();
-    const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...extra.filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>{const f=calFormatTaskEvent(t);return{title:f.title,client:f.client,type:'task',date:ds,color:clientColor(f.client)||'#C084FC',time:t.time||''};})];
+    const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...extra.filter(e=>e.date===ds),...calBoardTasks().filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>{const f=calFormatTaskEvent(t);return{title:f.title,client:f.client,type:'task',date:ds,color:clientColor(f.client)||'#C084FC',time:t.time||''};})];
     evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
     const typeColors={grab:'var(--warn)',del:'var(--c)',meet:'#4ADE80',task:'#C084FC'};
     const visible=evs.slice(0,3);
@@ -2463,7 +2474,7 @@ function renderCal(){
 }
 function showCalDay(ds,evt){
   evt&&evt.stopPropagation();
-  const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...calExtraEvents().filter(e=>e.date===ds),...(boardCols||[]).flatMap(col=>col.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>{const f=calFormatTaskEvent(t);return{title:'📋 '+f.title,client:f.client,type:'task',date:ds,color:clientColor(f.client)||'#C084FC'};})];
+  const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...calExtraEvents().filter(e=>e.date===ds),...calBoardTasks().filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>{const f=calFormatTaskEvent(t);return{title:'📋 '+f.title,client:f.client,type:'task',date:ds,color:clientColor(f.client)||'#C084FC',id:t.id,unassigned:!t.colId};})];
   evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
   const el=document.getElementById('cal-day-detail');if(!el)return;
   const[y,m,d]=ds.split('-');
@@ -2486,9 +2497,18 @@ function showCalDay(ds,evt){
         <div style="font-size:13px;font-weight:500">${e.title}</div>
         ${e.client?`<div style="font-size:11px;color:var(--tx3);margin-top:2px">${e.client}</div>`:''}
       </div>
+      ${e.unassigned?`<div class="dot-btn" onclick="deleteUnassignedTask('${e.id}','${ds}')" title="Eliminar"><i class="ti ti-trash" style="font-size:12px"></i></div>`:''}
     </div>`).join(''):`<div style="text-align:center;padding:12px;color:var(--tx3);font-size:13px">Sin eventos. <span style="color:var(--c);cursor:pointer" onclick="openModal('event','',null,'${ds}')">Añadir uno</span></div>`}
   </div>`;
   el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+async function deleteUnassignedTask(taskId,ds){
+  if(!confirm('¿Eliminar esta tarea del calendario?'))return;
+  unassignedTasks=unassignedTasks.filter(t=>String(t.id)!==String(taskId));
+  await deleteBoardTask(taskId);
+  renderCal();
+  const el=document.getElementById('cal-day-detail');
+  if(el){el.dataset.date='';showCalDay(ds,{stopPropagation:()=>{}});}
 }
 // Hora:minuto local de un evento, o null si es "todo el día" (sin hora)
 function calEventHourMinute(e){
@@ -2502,7 +2522,7 @@ function calDayItems(ds){
   const push=e=>(calEventHourMinute(e)!==null?timed:allday).push(e);
   calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)).forEach(push);
   calExtraEvents().filter(e=>e.date===ds).forEach(push);
-  (boardCols||[]).flatMap(c=>c.tasks||[]).filter(t=>t.date===ds&&calPassesFilter(t.client)).forEach(t=>{const f=calFormatTaskEvent(t);allday.push({title:'📋 '+f.title,client:f.client,color:clientColor(f.client)||'#C084FC'});});
+  calBoardTasks().filter(t=>t.date===ds&&calPassesFilter(t.client)).forEach(t=>{const f=calFormatTaskEvent(t);allday.push({title:'📋 '+f.title,client:f.client,color:clientColor(f.client)||'#C084FC'});});
   return{timed,allday};
 }
 // Rejilla horaria compartida por semana (7 días) y día (1 día)
@@ -3722,7 +3742,7 @@ function clientCalGridHtml(c,mk){
     if(pd.pub)push(pd.pub,`${r.label} — 📸 Pub. IG`);
     if(hasTikTok&&pd.tiktok)push(pd.tiktok,`${r.label} — 🎵 TikTok`);
   });
-  (boardCols||[]).flatMap(bc=>bc.tasks||[]).filter(t=>!t.archived&&t.date&&t.date.startsWith(mk)&&(t.linkedClientId===c.id||t.client===c.name)).forEach(t=>{
+  calBoardTasks().filter(t=>!t.archived&&t.date&&t.date.startsWith(mk)&&(t.linkedClientId===c.id||t.client===c.name)).forEach(t=>{
     const f=calFormatTaskEvent(t);
     push(t.date,f.title);
   });
@@ -4025,7 +4045,10 @@ function openModal(type,extra='',extra2=null,extra3=''){
       <div id="nt-type-chip"></div>
       <div class="f"><label>Tarea</label><input id="nt-title" value="${prefix}" placeholder="Descripción" oninput="ntTitleEdited=true"></div>
       <div class="fg2">
-        <div class="f"><label>Columna</label><select id="nt-col">${boardCols.map(col=>`<option value="${col.id}"${col.id===extra?' selected':''}>${col.name}</option>`).join('')}</select></div>
+        <div class="f"><label>Columna</label><select id="nt-col">
+          <option value="">— Sin asignar (solo calendario del cliente) —</option>
+          ${boardCols.map(col=>`<option value="${col.id}"${col.id===extra?' selected':''}>${col.name}</option>`).join('')}
+        </select></div>
         <div class="f"><label>Fecha límite</label><input id="nt-date" type="date" value="${extra3||''}"></div>
       </div>
       <div class="f"><label>Cliente (opcional)</label><select id="nt-cl" onchange="ntClientChanged()"><option value="">— Sin cliente —</option>${clients.filter(isActiveClient).map(cl=>`<option value="${cl.id}">${cl.name}</option>`).join('')}</select></div>
@@ -4321,9 +4344,17 @@ async function saveTask(){
   }
   if(!title)return showToast('Escribe una descripción','err');
   const nt={id:Date.now(),title,client:c?.name||'',date,done:false,createdBy:CU?.name||'',...(linked||{})};
-  if(col){col.tasks.unshift(nt);await saveBoardTask(nt,colId);await fbSet('crm','board_index',{cols:boardCols.map(cc=>({id:cc.id,name:cc.name,color:cc.color||'',isFinal:cc.isFinal||false})),u:new Date().toISOString()});}
+  if(col){
+    col.tasks.unshift(nt);await saveBoardTask(nt,colId);await fbSet('crm','board_index',{cols:boardCols.map(cc=>({id:cc.id,name:cc.name,color:cc.color||'',isFinal:cc.isFinal||false})),u:new Date().toISOString()});
+  }else{
+    // Sin columna a propósito: no la ve nadie del equipo en su tablero, solo sirve para que
+    // la fecha aparezca en el Calendario interno y en el calendario del cliente en su portal.
+    unassignedTasks.unshift(nt);await saveBoardTask(nt,'');
+  }
   closeModal();
-  renderBoard();renderBoardBadge();showToast('Tarea añadida ✓','ok');
+  renderBoard();renderBoardBadge();
+  if(document.getElementById('view-cal')?.classList.contains('on'))renderCal();
+  showToast('Tarea añadida ✓','ok');
 }
 async function saveEvent(){
   const title=document.getElementById('ev-title').value.trim();if(!title)return;
