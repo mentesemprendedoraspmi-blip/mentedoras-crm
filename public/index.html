@@ -1041,7 +1041,11 @@ async function loadAll(){
           col.tasks=(allTasks[col.id]||[]).map(t=>({...t,images:imgs[t.id]||[]}));
         });
         if(document.getElementById('view-board')?.classList.contains('on'))renderBoard();
-        if(document.getElementById('view-cal')?.classList.contains('on'))renderCal();
+        if(document.getElementById('view-cal')?.classList.contains('on')){
+          const openDate=document.getElementById('cal-day-detail')?.dataset.date;
+          renderCal();
+          if(openDate)showCalDay(openDate,{stopPropagation:()=>{}});
+        }
         renderBoardBadge();
       });
     }catch(e){console.warn('board_tasks listener:',e);}
@@ -4332,6 +4336,7 @@ function renderPubCalTab(c){
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${!c.cm?`<button class="btn btn-s${c.pubCalVisible?' btn-p':''}" onclick="togglePubCalVisibility('${c.id}')" title="Este cliente no tiene CM asignado, así que por defecto no aparece en nuestro Calendario interno — actívalo aquí si igual queréis llevarle un control"><i class="ti ti-calendar-${c.pubCalVisible?'check':'plus'}"></i>${c.pubCalVisible?'En nuestro calendario':'Mostrar en nuestro calendario'}</button>`:''}
       ${c.pubCal?.[selMonth]&&Object.keys(c.pubCal[selMonth]).length?`<button class="btn btn-s" onclick="deletePubCal('${c.id}','${selMonth}')" title="Elimina el calendario de publicación generado automáticamente para este mes"><i class="ti ti-trash"></i>Eliminar</button>`:''}
+      ${(c.cm||c.pubCalVisible)?`<button class="btn btn-s" onclick="viewClientInMainCalendar('${c.id}')" title="Abre el Calendario general filtrado solo a este cliente — es la misma información que ves aquí, solo que mezclada con la de los demás clientes si no filtras"><i class="ti ti-calendar-event"></i>Ver en el Calendario</button>`:''}
       <button class="btn btn-s btn-p" onclick="generatePubCal('${c.id}','${selMonth}')"><i class="ti ti-wand"></i>Generar automático</button>
     </div>
   </div>`;
@@ -4390,6 +4395,19 @@ function deletePubCal(cid,mk){
   saveClient_doc(c);switchPubCalMonth(cid,mk);showToast('Calendario eliminado','ok');
 }
 
+// Puente entre la ficha de un cliente y el Calendario general: mismo mes, filtrado solo a
+// este cliente, para que se vea exactamente lo mismo que en su pestaña "Cal. Publicación"
+// en vez de mezclado con el resto de clientes.
+function viewClientInMainCalendar(cid){
+  const c=clients.find(cl=>cl.id===cid);if(!c)return;
+  calClientFilter=new Set([c.name]);
+  calShowPub=true;calShowGcal=true;
+  const selMonth=c.pubCalMonth||monthKey();
+  const[y,m]=selMonth.split('-').map(Number);
+  if(y&&m){calYear=y;calMonth=m-1;}
+  calView='month';
+  showView('cal');
+}
 function switchPubCalMonth(cid,mk){
   const c=clients.find(c=>c.id===cid);if(!c)return;
   c.pubCalMonth=mk;
@@ -4605,6 +4623,12 @@ function openModal(type,extra='',extra2=null,extra3=''){
         <div class="f"><label>Reel</label><select id="nt-reel" onchange="ntUpdateTitlePreview()"></select></div>
       </div>
       <div class="modal-acts"><button class="btn btn-s" onclick="closeModal()">Cancelar</button><button class="btn btn-s btn-p" onclick="saveTask()">Añadir</button></div>`;
+    // Si se abre desde el Calendario ya filtrado a un solo cliente, no tiene sentido
+    // volver a pedirlo — se pone puesto de antemano, como con la Columna precargada.
+    if(document.getElementById('view-cal')?.classList.contains('on')&&calClientFilter&&calClientFilter.size===1){
+      const only=clients.find(cl=>cl.name===[...calClientFilter][0]);
+      if(only){document.getElementById('nt-cl').value=only.id;ntClientChanged();}
+    }
     // Focus at end of input
     setTimeout(()=>{const el=document.getElementById('nt-title');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}},50);
   }else if(type==='event'){
@@ -4901,7 +4925,14 @@ async function saveTask(){
   }
   closeModal();
   renderBoard();renderBoardBadge();
-  if(document.getElementById('view-cal')?.classList.contains('on'))renderCal();
+  // renderCal() reconstruye toda la vista y se lleva por delante el panel del día que
+  // estuviera abierto — si era el mismo día de la tarea nueva, se vuelve a abrir ya con
+  // la tarea dentro, en vez de dejarlo con la pinta de "no se ha guardado nada".
+  if(document.getElementById('view-cal')?.classList.contains('on')){
+    const openDate=document.getElementById('cal-day-detail')?.dataset.date;
+    renderCal();
+    if(openDate)showCalDay(openDate,{stopPropagation:()=>{}});
+  }
   showToast('Tarea añadida ✓','ok');
 }
 async function saveEvent(){
