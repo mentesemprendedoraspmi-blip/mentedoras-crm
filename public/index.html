@@ -4299,7 +4299,8 @@ function clientCalGridHtml(c,mk){
     const titles=evsByDay[ds]||[];
     const visible=titles.slice(0,3);
     const hidden=titles.length-3;
-    grid+=`<div class="cal-day${isT?' today':''}" style="cursor:default">
+    const clickable=titles.length>0;
+    grid+=`<div class="cal-day${isT?' today':''}" style="cursor:${clickable?'pointer':'default'}"${clickable?` onclick="viewClientInMainCalendar('${c.id}','${ds}')" title="Ver y editar este día en el Calendario"`:''}>
       <div class="cal-dn">${d}</div>
       ${visible.map(t=>{
         const short=t.length>30?t.substring(0,30)+'…':t;
@@ -4391,15 +4392,18 @@ function deletePubCal(cid,mk){
 // Puente entre la ficha de un cliente y el Calendario general: mismo mes, filtrado solo a
 // este cliente, para que se vea exactamente lo mismo que en su pestaña "Cal. Publicación"
 // en vez de mezclado con el resto de clientes.
-function viewClientInMainCalendar(cid){
+function viewClientInMainCalendar(cid,ds){
   const c=clients.find(cl=>cl.id===cid);if(!c)return;
   calClientFilter=new Set([c.name]);
   calShowPub=true;calShowGcal=true;
-  const selMonth=c.pubCalMonth||monthKey();
+  const selMonth=ds?ds.slice(0,7):(c.pubCalMonth||monthKey());
   const[y,m]=selMonth.split('-').map(Number);
   if(y&&m){calYear=y;calMonth=m-1;}
   calView='month';
   showView('cal');
+  // Si se pidió un día concreto (clic en el mini-calendario de la ficha), ábrelo ya —
+  // así se puede borrar o revisar la tarea sin tener que buscar el día a mano.
+  if(ds)showCalDay(ds,{stopPropagation:()=>{}});
 }
 function switchPubCalMonth(cid,mk){
   const c=clients.find(c=>c.id===cid);if(!c)return;
