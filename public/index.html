@@ -3647,7 +3647,7 @@ function renderProfile(c){
           ${c.driveMain?`<a href="${c.driveMain}" target="_blank" class="btn btn-s btn-p"><i class="ti ti-external-link"></i></a>`:''}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          ${[{k:'meetings',l:'Meetings',ic:'ti-calendar-event'},{k:'pictures',l:'Pictures',ic:'ti-photo'},{k:'reelsEdit',l:'Reels Edit',ic:'ti-video'},{k:'scripts',l:'Guiones',ic:'ti-pencil'},{k:'historias',l:'Historias',ic:'ti-circle-plus'},{k:'mega',l:'Mega (tomas en bruto)',ic:'ti-cloud-upload'}].map(f=>`<div style="background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:10px">
+          ${[{k:'meetings',l:'Meetings',ic:'ti-calendar-event'},{k:'pictures',l:'Pictures',ic:'ti-photo'},{k:'reelsEdit',l:'Reels Edit',ic:'ti-video'},{k:'scripts',l:'Guiones',ic:'ti-pencil'},{k:'historias',l:'Historias',ic:'ti-circle-plus'},{k:'mega',l:'Mega (tomas en bruto)',ic:'ti-cloud-upload'},{k:'reelDescriptions',l:'Descripción de Reels',ic:'ti-file-description'}].map(f=>`<div style="background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:10px">
             <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
               <i class="ti ${f.ic}" style="color:var(--c);font-size:14px"></i>
               <span style="font-size:12px;font-weight:600">${f.l}</span>

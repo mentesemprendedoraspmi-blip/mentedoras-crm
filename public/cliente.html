@@ -684,6 +684,7 @@ function renderInicio(){
     <div class="card-t"><i class="ti ti-folder"></i>${t('Tu contenido','Your content')}</div>
     ${qrow('ti-video','var(--cdim)','var(--c)',tx('reelsEditados'),drive.reelsEdit?t('Carpeta de Drive','Drive folder'):t('Aún no configurada','Not set up yet'),drive.reelsEdit)}
     ${qrow('ti-pencil','var(--pdim)','var(--p)',tx('misGuiones'),drive.scripts?t('Para leer antes de grabar','Read before recording'):t('Aún no configurada','Not set up yet'),drive.scripts)}
+    ${drive.reelDescriptions?qrow('ti-file-description','rgba(6,182,212,.14)','#06B6D4',t('Descripción de Reels','Reel descriptions'),t('Detalles de cada reel','Details for each reel'),drive.reelDescriptions):''}
     ${qrow('ti-lock','rgba(245,158,11,.14)','var(--warn)',t('Credenciales','Credentials'),t('Tus accesos guardados','Your saved logins'),"showTab('ajustes')")}
     ${qrow('ti-calendar','rgba(34,197,94,.14)','#4ADE80',t('Calendario de contenido','Content calendar'),upcomingCount?`${upcomingCount} ${t('fechas próximas','upcoming dates')}`:t('Sin fechas próximas','No upcoming dates'),"showTab('calendario')")}
   </div>`;
@@ -705,12 +706,16 @@ function renderInicio(){
 // nombre de quien las hace delante ("Laura - Subir Storytelling de X") — a esas, si por
 // las palabras parecen de subir contenido, se les enseña el mismo texto que escribió Adri,
 // solo quitándoles ese "Nombre - " de delante; si no, no le importan al cliente.
+// Código de color de un vistazo en el mini-calendario: rojo = Trial, lila = Historias,
+// azul = subida "normal" (Instagram, TikTok o YouTube) — da igual la plataforma, lo que
+// Adri quiere ver a simple vista es en qué fase del proceso está cada cosa.
+const CLIENT_EVENT_COLORS={trial:'#EF4444',historias:'#C084FC',normal:'#3B82F6'};
 const CLIENT_TASK_META={
-  trial_ig:{es:'Trial Instagram',en:'Instagram Trial',color:'#E1306C',icon:'ti-brand-instagram'},
-  subir_ig:{es:'Publicación Instagram',en:'Instagram post',color:'#E1306C',icon:'ti-brand-instagram'},
-  subir_tiktok:{es:'TikTok',en:'TikTok',color:'#25F4EE',icon:'ti-brand-tiktok'},
-  subir_yt:{es:'YouTube',en:'YouTube',color:'#F97316',icon:'ti-brand-youtube'},
-  subir_historias:{es:'Historias',en:'Stories',color:'#38BDF8',icon:'ti-camera'},
+  trial_ig:{es:'Trial Instagram',en:'Instagram Trial',color:CLIENT_EVENT_COLORS.trial,icon:'ti-brand-instagram'},
+  subir_ig:{es:'Publicación Instagram',en:'Instagram post',color:CLIENT_EVENT_COLORS.normal,icon:'ti-brand-instagram'},
+  subir_tiktok:{es:'TikTok',en:'TikTok',color:CLIENT_EVENT_COLORS.normal,icon:'ti-brand-tiktok'},
+  subir_yt:{es:'YouTube',en:'YouTube',color:CLIENT_EVENT_COLORS.normal,icon:'ti-brand-youtube'},
+  subir_historias:{es:'Historias',en:'Stories',color:CLIENT_EVENT_COLORS.historias,icon:'ti-camera'},
 };
 function clientTaskType(ti){
   if(ti.network==='historias')return'subir_historias';
@@ -748,9 +753,9 @@ function clientCalendarEvents(){
     Object.entries(monthCal||{}).forEach(([rid,pd])=>{
       const r=reels.find(rr=>String(rr.id)===String(rid));
       const label=r?r.label:t('Reel','Reel');
-      if(hasTrial&&pd.trial){events.push({date:pd.trial,label:`${label} — 📲 ${t('Trial Instagram','Instagram Trial')}`,color:'#E1306C',icon:'ti-brand-instagram'});pubCalKeys.add(`${rid}|trial_ig|${pd.trial}`);}
-      if(pd.pub){events.push({date:pd.pub,label:`${label} — 📸 ${t('Publicación Instagram','Instagram post')}`,color:'#E1306C',icon:'ti-brand-instagram'});pubCalKeys.add(`${rid}|subir_ig|${pd.pub}`);}
-      if(hasTikTok&&pd.tiktok){events.push({date:pd.tiktok,label:`${label} — 🎵 TikTok`,color:'#25F4EE',icon:'ti-brand-tiktok'});pubCalKeys.add(`${rid}|subir_tiktok|${pd.tiktok}`);}
+      if(hasTrial&&pd.trial){events.push({date:pd.trial,label:`${label} — 📲 ${t('Trial Instagram','Instagram Trial')}`,color:CLIENT_EVENT_COLORS.trial,icon:'ti-brand-instagram'});pubCalKeys.add(`${rid}|trial_ig|${pd.trial}`);}
+      if(pd.pub){events.push({date:pd.pub,label:`${label} — 📸 ${t('Publicación Instagram','Instagram post')}`,color:CLIENT_EVENT_COLORS.normal,icon:'ti-brand-instagram'});pubCalKeys.add(`${rid}|subir_ig|${pd.pub}`);}
+      if(hasTikTok&&pd.tiktok){events.push({date:pd.tiktok,label:`${label} — 🎵 TikTok`,color:CLIENT_EVENT_COLORS.normal,icon:'ti-brand-tiktok'});pubCalKeys.add(`${rid}|subir_tiktok|${pd.tiktok}`);}
     });
   });
   (clientTasks||[]).filter(ti=>ti.date&&!ti.archived).forEach(ti=>{
