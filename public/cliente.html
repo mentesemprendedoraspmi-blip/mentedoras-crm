@@ -698,9 +698,13 @@ function renderInicio(){
 // ============================================================
 // CALENDARIO
 // ============================================================
-// El título real de una tarjeta del tablero es cosa nuestra (puede llevar el nombre de
-// la CM, notas internas, etc.) — al cliente solo le mostramos si es una tarea de subir
-// contenido, con una etiqueta genérica reconstruida desde cero, nunca el título tal cual.
+// Adri sigue viendo el título tal cual lo escribió en su tablero interno (con nombre de
+// CM y todo) — este bloque decide qué le llega al cliente, y cómo. Las tarjetas con tipo
+// (creadas desde el desplegable "Tipo") ya llevan una etiqueta limpia reconstruida desde
+// cero. Las tarjetas sueltas escritas a mano (sin tipo) se cuelan muchas veces con el
+// nombre de quien las hace delante ("Laura - Subir Storytelling de X") — a esas, si por
+// las palabras parecen de subir contenido, se les enseña el mismo texto que escribió Adri,
+// solo quitándoles ese "Nombre - " de delante; si no, no le importan al cliente.
 const CLIENT_TASK_META={
   subir_yt:{es:'YouTube',en:'YouTube',color:'#F97316',icon:'ti-brand-youtube'},
   subir_historias:{es:'Historias',en:'Stories',color:'#38BDF8',icon:'ti-camera'},
@@ -708,7 +712,13 @@ const CLIENT_TASK_META={
 function clientTaskType(ti){
   if(ti.network==='historias')return'subir_historias';
   if(!ti.network&&ti.linkedProdStep==='subido')return'subir_yt';
-  return null; // editar, trial/IG/TikTok (ya cubiertos por pubCal arriba), o tareas sin tipo -> no se muestran
+  return null;
+}
+const CLIENT_TASK_KEYWORDS=/subir|historia|storytelling|trial|public|reel|tiktok|instagram|youtube/i;
+const CLIENT_TASK_EXCLUDE=/editar|guion|guión|calendario|factura/i;
+function stripAssigneePrefix(title){
+  const m=(title||'').match(/^\p{Lu}[\p{L}]*\s*[-–]\s*(.+)$/u);
+  return m?m[1]:title;
 }
 // Fusiona: fechas de reels (grabación/entrega/publicación), calendario de publicación
 // (Trial/IG/TikTok generado en el CRM) y tareas del tablero interno enlazadas a este
@@ -735,13 +745,20 @@ function clientCalendarEvents(){
     });
   });
   (clientTasks||[]).filter(ti=>ti.date&&!ti.archived).forEach(ti=>{
+    // Trial/IG/TikTok con tipo ya están arriba vía pubCal — no los repitas aquí.
+    if(ti.network==='trial_ig'||ti.network==='ig'||ti.network==='tiktok')return;
     const type=clientTaskType(ti);
-    if(!type)return;
-    const meta=CLIENT_TASK_META[type];
-    const monthReels=client.reels?.[ti.linkedMonth]||[];
-    const r=monthReels.find(rr=>String(rr.id)===String(ti.linkedReelId));
-    const label=(r?r.label+' — ':'')+t(meta.es,meta.en);
-    events.push({date:ti.date,label,color:meta.color,icon:meta.icon});
+    if(type){
+      const meta=CLIENT_TASK_META[type];
+      const monthReels=client.reels?.[ti.linkedMonth]||[];
+      const r=monthReels.find(rr=>String(rr.id)===String(ti.linkedReelId));
+      const label=(r?r.label+' — ':'')+t(meta.es,meta.en);
+      events.push({date:ti.date,label,color:meta.color,icon:meta.icon});
+      return;
+    }
+    const title=ti.title||'';
+    if(CLIENT_TASK_EXCLUDE.test(title)||!CLIENT_TASK_KEYWORDS.test(title))return;
+    events.push({date:ti.date,label:stripAssigneePrefix(title),color:'var(--c)',icon:'ti-clipboard-check'});
   });
   return events;
 }
