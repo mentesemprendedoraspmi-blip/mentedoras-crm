@@ -2954,18 +2954,11 @@ function calFilterPanelHtml(){
       </span>
     </div>
     <div style="display:flex;flex-direction:column;gap:2px;max-height:280px;overflow-y:auto">
-      ${cc.map(c=>{
-        // Los clientes sin CM solo están aquí porque Adri activó pubCalVisible desde
-        // abajo — su único checkbox vive en esta fila, y desmarcarlo lo desactiva del
-        // todo (en vez de solo ocultarlo un momento), para que no aparezca duplicado.
-        const nonCm=!c.cm;
-        const onChange=nonCm?`toggleClientCalVisibilityFromCal('${c.id}')`:`calToggleClient('${c.name.replace(/'/g,"\\'")}')`;
-        const checked=nonCm?!!c.pubCalVisible:isOn(c.name);
-        return`<label style="display:flex;align-items:center;gap:7px;font-size:12px;padding:4px 6px;border-radius:var(--r);cursor:pointer" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='transparent'"${nonCm?' title="Este cliente no tiene CM — desmárcalo para quitarlo de aquí"':''}>
-        <input type="checkbox" style="${chk}" ${checked?'checked':''} onchange="${onChange}">
+      ${cc.map(c=>`<label style="display:flex;align-items:center;gap:7px;font-size:12px;padding:4px 6px;border-radius:var(--r);cursor:pointer" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='transparent'">
+        <input type="checkbox" style="${chk}" ${isOn(c.name)?'checked':''} onchange="calToggleClient('${c.name.replace(/'/g,"\\'")}')">
         <span style="width:8px;height:8px;border-radius:50%;background:${clientColor(c.name)};flex-shrink:0"></span>
         <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
-      </label>`;}).join('')}
+      </label>`).join('')}
     </div>
     <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">Sin CM</div>
     <div style="display:flex;flex-direction:column;gap:2px;max-height:180px;overflow-y:auto">
