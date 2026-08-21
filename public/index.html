@@ -966,7 +966,9 @@ async function loadAll(){
   boardDataLoaded=true;
   maybeShowTodayTasksModal();
   render();
-  if(CU?.level!=='editor')checkCalendarRecordings();
+  // Desactivado a petición de Adri: marcaba "Grabado" solo con detectar un evento en
+  // el calendario, sin fecha de grabación real ni confirmación — mejor que lo marque
+  // ella misma a mano.
   // Auto-refresh every 30 seconds to catch any missed updates
   setInterval(async()=>{
     if(!CU)return;
