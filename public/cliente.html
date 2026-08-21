@@ -698,10 +698,17 @@ function renderInicio(){
 // ============================================================
 // CALENDARIO
 // ============================================================
-function formatLinkedTaskTitle(ti){
-  const m=(ti.title||'').match(/^(.+?):\s*(.+?)\s*—\s*(.+)$/);
-  if(m)return`${m[2]} — ${m[1]}`;
-  return ti.title||'';
+// El título real de una tarjeta del tablero es cosa nuestra (puede llevar el nombre de
+// la CM, notas internas, etc.) — al cliente solo le mostramos si es una tarea de subir
+// contenido, con una etiqueta genérica reconstruida desde cero, nunca el título tal cual.
+const CLIENT_TASK_META={
+  subir_yt:{es:'YouTube',en:'YouTube',color:'#F97316',icon:'ti-brand-youtube'},
+  subir_historias:{es:'Historias',en:'Stories',color:'#38BDF8',icon:'ti-camera'},
+};
+function clientTaskType(ti){
+  if(ti.network==='historias')return'subir_historias';
+  if(!ti.network&&ti.linkedProdStep==='subido')return'subir_yt';
+  return null; // editar, trial/IG/TikTok (ya cubiertos por pubCal arriba), o tareas sin tipo -> no se muestran
 }
 // Fusiona: fechas de reels (grabación/entrega/publicación), calendario de publicación
 // (Trial/IG/TikTok generado en el CRM) y tareas del tablero interno enlazadas a este
@@ -728,7 +735,13 @@ function clientCalendarEvents(){
     });
   });
   (clientTasks||[]).filter(ti=>ti.date&&!ti.archived).forEach(ti=>{
-    events.push({date:ti.date,label:formatLinkedTaskTitle(ti),color:'var(--c)',icon:'ti-clipboard-check'});
+    const type=clientTaskType(ti);
+    if(!type)return;
+    const meta=CLIENT_TASK_META[type];
+    const monthReels=client.reels?.[ti.linkedMonth]||[];
+    const r=monthReels.find(rr=>String(rr.id)===String(ti.linkedReelId));
+    const label=(r?r.label+' — ':'')+t(meta.es,meta.en);
+    events.push({date:ti.date,label,color:meta.color,icon:meta.icon});
   });
   return events;
 }
