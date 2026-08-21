@@ -706,11 +706,17 @@ function renderInicio(){
 // las palabras parecen de subir contenido, se les enseña el mismo texto que escribió Adri,
 // solo quitándoles ese "Nombre - " de delante; si no, no le importan al cliente.
 const CLIENT_TASK_META={
+  trial_ig:{es:'Trial Instagram',en:'Instagram Trial',color:'#E1306C',icon:'ti-brand-instagram'},
+  subir_ig:{es:'Publicación Instagram',en:'Instagram post',color:'#E1306C',icon:'ti-brand-instagram'},
+  subir_tiktok:{es:'TikTok',en:'TikTok',color:'#25F4EE',icon:'ti-brand-tiktok'},
   subir_yt:{es:'YouTube',en:'YouTube',color:'#F97316',icon:'ti-brand-youtube'},
   subir_historias:{es:'Historias',en:'Stories',color:'#38BDF8',icon:'ti-camera'},
 };
 function clientTaskType(ti){
   if(ti.network==='historias')return'subir_historias';
+  if(ti.network==='trial_ig')return'trial_ig';
+  if(ti.network==='ig'&&ti.linkedProdStep==='subido')return'subir_ig';
+  if(ti.network==='tiktok'&&ti.linkedProdStep==='subido')return'subir_tiktok';
   if(!ti.network&&ti.linkedProdStep==='subido')return'subir_yt';
   return null;
 }
@@ -734,21 +740,26 @@ function clientCalendarEvents(){
   });
   const hasTrial=client.trialsEnabled!==false&&(client.socialNets||['instagram']).includes('instagram');
   const hasTikTok=(client.socialNets||['instagram']).includes('tiktok');
+  // Qué reel+tipo+fecha ya viene del calendario de publicación (pubCal), para no
+  // repetirlo si además existe una tarjeta suelta para ese mismo Trial/IG/TikTok.
+  const pubCalKeys=new Set();
   Object.entries(client.pubCal||{}).forEach(([mk,monthCal])=>{
     const reels=client.reels?.[mk]||[];
     Object.entries(monthCal||{}).forEach(([rid,pd])=>{
       const r=reels.find(rr=>String(rr.id)===String(rid));
       const label=r?r.label:t('Reel','Reel');
-      if(hasTrial&&pd.trial)events.push({date:pd.trial,label:`${label} — 📲 ${t('Trial Instagram','Instagram Trial')}`,color:'#E1306C',icon:'ti-brand-instagram'});
-      if(pd.pub)events.push({date:pd.pub,label:`${label} — 📸 ${t('Publicación Instagram','Instagram post')}`,color:'#E1306C',icon:'ti-brand-instagram'});
-      if(hasTikTok&&pd.tiktok)events.push({date:pd.tiktok,label:`${label} — 🎵 TikTok`,color:'#25F4EE',icon:'ti-brand-tiktok'});
+      if(hasTrial&&pd.trial){events.push({date:pd.trial,label:`${label} — 📲 ${t('Trial Instagram','Instagram Trial')}`,color:'#E1306C',icon:'ti-brand-instagram'});pubCalKeys.add(`${rid}|trial_ig|${pd.trial}`);}
+      if(pd.pub){events.push({date:pd.pub,label:`${label} — 📸 ${t('Publicación Instagram','Instagram post')}`,color:'#E1306C',icon:'ti-brand-instagram'});pubCalKeys.add(`${rid}|subir_ig|${pd.pub}`);}
+      if(hasTikTok&&pd.tiktok){events.push({date:pd.tiktok,label:`${label} — 🎵 TikTok`,color:'#25F4EE',icon:'ti-brand-tiktok'});pubCalKeys.add(`${rid}|subir_tiktok|${pd.tiktok}`);}
     });
   });
   (clientTasks||[]).filter(ti=>ti.date&&!ti.archived).forEach(ti=>{
-    // Trial/IG/TikTok con tipo ya están arriba vía pubCal — no los repitas aquí.
-    if(ti.network==='trial_ig'||ti.network==='ig'||ti.network==='tiktok')return;
     const type=clientTaskType(ti);
     if(type){
+      // Tarjetas de Trial/IG/TikTok también pueden crearse sueltas desde el Calendario,
+      // sin pasar por "Generar automático" — si no hay ya un dato de pubCal para ese
+      // mismo reel+tipo+fecha, hay que enseñarla igualmente o el cliente no ve nada.
+      if(pubCalKeys.has(`${ti.linkedReelId}|${type}|${ti.date}`))return;
       const meta=CLIENT_TASK_META[type];
       const monthReels=client.reels?.[ti.linkedMonth]||[];
       const r=monthReels.find(rr=>String(rr.id)===String(ti.linkedReelId));

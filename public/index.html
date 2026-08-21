@@ -2954,18 +2954,11 @@ function calFilterPanelHtml(){
       </span>
     </div>
     <div style="display:flex;flex-direction:column;gap:2px;max-height:280px;overflow-y:auto">
-      ${cc.map(c=>{
-        // Los clientes sin CM solo están aquí porque Adri activó pubCalVisible desde
-        // abajo — su único checkbox vive en esta fila, y desmarcarlo lo desactiva del
-        // todo (en vez de solo ocultarlo un momento), para que no aparezca duplicado.
-        const nonCm=!c.cm;
-        const onChange=nonCm?`toggleClientCalVisibilityFromCal('${c.id}')`:`calToggleClient('${c.name.replace(/'/g,"\\'")}')`;
-        const checked=nonCm?!!c.pubCalVisible:isOn(c.name);
-        return`<label style="display:flex;align-items:center;gap:7px;font-size:12px;padding:4px 6px;border-radius:var(--r);cursor:pointer" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='transparent'"${nonCm?' title="Este cliente no tiene CM — desmárcalo para quitarlo de aquí"':''}>
-        <input type="checkbox" style="${chk}" ${checked?'checked':''} onchange="${onChange}">
+      ${cc.map(c=>`<label style="display:flex;align-items:center;gap:7px;font-size:12px;padding:4px 6px;border-radius:var(--r);cursor:pointer" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='transparent'">
+        <input type="checkbox" style="${chk}" ${isOn(c.name)?'checked':''} onchange="calToggleClient('${c.name.replace(/'/g,"\\'")}')">
         <span style="width:8px;height:8px;border-radius:50%;background:${clientColor(c.name)};flex-shrink:0"></span>
         <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
-      </label>`;}).join('')}
+      </label>`).join('')}
     </div>
     <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">Sin CM</div>
     <div style="display:flex;flex-direction:column;gap:2px;max-height:180px;overflow-y:auto">
@@ -4306,7 +4299,8 @@ function clientCalGridHtml(c,mk){
     const titles=evsByDay[ds]||[];
     const visible=titles.slice(0,3);
     const hidden=titles.length-3;
-    grid+=`<div class="cal-day${isT?' today':''}" style="cursor:default">
+    const clickable=titles.length>0;
+    grid+=`<div class="cal-day${isT?' today':''}" style="cursor:${clickable?'pointer':'default'}"${clickable?` onclick="viewClientInMainCalendar('${c.id}','${ds}')" title="Ver y editar este día en el Calendario"`:''}>
       <div class="cal-dn">${d}</div>
       ${visible.map(t=>{
         const short=t.length>30?t.substring(0,30)+'…':t;
@@ -4398,15 +4392,18 @@ function deletePubCal(cid,mk){
 // Puente entre la ficha de un cliente y el Calendario general: mismo mes, filtrado solo a
 // este cliente, para que se vea exactamente lo mismo que en su pestaña "Cal. Publicación"
 // en vez de mezclado con el resto de clientes.
-function viewClientInMainCalendar(cid){
+function viewClientInMainCalendar(cid,ds){
   const c=clients.find(cl=>cl.id===cid);if(!c)return;
   calClientFilter=new Set([c.name]);
   calShowPub=true;calShowGcal=true;
-  const selMonth=c.pubCalMonth||monthKey();
+  const selMonth=ds?ds.slice(0,7):(c.pubCalMonth||monthKey());
   const[y,m]=selMonth.split('-').map(Number);
   if(y&&m){calYear=y;calMonth=m-1;}
   calView='month';
   showView('cal');
+  // Si se pidió un día concreto (clic en el mini-calendario de la ficha), ábrelo ya —
+  // así se puede borrar o revisar la tarea sin tener que buscar el día a mano.
+  if(ds)showCalDay(ds,{stopPropagation:()=>{}});
 }
 function switchPubCalMonth(cid,mk){
   const c=clients.find(c=>c.id===cid);if(!c)return;
