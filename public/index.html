@@ -4085,6 +4085,48 @@ async function checkCalendarRecordings(){
     if(any)render();
   }catch(e){console.warn('checkCalendarRecordings:',e);}
 }
+// Reparte los reels contratados/mes en 4 "semanas" (días 1-7, 8-14, 15-21, 22-fin), lo
+// más parejo posible, con las primeras semanas llevándose el sobrante (5 -> 2,1,1,1;
+// 6 -> 2,2,1,1; 8 -> 2,2,2,2 — tal y como Adri reparte el trabajo a mano).
+function weekQuotaForReels(numReels){
+  const base=Math.floor(numReels/4),extra=numReels%4;
+  return[0,1,2,3].map(w=>base+(w<extra?1:0));
+}
+function weekBoundsInMonth(w,daysInMonth){
+  const starts=[1,8,15,22];
+  return{start:starts[w],end:w===3?daysInMonth:starts[w+1]-1};
+}
+// Próxima fecha libre para subir el Trial de este cliente: nunca antes de mañana, nunca
+// dos trials del mismo cliente el mismo día, y respetando cuántos le tocan cada semana
+// según cuántos reels/mes tiene contratados.
+function nextTrialSlot(c,mk){
+  const quota=weekQuotaForReels(c.numReels||5);
+  const[y,m]=mk.split('-').map(Number);
+  const daysInMonth=new Date(y,m,0).getDate();
+  const used=new Set();
+  Object.values((c.pubCal||{})[mk]||{}).forEach(pd=>{if(pd.trial)used.add(pd.trial);});
+  calBoardTasks().forEach(t=>{if(t.linkedClientId===c.id&&t.network==='trial_ig'&&t.date)used.add(t.date);});
+  const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);
+  const tomorrowMk=tomorrow.toISOString().slice(0,7);
+  let d=tomorrowMk===mk?tomorrow.getDate():1;
+  for(let guard=0;guard<45;guard++,d++){
+    if(d>daysInMonth){ // se sale del mes: sin cuota que respetar, solo evita coincidir con otro trial
+      const nm=m===12?1:m+1,ny=m===12?y+1:y;
+      const ds=`${ny}-${String(nm).padStart(2,'0')}-${String(d-daysInMonth).padStart(2,'0')}`;
+      if(!used.has(ds))return ds;
+      continue;
+    }
+    const w=Math.min(3,Math.floor((d-1)/7));
+    const{start,end}=weekBoundsInMonth(w,daysInMonth);
+    let inWeek=0;
+    used.forEach(ds=>{if(ds.startsWith(mk)){const dd=Number(ds.slice(8,10));if(dd>=start&&dd<=end)inWeek++;}});
+    if(inWeek>=quota[w])continue; // esa semana ya tiene los que le tocan a este cliente
+    const ds=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if(used.has(ds))continue;
+    return ds;
+  }
+  return today(); // seguridad, no debería llegar aquí
+}
 function applyGrabadoAutomation(c,mk,i){
   c.reels[mk][i].fechaGrabTS=new Date().toISOString();
   const rid=c.reels[mk][i].id;
@@ -4112,13 +4154,32 @@ async function toggleReel(cid,mk,i,field){
     if(field==='grabado'){
       applyGrabadoAutomation(c,mk,i);
     }
-    if(field==='editado'&&c.cm){
-      const rid=c.reels[mk][i].id;
-      const pubDate=(c.pubCal?.[mk]?.[rid]?.pub)||today();
-      createAutoTask(`📤 Publicar: ${c.reels[mk][i].label} — ${c.name}`,c.cm,pubDate,c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'subido',network:'ig',linkedMonth:mk});
-      // Automatización: aviso inmediato de subir a Trial, solo si el cliente tiene Trials activados
-      if(c.trialsEnabled!==false&&(c.socialNets||['instagram']).includes('instagram')){
-        createAutoTask(`📲 Subir a Trial: ${c.reels[mk][i].label} — ${c.name}`,c.cm,today(),c,{linkedClientId:c.id,linkedReelId:rid,network:'trial_ig',linkedMonth:mk});
+    if(field==='editado'){
+      // Sin CM asignado, la tarea se agenda al Responsable de cuenta (Adri/Alan) — el
+      // editor que acaba de marcar "Editado" no carga con nada de esto, ni tampoco se
+      // le pone ninguna fecha límite a él por esta automatización.
+      const assignee=c.cm||c.accountOwner;
+      if(assignee){
+        const rid=c.reels[mk][i].id;
+        let pubDate=(c.pubCal?.[mk]?.[rid]?.pub)||today();
+        if(c.trialsEnabled!==false&&(c.socialNets||['instagram']).includes('instagram')){
+          // Si el reel ya tenía una fecha de trial planificada (generada a mano o por
+          // "Generar automático"), se respeta esa — solo se calcula una nueva si no había
+          // ninguna, para que la tarjeta y el calendario de publicación nunca discrepen.
+          const trialDate=c.pubCal?.[mk]?.[rid]?.trial||nextTrialSlot(c,mk);
+          const t=createAutoTask(`📲 Subir a Trial Instagram: ${c.reels[mk][i].label} — ${c.name}`,assignee,trialDate,c,{linkedClientId:c.id,linkedReelId:rid,network:'trial_ig',linkedMonth:mk});
+          if(t){
+            if(!c.pubCal)c.pubCal={};if(!c.pubCal[mk])c.pubCal[mk]={};if(!c.pubCal[mk][rid])c.pubCal[mk][rid]={};
+            c.pubCal[mk][rid].trial=trialDate;
+            // La publicación normal va 2 días después de subir el trial, como trabaja Adri.
+            if(!c.pubCal[mk][rid].pub){
+              const d=new Date(trialDate+'T12:00:00');d.setDate(d.getDate()+2);
+              c.pubCal[mk][rid].pub=d.toISOString().split('T')[0];
+            }
+            pubDate=c.pubCal[mk][rid].pub;
+          }
+        }
+        createAutoTask(`📤 Publicar: ${c.reels[mk][i].label} — ${c.name}`,assignee,pubDate,c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'subido',network:'ig',linkedMonth:mk});
       }
     }
     if(field==='enviado'){
