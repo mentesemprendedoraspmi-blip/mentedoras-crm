@@ -3327,11 +3327,39 @@ function renderConfig(){
       <div class="f"><label>Tagline</label><input id="cfg-tag" value="${appConfig.agencyTagline}" placeholder="ej. Agencia de Contenido"></div>
       <button class="btn btn-s btn-p" onclick="saveConfigData()"><i class="ti ti-check"></i>Guardar</button>
     </div>
+    <div class="card" style="margin-top:14px;margin-bottom:14px">
+      <div class="card-t"><i class="ti ti-transfer"></i>Traspaso de tareas</div>
+      <div style="font-size:12px;color:var(--tx3);margin-bottom:14px">Mueve de golpe todas las tarjetas de una columna del tablero a otra — útil cuando alguien deja el equipo y hay que repartir lo que tenía pendiente sin arrastrar tarjeta por tarjeta.</div>
+      <div class="fg2" style="margin-bottom:10px">
+        <div class="f"><label>De</label><select id="tt-from">${boardCols.filter(c=>!c.isFinal).map(c=>`<option value="${c.id}">${c.name} (${(c.tasks||[]).length})</option>`).join('')}</select></div>
+        <div class="f"><label>A</label><select id="tt-to">${boardCols.filter(c=>!c.isFinal).map(c=>`<option value="${c.id}">${c.name} (${(c.tasks||[]).length})</option>`).join('')}</select></div>
+      </div>
+      <button class="btn btn-s btn-p" onclick="transferTasks()"><i class="ti ti-transfer"></i>Traspasar todas las tareas</button>
+    </div>
     <div class="card" style="margin-top:14px">
       <div class="card-t"><i class="ti ti-trash"></i>Limpieza de tareas automáticas obsoletas</div>
       <div style="font-size:12px;color:var(--tx3);margin-bottom:14px">Elimina las tareas "Trial Instagram / Publicar Instagram / Publicar TikTok" que creaba la automatización antigua del calendario (ya desactivada), incluidas las que no correspondían a redes activas del cliente.</div>
       <button class="btn btn-s btn-danger" onclick="limpiarTareasSistemaObsoletas()"><i class="ti ti-trash"></i>Limpiar tareas obsoletas</button>
     </div>`;
+}
+async function transferTasks(){
+  const fromId=document.getElementById('tt-from')?.value;
+  const toId=document.getElementById('tt-to')?.value;
+  if(!fromId||!toId)return;
+  if(fromId===toId)return showToast('Elige dos columnas distintas','err');
+  const from=boardCols.find(c=>c.id===fromId);
+  const to=boardCols.find(c=>c.id===toId);
+  if(!from||!to)return;
+  const n=(from.tasks||[]).length;
+  if(!n)return showToast(`"${from.name}" no tiene tareas que traspasar`,'err');
+  if(!confirm(`¿Mover las ${n} tareas de "${from.name}" a "${to.name}"?`))return;
+  const moved=from.tasks;
+  from.tasks=[];
+  to.tasks=[...moved,...(to.tasks||[])];
+  for(const t of moved){await saveBoardTask(t,to.id);}
+  await fbSet('crm','board_index',{cols:boardCols.map(cc=>({id:cc.id,name:cc.name,color:cc.color||'',isFinal:cc.isFinal||false})),u:new Date().toISOString()});
+  renderBoard();renderBoardBadge();renderConfig();
+  showToast(`↔️ ${n} tarea${n>1?'s':''} traspasada${n>1?'s':''} de "${from.name}" a "${to.name}"`,'ok');
 }
 function limpiarTareasSistemaObsoletas(){
   if(!confirm('¿Eliminar las tareas antiguas creadas automáticamente por el calendario (Trial Instagram / Publicar Instagram / Publicar TikTok)? Esta acción no se puede deshacer.'))return;
