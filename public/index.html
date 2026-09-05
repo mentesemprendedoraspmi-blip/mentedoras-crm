@@ -1960,7 +1960,7 @@ function renderDash(){
           <div style="font-size:11px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 4px">${monthLabel(m)}</div>
           ${byMonth[m].map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:4px 0;border-top:1px solid rgba(245,158,11,.15)">
             <span><strong>${p.client}</strong> — ${p.reel}</span>
-            ${p.hours>=24?`<span style="color:var(--err);font-weight:600;font-size:11px">⚠️ +${p.hours}h sin enviar</span>`:`<span style="color:var(--warn);font-size:11px">${p.hours>0?p.hours+'h':'Hoy'}</span>`}
+            ${p.hours>=24?`<span style="color:var(--err);font-weight:600;font-size:11px">⚠️ +${Math.floor(p.hours/24)} día${Math.floor(p.hours/24)>1?'s':''} sin enviar</span>`:`<span style="color:var(--warn);font-size:11px">${p.hours>0?p.hours+'h':'Hoy'}</span>`}
           </div>`).join('')}
         `).join('')}
       </div>`;
