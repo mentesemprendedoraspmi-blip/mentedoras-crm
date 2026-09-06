@@ -3907,12 +3907,14 @@ function renderProfile(c){
 function renderReelTable(c,mk){
   const reels=c.reels[mk]||[];
   const grabados=reels.filter(r=>r.grabado).length;
-  const subidos=reels.filter(r=>r.subido).length;
+  const isPodcast=c.type==='PODCAST';
+  const subidos=isPodcast?reels.filter(r=>r.subidoYT&&r.subidoIG&&r.subidoTikTok).length:reels.filter(r=>r.subido).length;
   const hasTrial=c.trialsEnabled!==false&&(c.socialNets||['instagram']).includes('instagram');
   const header=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:8px 12px;background:var(--bg3);border-radius:var(--r);border-left:3px solid var(--c)">
     <div style="font-size:14px;font-weight:600">📅 ${monthLabel(mk)}</div>
-    <div style="font-size:11px;color:var(--tx3)">${reels.length} reel${reels.length!==1?'s':''} · ${grabados} grabado${grabados!==1?'s':''} · ${subidos} subido${subidos!==1?'s':''}</div>
+    <div style="font-size:11px;color:var(--tx3)">${reels.length} ${isPodcast?'episodio':'reel'}${reels.length!==1?'s':''} · ${grabados} grabado${grabados!==1?'s':''} · ${subidos} subido${subidos!==1?'s':''} ${isPodcast?'en todas las redes':''}</div>
   </div>`;
+  if(isPodcast)return header+(reels.length?renderPodcastReelTable(c,mk,reels):`<div style="text-align:center;padding:30px;color:var(--tx3)">Sin episodios para este mes</div>`);
   if(!reels.length)return header+`<div style="text-align:center;padding:30px;color:var(--tx3)">Sin reels para este mes</div>`;
   return header+`<div class="card">
     <table class="rtable" style="width:100%">
@@ -3944,6 +3946,33 @@ function renderReelTable(c,mk){
       </tr>`).join('')}
     </table>
     <button class="badd" style="margin-top:8px" onclick="addReel('${c.id}','${mk}')"><i class="ti ti-plus" style="font-size:11px"></i>Añadir reel</button>
+  </div>`;
+}
+
+// Seguimiento de podcast: cada fila es un episodio (grabación → editor → subida por
+// plataforma), con el invitado como referencia en vez del típico "Reel N" — reemplaza a
+// la hoja de cálculo que llevaba la CM aparte, para tenerlo todo centralizado aquí.
+function renderPodcastReelTable(c,mk,reels){
+  return`<div class="card">
+    <table class="rtable" style="width:100%">
+      <tr><th>Invitado</th><th>Grabado</th><th>F.Grab.</th><th>Editado</th><th>F.Entrega</th><th>YT</th><th>Instagram</th><th>TikTok</th><th>Editor</th><th>Notas</th><th></th></tr>
+      ${reels.map((r,i)=>`<tr>
+        <td><input type="text" value="${r.invitado||''}" placeholder="${r.label}" style="width:120px;font-weight:600;padding:3px 6px;font-size:12px" onchange="updateReel('${c.id}','${mk}',${i},'invitado',this.value)"></td>
+        <td><div class="chk${r.grabado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'grabado')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'grabado')">${r.grabado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
+        <td><input type="date" value="${r.fechaGrab||''}" style="width:130px;padding:3px 6px;font-size:11px" onchange="updateReel('${c.id}','${mk}',${i},'fechaGrab',this.value)"></td>
+        <td><div class="chk${r.editado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'editado')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'editado')">${r.editado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
+        <td><input type="date" value="${r.fechaEdit||''}" style="width:130px;padding:3px 6px;font-size:11px" onchange="updateReel('${c.id}','${mk}',${i},'fechaEdit',this.value)"></td>
+        <td><div class="chk${r.subidoYT?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'subidoYT')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'subidoYT')">${r.subidoYT?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
+        <td><div class="chk${r.subidoIG?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'subidoIG')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'subidoIG')">${r.subidoIG?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
+        <td><div class="chk${r.subidoTikTok?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'subidoTikTok')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'subidoTikTok')">${r.subidoTikTok?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
+        <td><select style="width:88px;padding:3px 5px;font-size:11px" onchange="updateReel('${c.id}','${mk}',${i},'editor',this.value)">
+          <option value="">—</option>${Object.values(USERS).filter(u=>u.level==='editor'||u.role==='Editor').map(u=>`<option${r.editor===u.name?' selected':''}>${u.name}</option>`).join('')}
+        </select></td>
+        <td><input type="text" value="${r.notas||''}" placeholder="Notas..." style="font-size:11px;padding:3px 6px" onchange="updateReel('${c.id}','${mk}',${i},'notas',this.value)"></td>
+        <td><button class="btn btn-s" style="color:var(--err);padding:3px 7px" onclick="deleteReel('${c.id}','${mk}',${i})"><i class="ti ti-trash" style="font-size:11px"></i></button></td>
+      </tr>`).join('')}
+    </table>
+    <button class="badd" style="margin-top:8px" onclick="addReel('${c.id}','${mk}')"><i class="ti ti-plus" style="font-size:11px"></i>Añadir episodio</button>
   </div>`;
 }
 
