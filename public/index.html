@@ -4136,6 +4136,12 @@ function applyGrabadoAutomation(c,mk,i){
 async function toggleReel(cid,mk,i,field){
   const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
   c.reels[mk][i][field]=!c.reels[mk][i][field];
+  // Al marcar sin fecha puesta, se rellena con la de hoy — evita quedarse con la tarjeta
+  // marcada pero sin fecha, que es lo que confundía en el Resumen y en el Calendario.
+  if(c.reels[mk][i][field]){
+    if(field==='grabado'&&!c.reels[mk][i].fechaGrab)c.reels[mk][i].fechaGrab=today();
+    if(field==='editado'&&!c.reels[mk][i].fechaEdit)c.reels[mk][i].fechaEdit=today();
+  }
   if(c.reels[mk][i][field]){
     if(field==='grabado'){
       applyGrabadoAutomation(c,mk,i);
