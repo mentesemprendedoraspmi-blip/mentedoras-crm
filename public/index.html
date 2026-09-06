@@ -3953,11 +3953,19 @@ function renderReelTable(c,mk){
 // plataforma), con el invitado como referencia en vez del típico "Reel N" — reemplaza a
 // la hoja de cálculo que llevaba la CM aparte, para tenerlo todo centralizado aquí.
 function renderPodcastReelTable(c,mk,reels){
-  return`<div class="card">
-    <table class="rtable" style="width:100%">
-      <tr><th>Invitado</th><th>Grabado</th><th>F.Grab.</th><th>Editado</th><th>F.Entrega</th><th>YT</th><th>Instagram</th><th>TikTok</th><th>Editor</th><th>Notas</th><th></th></tr>
-      ${reels.map((r,i)=>`<tr>
-        <td><input type="text" value="${r.invitado||''}" placeholder="${r.label}" style="width:120px;font-weight:600;padding:3px 6px;font-size:12px" onchange="updateReel('${c.id}','${mk}',${i},'invitado',this.value)"></td>
+  // Agrupados por invitado, igual que la hoja de cálculo: cada invitado es su propia
+  // sección con sus reels numerados aparte — "añadir invitado" y "añadir reel [a ese
+  // invitado]" son dos botones distintos, no la misma acción.
+  const groups=[];
+  const byName={};
+  reels.forEach((r,i)=>{
+    const name=r.invitado||'Sin invitado';
+    if(!byName[name]){byName[name]={name,items:[]};groups.push(byName[name]);}
+    byName[name].items.push({r,i});
+  });
+  const esc=s=>(s||'').replace(/'/g,"\\'");
+  const rowHtml=(r,i,n)=>`<tr>
+        <td style="padding-left:18px;color:var(--tx3);font-size:11px;white-space:nowrap">Reel ${n}</td>
         <td><div class="chk${r.grabado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'grabado')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'grabado')">${r.grabado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
         <td><input type="date" value="${r.fechaGrab||''}" style="width:130px;padding:3px 6px;font-size:11px" onchange="updateReel('${c.id}','${mk}',${i},'fechaGrab',this.value)"></td>
         <td><div class="chk${r.editado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'editado')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'editado')">${r.editado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
@@ -3970,10 +3978,41 @@ function renderPodcastReelTable(c,mk,reels){
         </select></td>
         <td><input type="text" value="${r.notas||''}" placeholder="Notas..." style="font-size:11px;padding:3px 6px" onchange="updateReel('${c.id}','${mk}',${i},'notas',this.value)"></td>
         <td><button class="btn btn-s" style="color:var(--err);padding:3px 7px" onclick="deleteReel('${c.id}','${mk}',${i})"><i class="ti ti-trash" style="font-size:11px"></i></button></td>
-      </tr>`).join('')}
+      </tr>`;
+  return`<div class="card">
+    <table class="rtable" style="width:100%">
+      <tr><th>Invitado</th><th>Grabado</th><th>F.Grab.</th><th>Editado</th><th>F.Entrega</th><th>YT</th><th>Instagram</th><th>TikTok</th><th>Editor</th><th>Notas</th><th></th></tr>
+      ${groups.map(g=>`
+        <tr style="background:var(--bg3)">
+          <td colspan="11" style="padding:6px 10px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="text" value="${g.name==='Sin invitado'?'':esc(g.name)}" placeholder="Nombre del invitado" style="font-weight:700;font-size:12px;padding:4px 8px;max-width:200px" onchange="renamePodcastGuest('${c.id}','${mk}','${esc(g.name)}',this.value)">
+              <button class="btn btn-s" style="font-size:11px;padding:3px 8px" onclick="addPodcastReel('${c.id}','${mk}','${esc(g.name)}')"><i class="ti ti-plus" style="font-size:10px"></i>Reel</button>
+            </div>
+          </td>
+        </tr>
+        ${g.items.map(({r,i},n)=>rowHtml(r,i,n+1)).join('')}
+      `).join('')}
     </table>
-    <button class="badd" style="margin-top:8px" onclick="addReel('${c.id}','${mk}')"><i class="ti ti-plus" style="font-size:11px"></i>Añadir episodio</button>
+    <button class="badd" style="margin-top:8px" onclick="addPodcastGuest('${c.id}','${mk}')"><i class="ti ti-user-plus" style="font-size:11px"></i>Añadir invitado</button>
   </div>`;
+}
+function addPodcastGuest(cid,mk){
+  const name=(prompt('Nombre del invitado:')||'').trim();
+  if(!name)return;
+  addPodcastReel(cid,mk,name);
+}
+function addPodcastReel(cid,mk,invitado){
+  const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
+  const n=c.reels[mk].length+1;
+  c.reels[mk].push({id:n,label:'Reel '+n,month:mk,invitado:invitado==='Sin invitado'?'':invitado,grabado:false,fechaGrab:'',editado:false,fechaEdit:'',subidoYT:false,subidoIG:false,subidoTikTok:false,editor:'',notas:''});
+  switchReelMonth(cid,mk);saveClient_doc(c);showToast('Reel añadido ✓','ok');
+}
+function renamePodcastGuest(cid,mk,oldName,newName){
+  const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
+  const nn=newName.trim();
+  c.reels[mk].forEach(r=>{if((r.invitado||'Sin invitado')===oldName)r.invitado=nn;});
+  switchReelMonth(cid,mk);saveClient_doc(c);
 }
 
 function renderProdTab(c,mk){
