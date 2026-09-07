@@ -322,12 +322,11 @@ async function loadClient(cid){
 async function saveClientData(){
   if(!db||!client)return;
   try{
-    const d=await db.collection('crm').doc('clients').get();
-    if(d.exists){
-      const list=d.data().list||[];
-      const idx=list.findIndex(c=>c.id===client.id);
-      if(idx>=0){list[idx]=client;await db.collection('crm').doc('clients').set({list,updatedAt:new Date().toISOString()});}
-    }
+    // client_docs es la colección canónica que lee el CRM interno en tiempo real — antes
+    // esto solo escribía en crm/clients (el espejo antiguo), que el CRM interno ya no
+    // consulta después de cargar, así que lo que el cliente guardaba aquí (credenciales,
+    // nombre...) nunca le llegaba al equipo.
+    await db.collection('client_docs').doc(client.id).set({...client,u:new Date().toISOString()});
   }catch(e){console.warn(e);}
 }
 async function loadPayments(){
@@ -1131,7 +1130,10 @@ async function notifyTeam(title){
 // AJUSTES
 // ============================================================
 function renderAjustes(){
-  const creds=client.credentials||[{platform:'Instagram',user:'',pass:'',notes:''}];
+  // client.credentials puede ser un array vacío (si se borraron todas) en vez de
+  // undefined — con solo "||" no caía en la fila por defecto y se quedaba sin nada que
+  // rellenar.
+  const creds=(client.credentials&&client.credentials.length)?client.credentials:[{platform:'Instagram',user:'',pass:'',notes:''}];
   let html=`<div class="card">
     <div class="card-t"><i class="ti ti-lock"></i>Mis credenciales
       <button class="btn btn-s" style="margin-left:auto" onclick="addCredential()"><i class="ti ti-plus"></i>Añadir</button>
