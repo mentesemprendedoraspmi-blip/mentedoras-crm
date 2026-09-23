@@ -2906,10 +2906,11 @@ function calPassesFilter(client){
 // eventos internos que no pintan nada ahí (se siguen pudiendo crear como Evento, solo que
 // ya no aparecen en esta vista).
 function calRelevantEvent(e){return!['grab','del','meet'].includes(e.type);}
-// Une eventos de Google Calendar + calendario de publicación, respetando los toggles de capa y el filtro de clientes
+// Calendario de publicación, respetando el filtro de clientes — la capa de Google
+// Calendar se quitó: toda la info del Calendario tiene que salir de las tareas que se
+// ponen en el Tablero, no de una sincronización aparte.
 function calExtraEvents(){
   let evs=[];
-  if(calShowGcal&&gcalEvents)evs=evs.concat(gcalEvents);
   if(calShowPub)evs=evs.concat(pubScheduleEvents());
   return evs.filter(e=>calPassesFilter(e.client));
 }
@@ -2949,7 +2950,6 @@ function calFilterPanelHtml(){
   return`<div class="card" style="width:180px;flex-shrink:0;align-self:flex-start;position:sticky;top:0">
     <div class="card-t"><i class="ti ti-adjustments"></i>Filtros</div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;font-size:12px">
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" style="${chk}" ${calShowGcal?'checked':''} onchange="calToggleLayer('gcal')"><span style="color:#F59E0B">📅 Google Calendar</span></label>
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" style="${chk}" ${calShowPub?'checked':''} onchange="calToggleLayer('pub')"><span style="color:var(--p)">📸 Publicación</span></label>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -2992,7 +2992,6 @@ function calFormatTaskEvent(t){
 const CAL_RELEVANT_TYPES=new Set(['trial_ig','subir_ig','subir_tiktok','subir_yt','subir_historias']);
 function calBoardTasks(){return[...(boardCols||[]).flatMap(col=>col.tasks||[]),...unassignedTasks].filter(t=>CAL_RELEVANT_TYPES.has(taskCurrentType(t)));}
 function renderCal(){
-  loadGCalEvents();
   if(calView==='week'){renderCalWeek();return;}
   if(calView==='day'){renderCalDay();return;}
   if(calView==='year'){renderCalYear();return;}
