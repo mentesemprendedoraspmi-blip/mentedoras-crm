@@ -2902,6 +2902,10 @@ function calPassesFilter(client){
   if(!calClientFilter)return true;
   return !!client&&calClientFilter.has(client);
 }
+// El Calendario es solo para ver qué se publica y cuándo — Grabación/Entrega/Reunión son
+// eventos internos que no pintan nada ahí (se siguen pudiendo crear como Evento, solo que
+// ya no aparecen en esta vista).
+function calRelevantEvent(e){return!['grab','del','meet'].includes(e.type);}
 // Une eventos de Google Calendar + calendario de publicación, respetando los toggles de capa y el filtro de clientes
 function calExtraEvents(){
   let evs=[];
@@ -3003,7 +3007,7 @@ function renderCal(){
   for(let d=1;d<=last.getDate();d++){
     const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isT=ds===today();
-    const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...extra.filter(e=>e.date===ds),...calBoardTasks().filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>{const f=calFormatTaskEvent(t);return{title:f.title,client:f.client,type:'task',date:ds,color:clientColor(f.client)||'#C084FC',time:t.time||''};})];
+    const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)&&calRelevantEvent(e)),...extra.filter(e=>e.date===ds),...calBoardTasks().filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>{const f=calFormatTaskEvent(t);return{title:f.title,client:f.client,type:'task',date:ds,color:clientColor(f.client)||'#C084FC',time:t.time||''};})];
     evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
     const typeColors={grab:'var(--warn)',del:'var(--c)',meet:'#4ADE80',task:'#C084FC'};
     const visible=evs.slice(0,3);
@@ -3025,7 +3029,7 @@ function renderCal(){
 }
 function showCalDay(ds,evt){
   evt&&evt.stopPropagation();
-  const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)),...calExtraEvents().filter(e=>e.date===ds),...calBoardTasks().filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>{const f=calFormatTaskEvent(t);return{title:'📋 '+f.title,client:f.client,type:'task',date:ds,color:clientColor(f.client)||'#C084FC',id:t.id,unassigned:!t.colId};})];
+  const evs=[...calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)&&calRelevantEvent(e)),...calExtraEvents().filter(e=>e.date===ds),...calBoardTasks().filter(t=>t.date===ds&&calPassesFilter(t.client)).map(t=>{const f=calFormatTaskEvent(t);return{title:'📋 '+f.title,client:f.client,type:'task',date:ds,color:clientColor(f.client)||'#C084FC',id:t.id,unassigned:!t.colId};})];
   evs.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'));
   const el=document.getElementById('cal-day-detail');if(!el)return;
   const[y,m,d]=ds.split('-');
@@ -3071,7 +3075,7 @@ function calEventHourMinute(e){
 function calDayItems(ds){
   const timed=[],allday=[];
   const push=e=>(calEventHourMinute(e)!==null?timed:allday).push(e);
-  calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)).forEach(push);
+  calEvents.filter(e=>e.date===ds&&calPassesFilter(e.client)&&calRelevantEvent(e)).forEach(push);
   calExtraEvents().filter(e=>e.date===ds).forEach(push);
   calBoardTasks().filter(t=>t.date===ds&&calPassesFilter(t.client)).forEach(t=>{const f=calFormatTaskEvent(t);allday.push({title:'📋 '+f.title,client:f.client,color:clientColor(f.client)||'#C084FC'});});
   return{timed,allday};
