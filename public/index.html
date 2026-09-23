@@ -2910,14 +2910,7 @@ function calRelevantEvent(e){return!['grab','del','meet'].includes(e.type);}
 // Calendar se quitó: toda la info del Calendario tiene que salir de las tareas que se
 // ponen en el Tablero, no de una sincronización aparte.
 function calExtraEvents(){
-  let evs=[];
-  if(calShowPub)evs=evs.concat(pubScheduleEvents());
-  return evs.filter(e=>calPassesFilter(e.client));
-}
-function calToggleLayer(layer){
-  if(layer==='gcal')calShowGcal=!calShowGcal;
-  if(layer==='pub')calShowPub=!calShowPub;
-  renderCal();
+  return[];
 }
 function calToggleClient(name){
   if(!calClientFilter)calClientFilter=new Set(calContentClients().map(c=>c.name));
@@ -2949,9 +2942,6 @@ function calFilterPanelHtml(){
   const chk='width:14px;height:14px;flex-shrink:0;margin:0;accent-color:var(--c)'; // pisa el input{width:100%} global
   return`<div class="card" style="width:180px;flex-shrink:0;align-self:flex-start;position:sticky;top:0">
     <div class="card-t"><i class="ti ti-adjustments"></i>Filtros</div>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;font-size:12px">
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" style="${chk}" ${calShowPub?'checked':''} onchange="calToggleLayer('pub')"><span style="color:var(--p)">📸 Publicación</span></label>
-    </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
       <span style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Clientes</span>
       <span style="font-size:11px">
