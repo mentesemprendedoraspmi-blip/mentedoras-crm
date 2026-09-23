@@ -2981,8 +2981,12 @@ function calFormatTaskEvent(t){
   return{title:t.title,client:t.client||''};
 }
 // Tareas del tablero + las "sin asignar" (sin columna), para que el Calendario interno
-// las muestre a todas igual, tengan o no un editor/CM detrás.
-function calBoardTasks(){return[...(boardCols||[]).flatMap(col=>col.tasks||[]),...unassignedTasks];}
+// las muestre a todas igual, tengan o no un editor/CM detrás — pero solo las de subir
+// contenido (Trial/IG/TikTok/YouTube/Historias). El Calendario es para ver qué se publica
+// y cuándo, no el trabajo interno de edición ni tareas sueltas — eso se queda en el
+// Tablero, que no pasa por esta función.
+const CAL_RELEVANT_TYPES=new Set(['trial_ig','subir_ig','subir_tiktok','subir_yt','subir_historias']);
+function calBoardTasks(){return[...(boardCols||[]).flatMap(col=>col.tasks||[]),...unassignedTasks].filter(t=>CAL_RELEVANT_TYPES.has(taskCurrentType(t)));}
 function renderCal(){
   loadGCalEvents();
   if(calView==='week'){renderCalWeek();return;}
