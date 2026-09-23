@@ -4215,18 +4215,9 @@ async function toggleReel(cid,mk,i,field){
     if(field==='editado'&&!c.reels[mk][i].fechaEdit)c.reels[mk][i].fechaEdit=today();
   }
   if(c.reels[mk][i][field]){
-    if(field==='grabado'){
-      applyGrabadoAutomation(c,mk,i);
-    }
-    if(field==='editado'&&c.cm){
-      const rid=c.reels[mk][i].id;
-      const pubDate=(c.pubCal?.[mk]?.[rid]?.pub)||today();
-      createAutoTask(`📤 Publicar: ${c.reels[mk][i].label} — ${c.name}`,c.cm,pubDate,c,{linkedClientId:c.id,linkedReelId:rid,linkedProdStep:'subido',network:'ig',linkedMonth:mk});
-      // Automatización: aviso inmediato de subir a Trial, solo si el cliente tiene Trials activados
-      if(c.trialsEnabled!==false&&(c.socialNets||['instagram']).includes('instagram')){
-        createAutoTask(`📲 Subir a Trial: ${c.reels[mk][i].label} — ${c.name}`,c.cm,today(),c,{linkedClientId:c.id,linkedReelId:rid,network:'trial_ig',linkedMonth:mk});
-      }
-    }
+    // Grabado y Editado ya no disparan nada automático (ni fechas en cascada de
+    // pubCal, ni tareas de "Publicar"/"Subir a Trial") — Adri prefiere crear esas
+    // tareas ella misma cuando le toque, en vez de que el CRM las adivine solas.
     if(field==='enviado'){
       c.reels[mk][i].fechaEnviadoTS=new Date().toISOString();
       // Automatización: crear tarea de edición para el editor asignado, ahora que el material ya se le ha enviado.
