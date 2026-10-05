@@ -1256,7 +1256,7 @@ function buildSBNav(){
   const el=document.getElementById('sb-nav');
   let html='<div class="nl">Panel</div>';
   html+=nav('dash','ti-layout-dashboard','Resumen');
-  if(isPMup())html+=nav('daily','ti-report','Control diario');
+  if(isPMup())html+=nav('daily','ti-report','Control Mensual');
   html+=nav('board','ti-layout-kanban','Tablero','<span class="nbadge" id="bbadge">0</span>');
   html+=nav('ideas','ti-bulb','Mejoras');
   html+=nav('clients','ti-users','Clientes');
@@ -1339,7 +1339,7 @@ function showView(name){
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('ni-'+name)?.classList.add('on');
   const icons={dash:'ti-layout-dashboard',daily:'ti-report',pipeline:'ti-columns',board:'ti-layout-kanban',ideas:'ti-bulb',clients:'ti-users',cal:'ti-calendar',payments:'ti-coin',finance:'ti-chart-bar',users:'ti-users-group',config:'ti-settings',profile:'ti-user'};
-  const titles={dash:'Resumen general',daily:'Control diario',pipeline:'Pipeline de contenido',board:'Tablero del equipo',ideas:'Ideas de mejora',clients:'Clientes',cal:'Calendario',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
+  const titles={dash:'Resumen general',daily:'Control Mensual',pipeline:'Pipeline de contenido',board:'Tablero del equipo',ideas:'Ideas de mejora',clients:'Clientes',cal:'Calendario',payments:'Pagos equipo',finance:'Facturación',users:'Gestión de usuarios',config:'Configuración',profile:activeClient?.name||'Cliente'};
   document.getElementById('tb-ic').className='ti '+(icons[name]||'ti-layout-dashboard');
   document.getElementById('tb-t').textContent=titles[name]||'';
   const acts={dash:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,profile:'',ideas:`<button class="btn btn-s btn-p" onclick="openModal('idea')"><i class="ti ti-plus"></i>Nueva idea</button>`,clients:`<button class="btn btn-s btn-p" onclick="openModal('client')"><i class="ti ti-user-plus"></i>Cliente</button>`,board:isCMup()?`<button class="btn btn-s" onclick="showArchiveModal()"><i class="ti ti-archive"></i>Archivo</button>`:''};
@@ -1426,29 +1426,72 @@ function switchDailyTab(tab){
 function renderDailyControl(){
   const canMap=isCEO();
   let html=`<div class="month-row">
-    <button class="mbtn${dailyControlTab==='resumen'?' on':''}" onclick="switchDailyTab('resumen')">📋 Resumen</button>
+    <button class="mbtn${dailyControlTab==='resumen'?' on':''}" onclick="switchDailyTab('resumen')">📅 Control Mensual</button>
     ${canMap?`<button class="mbtn${dailyControlTab==='mapa'?' on':''}" onclick="switchDailyTab('mapa')">🧠 Mapa</button>`:''}
   </div>`;
   if(dailyControlTab==='mapa'&&canMap){
     html+=`<div id="view-mindmap"></div>`;
   }else{
-    html+=`<div class="card" style="margin-bottom:14px">
-      <div class="card-t"><i class="ti ti-users-group"></i>Equipo — hoy</div>
-      ${teamTodayGridHtml()}
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
-      <div class="card" style="margin-bottom:0">
-        <div class="card-t"><i class="ti ti-upload"></i>Últimas publicaciones</div>
-        ${latestUploadsHtml()}
-      </div>
-      <div class="card" style="margin-bottom:0">
-        <div class="card-t"><i class="ti ti-clock-exclamation"></i>Tiempo sin publicar</div>
-        ${clientStalenessHtml()}
-      </div>
-    </div>`;
+    html+=monthlyControlHtml();
   }
   document.getElementById('view-daily').innerHTML=html;
   if(dailyControlTab==='mapa'&&canMap)loadMindmap().then(renderMindmap);
+}
+// 'movedAt' se guarda en toLocaleDateString('es-ES') (D/M/AAAA) en el momento de
+// archivar — se parsea para poder agrupar por mes.
+function parseMovedAt(str){
+  if(!str)return null;
+  const[d,m,y]=str.split('/').map(Number);
+  if(!y||!m||!d)return null;
+  return{y,m,d};
+}
+let monthlyControlMonth=monthKey(); // 'AAAA-MM', mes que se está viendo
+function switchMonthlyControlMonth(dir){
+  const[y,m]=monthlyControlMonth.split('-').map(Number);
+  const d=new Date(y,m-1+dir,1);
+  monthlyControlMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  renderDailyControl();
+}
+// Todo lo que se envía a Control Mensual (desde la columna Finalizado, o archivado a
+// mano) queda aquí agrupado por quién lo hizo — t.movedFrom guarda la columna original
+// de la que venía la tarjeta antes de pasar por Finalizado; si no la tiene (se archivó
+// directamente desde su propia columna), se usa esa.
+function monthlyControlHtml(){
+  const[selY,selM]=monthlyControlMonth.split('-').map(Number);
+  const byPerson={};
+  boardCols.forEach(col=>{
+    (col.tasks||[]).forEach(t=>{
+      if(!t.archived)return;
+      const mv=parseMovedAt(t.movedAt);
+      if(!mv||mv.y!==selY||mv.m!==selM)return;
+      const person=t.movedFrom||col.name;
+      (byPerson[person]=byPerson[person]||[]).push(t);
+    });
+  });
+  const people=Object.keys(byPerson).sort((a,b)=>byPerson[b].length-byPerson[a].length);
+  const total=people.reduce((s,p)=>s+byPerson[p].length,0);
+  let html=`<div class="month-row" style="margin-bottom:14px;align-items:center">
+    <button class="btn btn-s" onclick="switchMonthlyControlMonth(-1)"><i class="ti ti-chevron-left"></i></button>
+    <span style="font-weight:600;font-size:14px;padding:0 10px">${monthLabel(monthlyControlMonth)}</span>
+    <button class="btn btn-s" onclick="switchMonthlyControlMonth(1)"><i class="ti ti-chevron-right"></i></button>
+    <span style="margin-left:auto;font-size:12px;color:var(--tx3)">${total} tarea${total===1?'':'s'} finalizada${total===1?'':'s'}</span>
+  </div>`;
+  if(!people.length){
+    html+=`<div style="text-align:center;padding:30px;color:var(--tx3)">Nadie ha enviado tarjetas a Control Mensual este mes todavía.</div>`;
+  }else{
+    html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
+      ${people.map(p=>`<div class="card" style="margin-bottom:0">
+        <div class="card-t" style="font-size:13px">${p}<span class="bcc" style="margin-left:auto">${byPerson[p].length}</span></div>
+        <div style="max-height:280px;overflow-y:auto">
+          ${byPerson[p].map(t=>`<div class="pf" style="padding:6px 0">
+            <span style="font-size:12px">${t.title}${t.client?` <span style="color:var(--tx3)">— ${t.client}</span>`:''}</span>
+            <span style="font-size:10px;color:var(--tx3);white-space:nowrap">${t.movedAt||''}</span>
+          </div>`).join('')}
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }
+  return html;
 }
 
 // ============================================================
@@ -2131,6 +2174,7 @@ function renderBoard(){
                 <div class="dm-item" onclick="sortCol('${col.id}','date')"><i class="ti ti-sort-ascending"></i>Ordenar por fecha</div>
                 <div class="dm-item" onclick="sortCol('${col.id}','name')"><i class="ti ti-sort-ascending-letters"></i>Ordenar por nombre</div>
                 <div class="dm-item" onclick="setFinalCol('${col.id}')"><i class="ti ti-${col.isFinal?'star-filled':'star'}" style="color:${col.isFinal?'var(--warn)':''}"></i>${col.isFinal?'✅ Columna Finalizado':'⭐ Marcar como Finalizado'}</div>
+                ${col.isFinal?`<div class="dm-item" onclick="sendFinalColToMonthlyControl('${col.id}')"><i class="ti ti-calendar-stats"></i>📅 Enviar a Control Mensual</div>`:''}
                 <div style="display:flex;gap:5px;padding:8px 10px" onclick="event.stopPropagation()">
                   ${COL_COLORS.map(cl=>`<div onclick="setColColor('${col.id}','${cl}')" style="width:16px;height:16px;border-radius:50%;background:${cl};cursor:pointer;flex-shrink:0;box-shadow:${col.color===cl?'0 0 0 2px var(--bg2),0 0 0 3px '+cl:'none'}"></div>`).join('')}
                 </div>
@@ -2425,6 +2469,23 @@ function col_archiveTasks(colId){
   let count=0;
   (col.tasks||[]).forEach(t=>{if(!t.archived){t.archived=true;count++;saveBoardTask(t,colId);}});
   renderBoard();showToast(`🗄️ ${count} tarjeta${count===1?'':'s'} archivada${count===1?'':'s'}`,'ok');
+}
+// Desde la columna Finalizado: las tarjetas pasan a "archivadas" (igual que
+// col_archiveTasks) pero con el mensaje y la confirmación pensados para lo que de
+// verdad va a pasar — quedan registradas en Control Mensual, agrupadas por quién las
+// hizo (t.movedFrom, que ya guarda de qué columna venían antes de llegar aquí).
+function sendFinalColToMonthlyControl(colId){
+  const col=boardCols.find(c=>c.id===colId);if(!col)return;
+  const pending=(col.tasks||[]).filter(t=>!t.archived);
+  if(!pending.length)return showToast('No hay tarjetas nuevas que enviar','err');
+  const mc=document.getElementById('modal-c');
+  mc.innerHTML=`<div class="modal-t">¿Enviar a Control Mensual?</div>
+    <p style="font-size:13px;color:var(--tx2);margin-bottom:16px">${pending.length} tarjeta${pending.length===1?'':'s'} de "${col.name}" quedarán registradas en Control Mensual (agrupadas por quién las hizo) y dejarán de verse en el tablero. No se borran — se pueden recuperar desde "Archivo".</p>
+    <div class="modal-acts">
+      <button class="btn btn-s" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-s btn-p" onclick="closeModal();col_archiveTasks('${colId}')">Enviar</button>
+    </div>`;
+  document.getElementById('mo').classList.add('open');
 }
 function showArchiveModal(){
   const archivedCols=boardCols.filter(c=>c.archived);
