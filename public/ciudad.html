@@ -46,7 +46,9 @@
   <span><i style="background:#f59e0b"></i>Grabado</span>
   <span><i style="background:#a855f7"></i>Editado</span>
   <span><i style="background:#00e5e5"></i>Subido</span>
-  <span><i style="background:#38bdf8;border-radius:50%"></i>Equipo (casita = su cola, color = su gente en cada isla)</span>
+  <span><i style="background:#4ade80;transform:rotate(45deg)"></i>Rombo: al día</span>
+  <span><i style="background:#facc15;transform:rotate(45deg)"></i>con trabajo</span>
+  <span><i style="background:#ef4444;transform:rotate(45deg)"></i>atrasado o saturado (7+)</span>
 </div>
 <script>
 /* Solo LECTURA: lee los clientes de tu Firebase (crm/clients). No escribe nada. */
@@ -140,6 +142,7 @@ const ROLE={
   pub:{icon:'📅',busy:'a subir ≤7 días',idle:'al día',title:'Calendario de publicación: reels con fecha en los próximos 7 días o atrasados',q:'Reels por subir (≤7 días o atrasados)',d:'Reels ya subidos'},
   cuentas:{icon:'📑',busy:'a vigilar',idle:'todo en orden',title:'Cuentas: contratos que vencen en 30 días, vencidos y entregas vencidas',q:'Casos a vigilar',d:'—'},
   guion:{icon:'✍',busy:'sin guion',idle:'al día',title:'Guiones: clientes pendientes de crear o aprobar el guion',q:'Clientes esperando guion',d:'Clientes ya con guion aprobado'},
+  owner:{icon:'⭐',busy:'clientes con reels sin subir',idle:'todo al día',title:'Responsable de cuenta (presentador del podcast): sus clientes con reels aún sin subir',q:'Clientes con reels sin subir',d:'Clientes a su cargo'},
   informes:{icon:'📊',busy:'por hacer',idle:'a tu orden',title:'Informes: genera el informe semanal o mensual de cualquier cliente',q:'Pídele un informe abajo',d:'—'}
 };
 const skey=(role,name)=>role+'|'+name;
@@ -175,8 +178,9 @@ function buildStaff(){
     const ph=+c.phase||0;
     if(ph<=1){gui.queue.push({c,note:ph===0?'pendiente de crear guion':'pendiente de OK de guion'});gui.clients.add(c.id)}else gui.done++;
   });
+  clients.forEach(c=>{if(!c.accountOwner)return;const o=post('owner',c.accountOwner),p=reelsOf(c).filter(r=>!r.subido).length;o.clients.add(c.id);o.done++;if(p)o.queue.push({c,note:p+' reel'+(p===1?'':'s')+' sin subir'})});
   pub.queue.sort((a,b)=>a.date.localeCompare(b.date));cta.queue.sort((a,b)=>a.date.localeCompare(b.date));
-  const ORD={editor:0,cm:1,pub:2,cuentas:3,guion:4,informes:5};
+  const ORD={owner:-1,editor:0,cm:1,pub:2,cuentas:3,guion:4,informes:5};
   const list=Object.values(m).sort((a,b)=>(ORD[a.role]-ORD[b.role])||a.name.localeCompare(b.name,'es'));
   list.forEach((s,i)=>s.color=PAL[i%PAL.length]);
   staffMap=m;return list;
@@ -187,7 +191,7 @@ function layout(){
   const rows=Math.ceil(n/cols),gw=cols*(S+G),gh=rows*(S+G);
   const staff=buildStaff(),sx=gw+1.2;
   houses=staff.map((st,i)=>({staff:st,x:sx+(i%2)*(HS+HG),y:Math.floor(i/2)*(HS+HG),s:HS}));
-  maxX=houses.length?sx+2*(HS+HG):gw;maxY=Math.max(gh,Math.ceil(houses.length/2)*(HS+HG));fit();
+  maxX=houses.length?sx+2*(HS+HG):gw;maxY=Math.max(gh,Math.ceil(houses.length/2)*(HS+HG));fit();buildWalkers();
 }
 function fit(){
   W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0);
@@ -212,11 +216,18 @@ function draw(ts){
   try{paint(ts)}catch(e){console.warn('Ciudad: error al dibujar',e)}
   requestAnimationFrame(draw);
 }
-function person(x,y,z,color,t,working){
+/* modo Sims: el rombo (plumbob) sobre la cabeza es su estado de ánimo = su carga de trabajo real */
+const MOOD={ok:'#4ade80',busy:'#facc15',bad:'#ef4444'};
+const moodOf=st=>!st.queue.length?MOOD.ok:(st.queue.length>=7||st.queue.some(q=>q.note&&/atrasado|vencid/.test(q.note)))?MOOD.bad:MOOD.busy;
+function person(x,y,z,color,t,working,mood){
   const s=cam.z,q=iso(x,y,z+(working?Math.sin(t)*1.2:0)),g=iso(x,y,z);
   cx.fillStyle='#0006';cx.beginPath();cx.ellipse(g.X,g.Y+2*s,6*s,2.5*s,0,0,7);cx.fill();
   cx.fillStyle=color;cx.beginPath();if(cx.roundRect)cx.roundRect(q.X-4.5*s,q.Y-13*s,9*s,13*s,3.5*s);else cx.rect(q.X-4.5*s,q.Y-13*s,9*s,13*s);cx.fill();
   cx.fillStyle='#f1d4b8';cx.beginPath();cx.arc(q.X,q.Y-17.5*s,4.5*s,0,7);cx.fill();
+  cx.fillStyle='#2b2118';cx.beginPath();cx.arc(q.X,q.Y-19*s,4.6*s,Math.PI,0);cx.fill(); // pelo
+  if(mood){const b=Math.sin(t*.6)*1.5,cy=q.Y-32*s+b*s,w=3.6*s,h=6*s;
+    cx.fillStyle=mood;cx.beginPath();cx.moveTo(q.X,cy-h);cx.lineTo(q.X+w,cy);cx.lineTo(q.X,cy+h);cx.lineTo(q.X-w,cy);cx.closePath();cx.fill();
+    cx.fillStyle='#fff6';cx.beginPath();cx.moveTo(q.X,cy-h);cx.lineTo(q.X+w,cy);cx.lineTo(q.X,cy);cx.closePath();cx.fill()}
 }
 function drawHouse(h,ts){
   const st=h.staff,col=st.color,act=(hover===h||selected===h),busy=st.queue.length>0,t=ts/1000;
@@ -225,7 +236,7 @@ function drawHouse(h,ts){
   box(bx,by,bw,bh,26,shade(col,-95),shade(col,-135),26);
   box(bx-.2,by-.2,bw+.4,bh+.4,34,act?col:shade(col,-30),shade(col,-80),8);
   const px=h.x+h.s/2-.45,py=h.y+1.75;
-  person(px,py,0,col,t*6+h.x,busy);
+  if(!busy)person(px,py,0,col,t*6+h.x,false,moodOf(st)); // si tiene trabajo, sale a caminar (ver walkers)
   box(h.x+.5,h.y+1.8,1.0,.45,8,'#2a3a4b','#1b2733',8);
   box(h.x+.8,h.y+1.85,.4,.3,8.5,busy?'#00e5e5':'#3a4756','#1b2733',.5);
   st.queue.slice(0,9).forEach((q,i)=>box(h.x+1.7+(i%3)*.22,h.y+1.75+Math.floor(i/3)*.22,.18,.18,6,PHC[Math.max(0,Math.min(8,+q.c.phase||0))],'#222',6));
@@ -235,11 +246,36 @@ function drawHouse(h,ts){
   if(!busy){const z=iso(px+.3,py,34);cx.fillStyle='#8fa3b8';cx.font=`700 ${12*cam.z}px system-ui`;cx.fillText('z Z',z.X,z.Y+Math.sin(t*2)*2)}
   if(act){const p=iso(h.x+h.s/2,h.y+h.s/2,0);cx.strokeStyle='#fff';cx.lineWidth=2;cx.beginPath();cx.ellipse(p.X,p.Y+6*cam.z,h.s*TW/2*.8*cam.z,h.s*TH/2*.8*cam.z,0,0,7);cx.stroke()}
 }
+/* ---- caminantes: quien tiene trabajo sale con un reel a la isla del cliente, trabaja y vuelve ---- */
+let walkers=[],lastTs=0;
+const homeOf=h=>({x:h.x+h.s/2-.45,y:h.y+1.78});
+function buildWalkers(){walkers=houses.filter(h=>h.staff.queue.length).map(h=>{const p=homeOf(h);return{h,st:h.staff,x:p.x,y:p.y,tx:p.x,ty:p.y,state:'sit',t:Math.random()*3,col:null}})}
+function stepWalkers(dt){
+  walkers.forEach(w=>{
+    const home=homeOf(w.h);
+    if(w.state==='sit'||w.state==='work'){
+      w.t+=dt;
+      if(w.state==='sit'&&w.t>2.5){
+        const q=w.st.queue[Math.floor(Math.random()*w.st.queue.length)],is=islands.find(i=>i.c===q.c);
+        if(is){w.tx=is.x+is.s/2+(Math.random()-.5)*1.4;w.ty=is.y+is.s-.45;w.col=PHC[Math.max(0,Math.min(8,+q.c.phase||0))];w.state='go'}else w.t=0;
+      }else if(w.state==='work'&&w.t>3){w.tx=home.x;w.ty=home.y;w.state='back'}
+      return;
+    }
+    const dx=w.tx-w.x,dy=w.ty-w.y,d=Math.hypot(dx,dy),step=1.7*dt;
+    if(d<=step){w.x=w.tx;w.y=w.ty;w.t=0;w.state=w.state==='go'?'work':'sit'}else{w.x+=dx/d*step;w.y+=dy/d*step}
+  });
+}
 function paint(ts){
+  const dt=Math.min(.1,Math.max(0,(ts-lastTs)/1000));lastTs=ts;stepWalkers(dt);
   cx.clearRect(0,0,W,H);
   const g=cx.createRadialGradient(W/2,H/2,40,W/2,H/2,Math.max(W,H)*.7);g.addColorStop(0,'#18222d');g.addColorStop(1,'#111418');cx.fillStyle=g;cx.fillRect(0,0,W,H);
   const pad=1.2;box(-pad,-pad,maxX+pad*2-1.6,maxY+pad*2-1.6,0,'#17212b','#0f161d',10);
   const sorted=[...islands,...houses].sort((a,b)=>(a.x+a.y+a.s)-(b.x+b.y+b.s));
+  const drawWalkers=()=>walkers.forEach((w,i)=>{
+    const moving=w.state==='go'||w.state==='back';
+    person(w.x,w.y,0,w.st.color,ts/1000*(moving?12:6)+i,moving||w.state==='work',moodOf(w.st));
+    if(w.state==='go'&&w.col)box(w.x+.12,w.y-.1,.2,.2,14,w.col,'#222',6); // el reel que lleva
+  });
   sorted.forEach(is=>{
     if(is.staff){drawHouse(is,ts);return}
     const ph=Math.max(0,Math.min(8,+is.c.phase||0)),col=PHC[ph],{rs,s}=stats(is.c);
@@ -255,11 +291,11 @@ function paint(ts){
     });
     // el equipo de este cliente, con el color de su casita
     const crew=[...(Array.isArray(is.c.editors)?is.c.editors.map(e=>skey('editor',e)):[]),...(is.c.cm?[skey('cm',is.c.cm)]:[])].map(k=>staffMap[k]).filter(Boolean);
-    crew.forEach((st,k)=>person(is.x+.55+k*.65,is.y+is.s-.5,0,st.color,ts/1000*5+k+is.x,st.queue.some(q=>q.c===is.c)));
     pill(is.c.name,is.x+is.s/2,is.y+is.s/2,34+pulse,col,13);
     pill(`${s.sub}/${rs.length} subidos`,is.x+is.s/2,is.y+is.s+.35,-2,'#8fa3b8',11);
     if(act){const p=iso(is.x+is.s/2,is.y+is.s/2,0);cx.strokeStyle='#fff';cx.lineWidth=2;cx.beginPath();cx.ellipse(p.X,p.Y+6*cam.z,is.s*TW/2*.8*cam.z,is.s*TH/2*.8*cam.z,0,0,7);cx.stroke()}
   });
+  drawWalkers();
 }
 requestAnimationFrame(draw);
 
