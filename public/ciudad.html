@@ -337,7 +337,8 @@ function needsOf(st){
 }
 function wireTools(st){
   const req=document.getElementById('req'),go=document.getElementById('reqgo'),res=document.getElementById('res');
-  const find=t=>{t=(t||'').toLowerCase();return clients.find(c=>t.includes(String(c.name).toLowerCase()))};
+  const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+  const find=t=>{t=norm(t);return clients.filter(c=>t.includes(norm(c.name))).sort((a,b)=>String(b.name).length-String(a.name).length)[0]||clients.find(c=>norm(c.name).split(/[^a-z0-9]+/).some(w=>w.length>=4&&new RegExp('\\b'+w).test(t)))};
   const text=cl=>{
     const L=st.queue.filter(q=>!cl||q.c===cl).map(q=>'• '+q.c.name+(q.note?' — '+q.note:q.r?' — '+(q.r.label||'Reel'):''));
     return ROLE[st.role].icon+' '+st.name+(cl?' · '+cl.name:'')+' — '+new Date().toLocaleDateString('es-ES')+'\n'+(L.length?L.join('\n'):'Nada pendiente 🎉');
@@ -358,11 +359,19 @@ function wireTools(st){
     w.document.open();w.document.write(html);w.document.close();
     res.innerHTML=`<div class="sub">Informe ${per==='mes'?'mensual':'semanal'} de ${esc(c.name)} abierto en otra pestaña. Pulsa «Guardar como PDF» arriba a la derecha.${shots.length?'':' Sin capturas de Instagram: solo lleva la producción.'}</div>`;
   };
+  const makeAll=per=>{ // un solo documento con el informe de cada cliente activo
+    const w=window.open('','_blank');if(!w){res.innerHTML='<div class="sub">El navegador bloqueó la ventana: permite ventanas emergentes y vuelve a pulsar.</div>';return}
+    const docs=clients.map(c=>reportHtml(c,per,{},[])),body=d=>d.slice(d.indexOf('<body>')+6,d.lastIndexOf('</body>')).replace(/<div class="bar">[\s\S]*?<\/div>/,'');
+    w.document.open();w.document.write(docs[0].slice(0,docs[0].indexOf('<body>')+6)+'<div class="bar"><button onclick="print()">Guardar como PDF</button></div>'+docs.map(body).join('')+'</body></html>');w.document.close();
+    res.innerHTML=`<div class="sub">${clients.length} informes ${per==='mes'?'mensuales':'semanales'} (uno por cliente) abiertos en otra pestaña. Solo llevan la producción: para añadir Instagram, pide cada cliente por separado.</div>`;
+  };
   go.onclick=()=>{
     const t=req.value,cl=find(t);
     if(st.role==='informes'){
-      if(!cl){res.innerHTML='<div class="sub">¿De qué cliente? Escribe su nombre, por ejemplo «informe semanal de '+esc((clients[0]||{}).name||'')+'».</div>';return}
-      document.getElementById('icl').value=cl.id;document.getElementById('ipe').value=/mes/i.test(t)?'mes':'semana';makeReport();return}
+      const per=/mes|mensual/i.test(t)?'mes':'semana';document.getElementById('ipe').value=per;needTxt();
+      if(/todos|cada cliente|por cliente/i.test(norm(t))){makeAll(per);return}
+      if(!cl){res.innerHTML='<div class="sub">¿De qué cliente? Escribe su nombre, por ejemplo «informe mensual de '+esc((clients[0]||{}).name||'')+'», o «informe semanal de todos los clientes».</div>';return}
+      document.getElementById('icl').value=cl.id;makeReport();return}
     show(text(cl));
   };
   req.addEventListener('keydown',e=>{if(e.key==='Enter')go.click()});
