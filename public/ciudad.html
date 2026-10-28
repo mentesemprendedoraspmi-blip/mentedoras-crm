@@ -468,7 +468,47 @@ function toolsHtml(st){
       ${SHOTS.map(([k,l,w])=>`<label style="display:block;font-size:13px;margin:6px 0 2px">📸 ${l}${w==='mes'?' <span style="color:var(--mut)">(solo mensual)</span>':''}</label><input type="file" id="sh-${k}" accept="image/*" multiple style="font-size:12px;width:100%">`).join('')}
       <button id="igo" style="${BTN};margin-top:10px;width:100%">Generar informe</button>`;
   }
+  if(st.role==='guion'){
+    h+=`<select id="gcl" style="${FLD};margin-top:8px">${clients.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select>
+      <input id="gof" style="${FLD};margin-top:6px" placeholder="Oferta o dato clave (precio, qué incluye…)">
+      <input id="glo" style="${FLD};margin-top:6px" placeholder="Dónde está (zona o calle)">
+      <input id="gkw" style="${FLD};margin-top:6px" placeholder="Palabra clave para comentar y descuento (ej. VR10 = 10%)">
+      <select id="gfm" style="${FLD};margin-top:6px"><option value="diálogo">Formato: diálogo / sketch</option><option value="monólogo">Formato: monólogo</option></select>
+      <button id="ggo" style="${BTN};margin-top:8px;width:100%">Preparar prompt de guion</button>`;
+  }
   return h+`<div id="res" style="margin-top:10px"></div>`;
+}
+/* patrones de tus guiones virales (doc «GUIONES VIRALES»). Solo ganchos y reglas: los guiones completos no se publican aquí. */
+const HOOKS=[
+  {re:/realidad virtual|latency/,t:'Realidad virtual',h:['«Nueva bolera en PALMA en 60 segundos…» y al final «no, no es una bolera» (160 mil visitas)','«Me gustaría matar zombis con mis amigos, por favor» (25,3 mil)','«¿A qué puedo jugar con 20 €?» (13,7 mil, con influencer)']},
+  {re:/restaurante|hamburgues|tapas|pescado|dumpling|coreano|cafeteria/,t:'Restaurante',h:['«20 € y tienes… sushi ilimitado, carne premium» (126 mil)','«Todo esto por menos de 20 € no lo vas a conseguir en ningún lado» (70,4 mil)','«Acaban de abrir en Mallorca un sitio donde cada dumpling sabe completamente diferente» (19,5 mil)']},
+  {re:/onigir|oniguir|japon/,t:'Comida japonesa',h:['«¿Sabías que en Japón esto es más popular que el sushi… y casi nadie aquí lo conoce?» (138,5 mil en TikTok)']},
+  {re:/car wash|detailing|coche/,t:'Servicio / coches',h:['«Esto es lo que le pasa a tu coche si lo lavas con Fairy» (46,5 mil en TikTok)']}
+];
+function guionPrompt(c,f){
+  const t=normTxt((c.type||'')+' '+c.name),m=HOOKS.find(x=>x.re.test(t)),hooks=(m?m.h:HOOKS.flatMap(x=>x.h.slice(0,1)));
+  return `Buenas, quiero hacer un guion para mi cliente ${c.name}${c.type?` (${c.type})`:''}. Para ello te dejo una serie de patrones y ejemplos de guiones que me han funcionado con otros clientes, para que puedas replicarlos o coger inspiración.
+
+MI CLIENTE
+- Negocio: ${c.name}${c.type?' · '+c.type:''}
+- Oferta o dato clave: ${f.of||'(lo defino yo; propón opciones)'}
+- Dónde está: ${f.lo||'(Mallorca)'}
+- Palabra clave para comentar y recibir un descuento: ${f.kw||'(propón una)'}
+- Formato: ${f.fm||'diálogo'}
+- Duración: 30-45 segundos, para Instagram y TikTok
+
+QUÉ TIENEN EN COMÚN MIS GUIONES VIRALES (de 6 mil a 160 mil visitas)
+1. Gancho en la primera frase: un precio o cifra concreta, una curiosidad («¿Sabías que…?») o una broma/situación inesperada.
+2. Datos concretos y locales: precio, qué incluye, dónde está (ej. «a 5 minutos del Ocimax»).
+3. Muchos van en diálogo o sketch, con frases cortas y habladas, sin relleno.
+4. Cierre con una acción: comentar una palabra clave para un descuento, o «guarda este sitio y mándaselo a la persona con la que vendrías».
+5. El guion lleva indicaciones de edición: [B-roll de…], [zoom in / zoom out en los cortes], [stock], [efecto rise / film burn], planos concretos. Las líneas secundarias van marcadas en gris.
+
+GANCHOS QUE HAN FUNCIONADO${m?' CON NEGOCIOS COMO ESTE ('+m.t+')':''}
+${hooks.map(h=>'- '+h).join('\n')}
+
+LO QUE TE PIDO
+Dame 3 opciones de guion distintas. Cada una con: gancho (primera frase), desarrollo, cierre con llamada a la acción, e indicaciones de edición entre corchetes. Aquí te pego mis guiones completos de referencia: [pega aquí el documento «GUIONES VIRALES»].`;
 }
 /* capturas que pide el trabajador de informes (las del anexo de tu informe de ejemplo) */
 const SHOTS=[['res','Resumen de Instagram Insights (visualizaciones, seguidores, interacciones)'],['diario','Gráfica de visualizaciones diarias','mes'],['top','Publicaciones con más visualizaciones'],['aud','Audiencia por género y edad','mes']];
@@ -479,7 +519,7 @@ function needsOf(st){
   if(st.role==='editor'||st.role==='cm'){const sin=clients.filter(c=>reelsOf(c).some(r=>r.grabado&&!r.editado&&!r.editor&&!(c.editors||[]).length)).map(c=>c.name);if(sin.length)out.push('Asignar editor a: '+sin.join(', '))}
   if(st.role==='pub'){const sin=[];clients.forEach(c=>{const pc=(c.pubCal||{})[mk]||{};const n=reelsOf(c).filter(r=>r.editado&&!r.subido&&!(pc[r.id]&&(pc[r.id].pub||pc[r.id].tiktok||pc[r.id].youtube))).length;if(n)sin.push(c.name+' ('+n+')')});if(sin.length)out.push('Fecha de publicación de reels ya editados: '+sin.join(', '))}
   if(st.role==='cuentas'){const sin=clients.filter(c=>!c.contractEnd&&c.clientType!=='intercambio').map(c=>c.name);if(sin.length)out.push('Fecha de fin de contrato de: '+sin.join(', '))}
-  if(st.role==='guion'){const sin=clients.filter(c=>(+c.phase||0)===0).length;if(sin)out.push(sin+' clientes aún sin guion: dime a cuáles priorizar y qué temas quieres')}
+  if(st.role==='guion'){out.push('Para cada guion: la oferta o precio, dónde está el negocio y la palabra clave del descuento (campos de abajo)');const sin=clients.filter(c=>(+c.phase||0)===0).length;if(sin)out.push(sin+' clientes aún sin guion: dime a cuáles priorizar')}
   if(st.role==='informes')out.push('Capturas de Instagram Insights (abajo), o escribe las cifras a mano');
   return out;
 }
@@ -491,7 +531,7 @@ function wireTools(st){
     const L=st.queue.filter(q=>!cl||q.c===cl).map(q=>'• '+q.c.name+(q.note?' — '+q.note:q.r?' — '+(q.r.label||'Reel'):''));
     return ROLE[st.role].icon+' '+st.name+(cl?' · '+cl.name:'')+' — '+new Date().toLocaleDateString('es-ES')+'\n'+(L.length?L.join('\n'):'Nada pendiente 🎉');
   };
-  const show=t=>{res.innerHTML=`<textarea readonly style="${FLD};height:130px">${esc(t)}</textarea><button id="cp" style="${BTN};margin-top:6px">Copiar</button>`;
+  const show=(t,h=130)=>{res.innerHTML=`<textarea readonly style="${FLD};height:${h}px">${esc(t)}</textarea><button id="cp" style="${BTN};margin-top:6px">Copiar</button>`;
     document.getElementById('cp').onclick=()=>{const ta=res.querySelector('textarea');ta.select();try{navigator.clipboard.writeText(ta.value)}catch(e){document.execCommand('copy')}}};
   const readImg=f=>new Promise(ok=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1400/im.width),cv2=document.createElement('canvas');cv2.width=im.width*k;cv2.height=im.height*k;cv2.getContext('2d').drawImage(im,0,0,cv2.width,cv2.height);ok(cv2.toDataURL('image/jpeg',.85))};im.onerror=()=>ok(null);im.src=r.result};r.onerror=()=>ok(null);r.readAsDataURL(f)});
   const needTxt=()=>{const ne=document.getElementById('ineed');if(ne)ne.innerHTML='Para el informe '+(document.getElementById('ipe').value==='mes'?'mensual':'semanal')+' necesito capturas de Instagram Insights '+periodRange(document.getElementById('ipe').value)+':'};
@@ -513,8 +553,17 @@ function wireTools(st){
     w.document.open();w.document.write(docs[0].slice(0,docs[0].indexOf('<body>')+6)+'<div class="bar"><button onclick="print()">Guardar como PDF</button></div>'+docs.map(body).join('')+'</body></html>');w.document.close();
     res.innerHTML=`<div class="sub">${clients.length} informes ${per==='mes'?'mensuales':'semanales'} (uno por cliente) abiertos en otra pestaña. Solo llevan la producción: para añadir Instagram, pide cada cliente por separado.</div>`;
   };
+  const makeGuion=cl=>{
+    if(!cl){res.innerHTML='<div class="sub">¿Para qué cliente? Escribe su nombre, por ejemplo «guion para '+esc((clients[0]||{}).name||'')+'».</div>';return}
+    document.getElementById('gcl').value=cl.id;
+    const v=id=>document.getElementById(id).value.trim();
+    show(guionPrompt(cl,{of:v('gof'),lo:v('glo'),kw:v('gkw'),fm:v('gfm')}),260);
+    res.insertAdjacentHTML('afterbegin',`<div class="sub" style="margin-bottom:6px">Copia esto y pégalo en ChatGPT o Claude con tu documento de guiones virales.${v('gof')&&v('glo')&&v('gkw')?'':' Si rellenas oferta, lugar y palabra clave sale más afinado.'}</div>`);
+  };
+  const gg=document.getElementById('ggo');if(gg)gg.onclick=()=>makeGuion(clients.find(x=>String(x.id)===document.getElementById('gcl').value));
   go.onclick=()=>{
     const t=req.value,cl=find(t);dispatch(st,cl);
+    if(st.role==='guion'){makeGuion(cl||clients.find(x=>String(x.id)===document.getElementById('gcl').value));return}
     if(st.role==='informes'){
       const per=/mes|mensual/i.test(t)?'mes':'semana';document.getElementById('ipe').value=per;needTxt();
       if(/todos|cada cliente|por cliente/i.test(norm(t))){makeAll(per);return}
