@@ -160,7 +160,7 @@ function buildStaff(){
   const iso0=d=>d.toISOString().slice(0,10),t0=iso0(new Date()),t7=iso0(new Date(Date.now()+7*864e5)),t30=iso0(new Date(Date.now()+30*864e5)),t14=iso0(new Date(Date.now()-14*864e5));
   const fmt=d=>d.slice(8)+'/'+d.slice(5,7);
   const post=(role,name)=>m[skey(role,name)]=m[skey(role,name)]||{role,name,queue:[],done:0,clients:new Set()};
-  const pub=post('pub','Publicaciones'),cta=post('cuentas','Cuentas'),gui=post('guion','Guiones');post('informes','Informes');
+  const pub=post('pub','Don Calendario'),cta=post('cuentas','Controlador de cuentas'),gui=post('guion','El Guionista');post('informes','Los Señores del Informe');
   clients.forEach(c=>{
     Object.entries(c.pubCal||{}).forEach(([mk,byReel])=>Object.entries(byReel||{}).forEach(([rid,pd])=>{
       const reel=(Array.isArray(c.reels)?c.reels:((c.reels||{})[mk]||[])).find(r=>String(r.id)===String(rid));
@@ -247,11 +247,12 @@ let walkers=[],lastTs=0;
 const homeOf=h=>({x:h.x+h.s/2-.45,y:h.y+1.78});
 /* Pasean solos (es solo movimiento), pero el TRABAJO —informes, listas— solo lo hacen cuando se lo pides. */
 const auto=true;
-function buildWalkers(){walkers=houses.map(h=>{const p=homeOf(h);return{h,st:h.staff,x:p.x,y:p.y,tx:p.x,ty:p.y,state:'sit',t:Math.random()*3,col:null,req:null}})}
-function dispatch(st,cl){const w=walkers.find(x=>x.st===st);if(w&&w.state==='sit')w.req={cl}} // la petición pone en marcha al trabajador
+function buildWalkers(){walkers=houses.flatMap(h=>{const n=h.staff.role==='informes'?2:1; // «los señores»: son dos
+  return Array.from({length:n},(_,k)=>{const p=homeOf(h);if(n>1)p.x+=k?.5:-.2;return{h,st:h.staff,home:p,x:p.x,y:p.y,tx:p.x,ty:p.y,state:'sit',t:Math.random()*3+k,col:null,req:null,tint:k?'#94a3b8':null}})})}
+function dispatch(st,cl){walkers.filter(x=>x.st===st&&x.state==='sit').forEach(w=>w.req={cl})} // la petición pone en marcha al trabajador
 function stepWalkers(dt){
   walkers.forEach(w=>{
-    const home=homeOf(w.h);
+    const home=w.home;
     if(w.state==='sit'||w.state==='work'){
       w.t+=dt;
       if(w.state==='sit'&&((w.req&&w.t>.3)||(auto&&w.st.queue.length&&w.t>2.5))){
@@ -264,15 +265,101 @@ function stepWalkers(dt){
     if(d<=step){w.x=w.tx;w.y=w.ty;w.t=0;if(w.state==='go')w.state='work';else{w.state='sit';w.req=null}}else{w.x+=dx/d*step;w.y+=dy/d*step}
   });
 }
+/* ---- fondo: puerto de Mallorca (Serra de Tramuntana, Palma con La Seu, mar y veleros) ---- */
+function drawBackdrop(ts){
+  const hz=Math.round(H*.36),s=Math.max(.6,Math.min(1.5,W/1100));
+  let g=cx.createLinearGradient(0,0,0,hz);g.addColorStop(0,'#4fb3e6');g.addColorStop(1,'#dff3fb');cx.fillStyle=g;cx.fillRect(0,0,W,hz);
+  cx.fillStyle='#fff6c9';cx.beginPath();cx.arc(W*.84,hz*.36,24*s,0,7);cx.fill();
+  cx.fillStyle='#8fb5b3';cx.beginPath();cx.moveTo(0,hz);for(let x=0;x<=W+20;x+=20)cx.lineTo(x,hz-(30+24*Math.sin(x*.011)+14*Math.sin(x*.029+1))*s);cx.lineTo(W,hz);cx.fill();
+  cx.fillStyle='#e6c99a';for(let x=W*.04;x<W*.62;x+=13*s){const h=(10+9*Math.abs(Math.sin(x*.37)))*s;cx.fillRect(x,hz-h,11*s,h)} // casas de Palma
+  const cxk=W*.30,u=s; // La Seu: cuerpo, dos torres, rosetón y contrafuertes
+  cx.fillStyle='#d6ac72';cx.fillRect(cxk-48*u,hz-42*u,96*u,42*u);cx.fillRect(cxk-52*u,hz-66*u,18*u,66*u);cx.fillRect(cxk+34*u,hz-66*u,18*u,66*u);
+  cx.beginPath();cx.moveTo(cxk-52*u,hz-66*u);cx.lineTo(cxk-43*u,hz-80*u);cx.lineTo(cxk-34*u,hz-66*u);cx.fill();cx.beginPath();cx.moveTo(cxk+34*u,hz-66*u);cx.lineTo(cxk+43*u,hz-80*u);cx.lineTo(cxk+52*u,hz-66*u);cx.fill();
+  cx.fillStyle='#b98b55';for(let i=-3;i<=3;i++)cx.fillRect(cxk+i*12*u-2*u,hz-36*u,4*u,36*u);
+  cx.fillStyle='#f1dcb3';cx.beginPath();cx.arc(cxk,hz-28*u,9*u,0,7);cx.fill();
+  g=cx.createLinearGradient(0,hz,0,H);g.addColorStop(0,'#46cbd6');g.addColorStop(1,'#12829f');cx.fillStyle=g;cx.fillRect(0,hz,W,H-hz);
+  cx.strokeStyle='#ffffff55';cx.lineWidth=1.5;
+  for(let i=0;i<16;i++){const y=hz+10+i*(H-hz)/16,off=(ts/45+i*37)%90;cx.beginPath();for(let x=-90+off;x<W;x+=90){cx.moveTo(x,y);cx.quadraticCurveTo(x+22,y-3,x+45,y)}cx.stroke()}
+  [[.10,.52,1,1],[.88,.62,.85,-1],[.06,.86,.9,1],[.93,.9,.75,-1]].forEach(([bx,by,sc,dir],i)=>{ // veleros
+    const x=((bx+dir*ts/150000+i*.2)%1.2+1.2)%1.2*W-.1*W,y=hz+by*(H-hz)*.9+Math.sin(ts/700+i)*2,k=sc*s;
+    cx.fillStyle='#fff';cx.beginPath();cx.moveTo(x,y-34*k);cx.lineTo(x+16*k,y-4*k);cx.lineTo(x,y-4*k);cx.fill();cx.beginPath();cx.moveTo(x-2*k,y-28*k);cx.lineTo(x-2*k,y-4*k);cx.lineTo(x-14*k,y-4*k);cx.fill();
+    cx.fillStyle='#1e3a5f';cx.beginPath();cx.moveTo(x-18*k,y-3*k);cx.lineTo(x+20*k,y-3*k);cx.lineTo(x+14*k,y+5*k);cx.lineTo(x-12*k,y+5*k);cx.fill();
+  });
+}
+function palm(wx,wy){
+  const s=cam.z,a=iso(wx,wy,0),b=iso(wx+.1,wy+.1,46);
+  cx.strokeStyle='#7a5230';cx.lineWidth=4*s;cx.beginPath();cx.moveTo(a.X,a.Y);cx.quadraticCurveTo(a.X+6*s,(a.Y+b.Y)/2,b.X,b.Y);cx.stroke();
+  cx.strokeStyle='#2f9e44';cx.lineWidth=3*s;for(let i=0;i<7;i++){const an=i/7*Math.PI*2;cx.beginPath();cx.moveTo(b.X,b.Y);cx.quadraticCurveTo(b.X+Math.cos(an)*14*s,b.Y-8*s+Math.sin(an)*4*s,b.X+Math.cos(an)*24*s,b.Y+8*s+Math.sin(an)*8*s);cx.stroke()}
+}
+/* ---- fachadas por negocio (Akijapo, Kraken y Tokachi copiados de las imágenes de Google; el resto, por tipo) ---- */
+const normTxt=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+function facadeOf(c){
+  const t=normTxt((c.type||'')+' '+(c.name||'')),has=r=>r.test(t);
+  if(has(/akijapo|aki japo/))return{wall:'#e0245e',roof:'#a3123f',awn:['#ffffff','#e0245e'],door:'#2b2b33',glass:'#fbcfe0',text:'#fff',icon:'onigiri'};
+  if(has(/kraken/))return{wall:'#14423f',roof:'#0a2927',awn:['#e8c46a','#14423f'],door:'#0a2927',glass:'#5eead4',text:'#e8c46a',neon:'#5eead4',icon:'fish'};
+  if(has(/tentation|tokachi/))return{wall:'#1d1d20',roof:'#0b0b0d',awn:['#1d1d20','#9a6b3a'],door:'#9a6b3a',glass:'#ffd9a0',text:'#fff',icon:'bowl'};
+  if(has(/realidad virtual|latency/))return{wall:'#23262f',roof:'#0d0820',awn:['#22d3ee','#a78bfa'],door:'#0d0820',glass:'#67e8f9',text:'#22d3ee',neon:'#e879f9',icon:'vr'}; // Zero Latency: nave industrial con neón
+  if(has(/podcast/))return{wall:'#0b0d10',roof:'#000',awn:['#00e5e5','#0b0d10'],door:'#1f2937',glass:'#00e5e5',text:'#00e5e5',neon:'#00e5e5',icon:'mic'};
+  if(has(/cafeteria|moka|storti/))return{wall:'#7a1f2b',roof:'#4a2f1d',awn:['#f5e6c8','#7a1f2b'],door:'#6b4423',glass:'#fde8c8',text:'#f5e6c8',icon:'cup'}; // Storti Café: granate y madera
+  if(has(/obsidian/))return{wall:'#17171a',roof:'#050506',awn:['#fb923c','#17171a'],door:'#2a2a2e',glass:'#fed7aa',text:'#fb923c',neon:'#fb923c',icon:'flame'};
+  if(has(/dumpling/))return{wall:'#b91c1c',roof:'#7f1212',awn:['#fde68a','#b91c1c'],door:'#7f1212',glass:'#fde68a',text:'#fde68a',icon:'dumpling'};
+  if(has(/musica|gintonic/))return{wall:'#111827',roof:'#030712',awn:['#f472b6','#111827'],door:'#374151',glass:'#f9a8d4',text:'#f472b6',neon:'#f472b6',icon:'note'};
+  if(has(/koreano|obsidian/))return{wall:'#0f4c5c',roof:'#083540',awn:['#fb7185','#0f4c5c'],door:'#083540',glass:'#a5f3fc',text:'#fda4af',icon:'bowl'};
+  if(has(/tapas|local n2/))return{wall:'#c2410c',roof:'#7c2d12',awn:['#16a34a','#fef3c7'],door:'#7c2d12',glass:'#fef3c7',text:'#fef3c7',icon:'plate'};
+  if(has(/hamburgues/))return{wall:'#ea580c',roof:'#9a3412',awn:['#fde047','#dc2626'],door:'#7c2d12',glass:'#fef08a',text:'#fff',icon:'burger'};
+  if(has(/deportivo|origin/))return{wall:'#15803d',roof:'#14532d',awn:['#facc15','#15803d'],door:'#14532d',glass:'#bbf7d0',text:'#facc15',icon:'dumbbell'};
+  if(has(/tatu/))return{wall:'#18181b',roof:'#09090b',awn:['#ef4444','#18181b'],door:'#3f3f46',glass:'#fecaca',text:'#ef4444',neon:'#ef4444',icon:'needle'};
+  if(has(/barcos|charter|yacht/))return{wall:'#f1f5f9',roof:'#0369a1',awn:['#0369a1','#f1f5f9'],door:'#0369a1',glass:'#bae6fd',text:'#0369a1',icon:'boat'};
+  if(has(/restaurante|seven twelve|shu hero/))return{wall:'#d97706',roof:'#92400e',awn:['#fef3c7','#d97706'],door:'#92400e',glass:'#fef3c7',text:'#fff',icon:'plate'};
+  if(has(/marca personal|ia - mp|coach|trader/))return{wall:'#475569',roof:'#1e293b',awn:['#38bdf8','#475569'],door:'#1e293b',glass:'#bae6fd',text:'#38bdf8',icon:'chart'};
+  return{wall:'#64748b',roof:'#334155',awn:['#e2e8f0','#64748b'],door:'#334155',glass:'#e2e8f0',text:'#fff',icon:'plate'};
+}
+function emblem(k,X,Y,s){
+  cx.save();cx.translate(X,Y);cx.scale(s,s);
+  const f=c=>cx.fillStyle=c,circ=(x,y,r)=>{cx.beginPath();cx.arc(x,y,r,0,7);cx.fill()};
+  if(k==='onigiri'){f('#fff');cx.beginPath();cx.moveTo(0,-17);cx.lineTo(12,2);cx.quadraticCurveTo(0,7,-12,2);cx.closePath();cx.fill();f('#1f2937');cx.fillRect(-5,-3,10,8)}
+  else if(k==='flame'){f('#fb923c');cx.beginPath();cx.moveTo(0,-22);cx.quadraticCurveTo(12,-10,8,-2);cx.quadraticCurveTo(0,4,-8,-2);cx.quadraticCurveTo(-10,-12,0,-22);cx.fill();f('#fff7ed');cx.beginPath();cx.moveTo(0,-12);cx.quadraticCurveTo(5,-6,2,-2);cx.quadraticCurveTo(-3,-2,0,-12);cx.fill()}
+  else if(k==='fish'){f('#5eead4');cx.beginPath();cx.ellipse(0,-7,11,5,0,0,7);cx.fill();cx.beginPath();cx.moveTo(10,-7);cx.lineTo(18,-13);cx.lineTo(18,-1);cx.fill();f('#0a2927');circ(-5,-8,1.6)}
+  else if(k==='bowl'){f('#f8fafc');cx.beginPath();cx.arc(0,-9,11,0,Math.PI);cx.fill();f('#f87171');circ(-4,-10,3);f('#4ade80');circ(4,-10,3);f('#facc15');circ(0,-12,2.4)}
+  else if(k==='vr'){f('#22d3ee');cx.fillRect(-13,-14,26,11);f('#0d0820');cx.fillRect(-10,-12,20,7);f('#a78bfa');cx.fillRect(-14,-11,2,5);cx.fillRect(12,-11,2,5)}
+  else if(k==='mic'){f('#ef4444');circ(0,-14,4);f('#e5e7eb');circ(0,-8,6);cx.fillRect(-1,-3,2,8);cx.fillRect(-5,5,10,2)}
+  else if(k==='cup'){f('#fff');cx.fillRect(-8,-12,14,11);cx.strokeStyle='#fff';cx.lineWidth=2;cx.beginPath();cx.arc(8,-7,4,-1.4,1.4);cx.stroke();cx.strokeStyle='#ffffff99';cx.beginPath();cx.moveTo(-3,-15);cx.quadraticCurveTo(0,-19,-3,-23);cx.stroke()}
+  else if(k==='dumpling'){f('#fff7e0');cx.beginPath();cx.arc(0,-3,11,Math.PI,0);cx.closePath();cx.fill();cx.strokeStyle='#d6b98a';cx.lineWidth=1.2;for(let i=-3;i<=3;i++){cx.beginPath();cx.moveTo(i*3,-14);cx.lineTo(i*3,-8);cx.stroke()}}
+  else if(k==='note'){f('#f472b6');circ(-3,-4,4.5);cx.fillRect(0,-20,2.4,17);cx.beginPath();cx.moveTo(2.4,-20);cx.lineTo(10,-16);cx.lineTo(2.4,-14);cx.fill()}
+  else if(k==='burger'){f('#d97706');cx.beginPath();cx.arc(0,-8,11,Math.PI,0);cx.fill();f('#5b2a14');cx.fillRect(-11,-8,22,4);f('#4ade80');cx.fillRect(-11,-4,22,2);f('#d97706');cx.fillRect(-11,-2,22,4)}
+  else if(k==='dumbbell'){f('#e5e7eb');cx.fillRect(-14,-14,5,12);cx.fillRect(9,-14,5,12);cx.fillRect(-9,-10,18,4)}
+  else if(k==='needle'){cx.strokeStyle='#ef4444';cx.lineWidth=2.4;cx.beginPath();cx.moveTo(-10,-2);cx.lineTo(10,-18);cx.stroke();f('#ef4444');circ(-11,-1,3)}
+  else if(k==='boat'){f('#fff');cx.beginPath();cx.moveTo(0,-24);cx.lineTo(11,-6);cx.lineTo(0,-6);cx.fill();f('#0369a1');cx.beginPath();cx.moveTo(-13,-5);cx.lineTo(14,-5);cx.lineTo(9,2);cx.lineTo(-9,2);cx.fill()}
+  else if(k==='chart'){f('#38bdf8');cx.fillRect(-12,-8,5,8);cx.fillRect(-4,-14,5,14);cx.fillRect(4,-20,5,20)}
+  else {f('#fff');circ(0,-9,10);f('#e5e7eb');circ(0,-9,6.5);f('#ef4444');circ(0,-9,2.5)}
+  cx.restore();
+}
+function drawClientHouse(is,F,ts,pulse){
+  const bx=is.x+.35,by=is.y+.3,bw=is.s-.7,bh=1.65,H0=34,s=cam.z;
+  box(bx,by,bw,bh,H0,F.roof,F.wall,H0);
+  box(bx-.15,by-.15,bw+.3,bh+.3,H0+6,F.roof,shade(F.roof.length===7?F.roof:'#222222',-30),6);
+  const A=iso(bx,by+bh,H0),B=iso(bx+bw,by+bh,H0),k=H0*s,fpx=B.X-A.X,sl=(B.Y-A.Y)/fpx;
+  const fp=(u,v)=>({X:A.X+fpx*u,Y:A.Y+(B.Y-A.Y)*u+v*k});
+  const quad=(u0,u1,v0,v1,col)=>{cx.fillStyle=col;cx.beginPath();[[u0,v0],[u1,v0],[u1,v1],[u0,v1]].forEach(([u,v],i)=>{const p=fp(u,v);i?cx.lineTo(p.X,p.Y):cx.moveTo(p.X,p.Y)});cx.closePath();cx.fill()};
+  quad(0,1,0,.2,'rgba(0,0,0,.38)'); // rótulo con el nombre del negocio
+  cx.save();cx.transform(1,sl,0,1,A.X,A.Y+.105*k);cx.textAlign='center';cx.textBaseline='middle';
+  let fs=.15*k;cx.font=`800 ${fs}px system-ui`;const nm=String(is.c.name).toUpperCase(),tw=cx.measureText(nm).width;if(tw>fpx*.92){fs*=fpx*.92/tw;cx.font=`800 ${fs}px system-ui`}
+  if(F.neon){cx.shadowColor=F.neon;cx.shadowBlur=8*s}cx.fillStyle=F.text;cx.fillText(nm,fpx/2,0);cx.restore();
+  const n=7;for(let i=0;i<n;i++)quad(.04+i*.92/n,.04+(i+1)*.92/n,.22,.36,F.awn[i%2]); // toldo a rayas
+  quad(.40,.60,.48,1,F.door);quad(.08,.32,.5,.82,F.glass);quad(.68,.92,.5,.82,F.glass);
+  if(F.neon){cx.save();cx.shadowColor=F.neon;cx.shadowBlur=10*s;quad(.02,.98,.19,.205,F.neon);cx.restore()}
+  const e=iso(bx+bw/2,by+bh*.45,H0+8+pulse*.4);emblem(F.icon,e.X,e.Y,s*.9);
+}
 function paint(ts){
   const dt=Math.min(.1,Math.max(0,(ts-lastTs)/1000));lastTs=ts;stepWalkers(dt);
   cx.clearRect(0,0,W,H);
-  const g=cx.createRadialGradient(W/2,H/2,40,W/2,H/2,Math.max(W,H)*.7);g.addColorStop(0,'#18222d');g.addColorStop(1,'#111418');cx.fillStyle=g;cx.fillRect(0,0,W,H);
-  const pad=1.2;box(-pad,-pad,maxX+pad*2-1.6,maxY+pad*2-1.6,0,'#17212b','#0f161d',10);
+  drawBackdrop(ts);
+  const pad=1.2;box(-pad,-pad,maxX+pad*2-1.6,maxY+pad*2-1.6,0,'#dccba0','#a98f5b',10);
+  palm(-.7,-.7);palm(maxX/2,-.9);palm(maxX-1.2,-.7);palm(-.9,maxY/2);
   const sorted=[...islands,...houses].sort((a,b)=>(a.x+a.y+a.s)-(b.x+b.y+b.s));
   const drawWalkers=()=>walkers.forEach((w,i)=>{
     const moving=w.state==='go'||w.state==='back';
-    person(w.x,w.y,0,w.st.color,ts/1000*(moving?12:6)+i,moving||w.state==='work'||(w.state==='sit'&&w.st.queue.length>0),moodOf(w.st));
+    person(w.x,w.y,0,w.tint||w.st.color,ts/1000*(moving?12:6)+i,moving||w.state==='work'||(w.state==='sit'&&w.st.queue.length>0),moodOf(w.st));
     if(w.state==='go'&&w.col)box(w.x+.12,w.y-.1,.2,.2,14,w.col,'#222',6); // el reel que lleva
   });
   sorted.forEach(is=>{
@@ -280,18 +367,18 @@ function paint(ts){
     const ph=Math.max(0,Math.min(8,+is.c.phase||0)),col=PHC[ph],{rs,s}=stats(is.c);
     const pend=rs.length&&s.sub<rs.length, pulse=pend?(1+Math.sin(ts/500+is.x)*.5)*3:0;
     const act=(hover===is||selected===is);
-    box(is.x,is.y,is.s,is.s,0,act?shade(col,-60):shade(col,-110),shade(col,-150),14);
-    // reels como pantallas sobre la isla
-    const n=rs.length,perRow=Math.min(4,n||1);
+    box(is.x,is.y,is.s,is.s,0,act?'#fffbe8':'#f1e6c8','#bda77a',4); // parcela
+    drawClientHouse(is,facadeOf(is.c),ts,pulse);
+    // reels en el jardín (un cuadradito por reel, con su estado)
+    const n=rs.length,perRow=Math.min(5,n||1);
     rs.forEach((r,i)=>{
-      const cxI=i%perRow,cyI=Math.floor(i/perRow),sz=.55,gap=.15;
-      const x0=is.x+.35+cxI*(sz+gap),y0=is.y+.45+cyI*(sz+gap);
-      const st=reelState(r);box(x0,y0,sz,sz,14,REEL_COL[st],shade(REEL_COL[st].length==7?REEL_COL[st]:'#444444',-60),st==='sub'?9:5);
+      const cxI=i%perRow,cyI=Math.floor(i/perRow),sz=.3,gap=.1;
+      const x0=is.x+.4+cxI*(sz+gap),y0=is.y+2.28+cyI*(sz+gap),st=reelState(r);
+      box(x0,y0,sz,sz,st==='sub'?7:3,REEL_COL[st],shade(REEL_COL[st].length==7?REEL_COL[st]:'#444444',-60),st==='sub'?7:3);
     });
-    // el equipo de este cliente, con el color de su casita
-    const crew=[...(Array.isArray(is.c.editors)?is.c.editors.map(e=>skey('editor',e)):[]),...(is.c.cm?[skey('cm',is.c.cm)]:[])].map(k=>staffMap[k]).filter(Boolean);
-    pill(is.c.name,is.x+is.s/2,is.y+is.s/2,34+pulse,col,13);
-    pill(`${s.sub}/${rs.length} subidos`,is.x+is.s/2,is.y+is.s+.35,-2,'#8fa3b8',11);
+    box(is.x+is.s-.5,is.y+2.3,.1,.1,26,col,col,26); // bandera: fase del cliente
+    pill(is.c.name,is.x+is.s/2,is.y+1,70+pulse,col,13);
+    pill(`${s.sub}/${rs.length} subidos`,is.x+is.s/2,is.y+is.s+.35,-2,'#f4efe0',11);
     if(act){const p=iso(is.x+is.s/2,is.y+is.s/2,0);cx.strokeStyle='#fff';cx.lineWidth=2;cx.beginPath();cx.ellipse(p.X,p.Y+6*cam.z,is.s*TW/2*.8*cam.z,is.s*TH/2*.8*cam.z,0,0,7);cx.stroke()}
   });
   drawWalkers();
@@ -304,7 +391,7 @@ function hit(mx,my){
   const inPoly=(P)=>{let r=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const A=P[i],B=P[j];if((A.Y>my)!==(B.Y>my)&&mx<(B.X-A.X)*(my-A.Y)/(B.Y-A.Y)+A.X)r=!r}return r};
   [...islands,...houses].forEach(is=>{
     const foot=z=>[iso(is.x,is.y,z),iso(is.x+is.s,is.y,z),iso(is.x+is.s,is.y+is.s,z),iso(is.x,is.y+is.s,z)];
-    const inside=inPoly(foot(0))||(is.staff&&(inPoly(foot(34))||inPoly([...foot(0).slice(2),...foot(34).slice(0,2).reverse()])));
+    const inside=inPoly(foot(0))||inPoly(foot(40))||inPoly([...foot(0).slice(2),...foot(40).slice(0,2).reverse()]);
     if(inside&&(!best||(is.x+is.y)>(best.x+best.y)))best=is});
   return best;
 }
