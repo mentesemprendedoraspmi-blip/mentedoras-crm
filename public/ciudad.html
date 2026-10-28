@@ -140,6 +140,8 @@ const ROLE={
   cuentas:{icon:'📑',busy:'a vigilar',idle:'todo en orden',title:'Cuentas: contratos que vencen en 30 días, vencidos y entregas vencidas',q:'Casos a vigilar',d:'—'},
   guion:{icon:'✍',busy:'sin guion',idle:'al día',title:'Guiones: clientes pendientes de crear o aprobar el guion',q:'Clientes esperando guion',d:'Clientes ya con guion aprobado'},
   owner:{icon:'⭐',busy:'clientes con reels sin subir',idle:'todo al día',title:'Responsable de cuenta (presentador del podcast): sus clientes con reels aún sin subir',q:'Clientes con reels sin subir',d:'Clientes a su cargo'},
+  edpod:{icon:'🎙',busy:'encargos',idle:'a tu orden',title:'Editor del podcast: cortes del podcast de Mentedoras, cortes de reels y portadas',q:'Pídele cortes o portada abajo',d:'—'},
+  edcli:{icon:'🎞',busy:'encargos',idle:'a tu orden',title:'Editor de clientes: junta y monta los clips de cada cliente',q:'Pídele que junte clips de un cliente abajo',d:'—'},
   informes:{icon:'📊',busy:'por hacer',idle:'a tu orden',title:'Informes: genera el informe semanal o mensual de cualquier cliente',q:'Pídele un informe abajo',d:'—'}
 };
 const skey=(role,name)=>role+'|'+name;
@@ -160,7 +162,7 @@ function buildStaff(){
   const iso0=d=>d.toISOString().slice(0,10),t0=iso0(new Date()),t7=iso0(new Date(Date.now()+7*864e5)),t30=iso0(new Date(Date.now()+30*864e5)),t14=iso0(new Date(Date.now()-14*864e5));
   const fmt=d=>d.slice(8)+'/'+d.slice(5,7);
   const post=(role,name)=>m[skey(role,name)]=m[skey(role,name)]||{role,name,queue:[],done:0,clients:new Set()};
-  const pub=post('pub','Don Calendario'),cta=post('cuentas','Controlador de cuentas'),gui=post('guion','El Guionista');post('informes','Los Señores del Informe');
+  const pub=post('pub','Don Calendario'),cta=post('cuentas','Controlador de cuentas'),gui=post('guion','El Guionista');post('informes','Los Señores del Informe');post('edpod','El Cortapodcast');post('edcli','El Juntaclips');
   clients.forEach(c=>{
     Object.entries(c.pubCal||{}).forEach(([mk,byReel])=>Object.entries(byReel||{}).forEach(([rid,pd])=>{
       const reel=(Array.isArray(c.reels)?c.reels:((c.reels||{})[mk]||[])).find(r=>String(r.id)===String(rid));
@@ -177,7 +179,7 @@ function buildStaff(){
   });
   clients.forEach(c=>{if(!c.accountOwner)return;const o=post('owner',c.accountOwner),p=reelsOf(c).filter(r=>!r.subido).length;o.clients.add(c.id);o.done++;if(p)o.queue.push({c,note:p+' reel'+(p===1?'':'s')+' sin subir'})});
   pub.queue.sort((a,b)=>a.date.localeCompare(b.date));cta.queue.sort((a,b)=>a.date.localeCompare(b.date));
-  const ORD={owner:-1,editor:0,cm:1,pub:2,cuentas:3,guion:4,informes:5};
+  const ORD={owner:-1,editor:0,cm:1,pub:2,cuentas:3,guion:4,informes:5,edpod:6,edcli:7};
   const list=Object.values(m).sort((a,b)=>(ORD[a.role]-ORD[b.role])||a.name.localeCompare(b.name,'es'));
   list.forEach((s,i)=>s.color=PAL[i%PAL.length]);
   staffMap=m;return list;
@@ -439,7 +441,7 @@ function openStaff(h){
    `<h2 style="color:${st.color}">${esc(st.name)}</h2><div class="sub">${esc(R.title)}</div>
     <div class="row"><span>${esc(R.q)}</span><span>${st.queue.length}</span></div>
     ${R.d==='—'?'':`<div class="row"><span>${esc(R.d)}</span><span>${st.done}</span></div>`}
-    <div class="row"><span>Clientes implicados</span><span>${st.clients.size}</span></div>
+    ${st.clients.size?`<div class="row"><span>Clientes implicados</span><span>${st.clients.size}</span></div>`:''}
     ${st.stale?`<div class="row"><span>Con fecha antigua (+14 días) sin marcar como subidos</span><span>${st.stale}</span></div>`:''}
     <div class="sub" style="margin-top:14px">${detail?'Detalle':'En cola por cliente'}</div>
     ${Object.values(by).map(g=>`<div class="row"><span><a href="#" data-c="${esc(g.c.id)}" style="color:var(--cy);text-decoration:none">${esc(g.c.name)}</a>${g.notes.length?`<br><small style="color:var(--mut)">${g.notes.map(esc).join(' · ')}</small>`:''}</span><span>${g.notes.length?'':g.n}</span></div>`).join('')||'<div class="sub">Nada pendiente. 🎉</div>'}
@@ -468,6 +470,19 @@ function toolsHtml(st){
       ${SHOTS.map(([k,l,w])=>`<label style="display:block;font-size:13px;margin:6px 0 2px">📸 ${l}${w==='mes'?' <span style="color:var(--mut)">(solo mensual)</span>':''}</label><input type="file" id="sh-${k}" accept="image/*" multiple style="font-size:12px;width:100%">`).join('')}
       <button id="igo" style="${BTN};margin-top:10px;width:100%">Generar informe</button>`;
   }
+  if(st.role==='edpod'){
+    h+=`<input id="epf" style="${FLD};margin-top:8px" placeholder="Episodio: ruta o enlace del vídeo completo">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"><input id="epn" inputmode="numeric" value="5" style="${FLD}" placeholder="Nº de clips"><select id="epd" style="${FLD}"><option>30-45 s</option><option>45-60 s</option><option>hasta 90 s</option></select></div>
+      <input id="ept" style="${FLD};margin-top:6px" placeholder="Qué buscar / invitado / título del episodio">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px"><button id="epgo" style="${BTN}">Encargo de cortes</button><button id="epcv" style="${BTN}">Encargo de portada</button></div>`;
+  }
+  if(st.role==='edcli'){
+    h+=`<select id="ecl" style="${FLD};margin-top:8px">${clients.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select>
+      <input id="ecf" style="${FLD};margin-top:6px" placeholder="Carpeta con los brutos (ruta o enlace)">
+      <input id="eco" style="${FLD};margin-top:6px" placeholder="Orden de las tomas (opcional)">
+      <input id="ecg" style="${FLD};margin-top:6px" placeholder="Gancho: título que va arriba en amarillo">
+      <button id="ecgo" style="${BTN};margin-top:8px;width:100%">Preparar encargo de montaje</button>`;
+  }
   if(st.role==='guion'){
     h+=`<select id="gcl" style="${FLD};margin-top:8px">${clients.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select>
       <input id="gof" style="${FLD};margin-top:6px" placeholder="Oferta o dato clave (precio, qué incluye…)">
@@ -485,6 +500,35 @@ const HOOKS=[
   {re:/onigir|oniguir|japon/,t:'Comida japonesa',h:['«¿Sabías que en Japón esto es más popular que el sushi… y casi nadie aquí lo conoce?» (138,5 mil en TikTok)']},
   {re:/car wash|detailing|coche/,t:'Servicio / coches',h:['«Esto es lo que le pasa a tu coche si lo lavas con Fairy» (46,5 mil en TikTok)']}
 ];
+/* Encargos para el editor de vídeo (Claude Code abierto en video-editor): la página no edita vídeo, prepara la orden completa. */
+const ED_HEAD='Encargo para el editor de vídeo (pégalo en Claude Code abierto en C:\\Users\\ADRIAN\\video-editor)\n\n';
+function encargoCortes(f){
+  return ED_HEAD+`Quiero cortes del podcast de Mentedoras.
+- Episodio: ${f.ep||'(te paso la ruta o el enlace)'}
+- Cuántos clips: ${f.n||5}, verticales 9:16
+- Duración: ${f.d}
+- Qué busco: ${f.t||'los momentos con más gancho y remate'}
+
+Usa la skill clipper: transcribe el episodio una sola vez, elige momentos autocontenidos con gancho y remate, escribe el clips-plan.json y enséñamelo ANTES de montar. Con los clips aprobados: reencuadre a la cara, título gancho amarillo arriba y subtítulos blancos palabra a palabra centrados. Exporta cada clip a Descargas.`;
+}
+function encargoPortada(f){
+  return ED_HEAD+`Quiero la portada de un episodio del podcast de Mentedoras.
+- Título del episodio / invitado: ${f.t||'(te lo digo)'}
+- Estilo: negro con MENTEDORAS en cian con brillo (#00E5E5), tipografía serif cursiva como la del CRM
+- Formatos: cuadrado 1080x1080 y vertical 1080x1920
+
+Hazla como una composición HTML (hyperframes) y renderiza las dos como PNG. Enséñame la propuesta antes de dar nada por cerrado.`;
+}
+function encargoMontaje(c,f){
+  const slug=normTxt(c.name).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  return ED_HEAD+`Quiero montar un vídeo de mi cliente ${c.name}${c.type?` (${c.type})`:''}.
+- Brutos: ${f.f||'(te paso la carpeta)'}
+- Orden de las tomas: ${f.o||'por orden de grabación, con las tomas gancho primero'}
+- Gancho (título amarillo arriba): ${f.g||'(propón uno)'}
+- Nombre del trabajo: ${slug}
+
+Usa edit-video con mi lane (Premiere): copia los brutos a projects/${slug}/raw sin tocar los originales, une las tomas en ese orden, quita silencios y muletillas (rough-cut), pon el título gancho en amarillo arriba y subtítulos blancos palabra a palabra centrados. Si hay capturas o b-roll, indícame dónde van. No exportes hasta que yo lo diga.`;
+}
 function guionPrompt(c,f){
   const t=normTxt((c.type||'')+' '+c.name),m=HOOKS.find(x=>x.re.test(t)),hooks=(m?m.h:HOOKS.flatMap(x=>x.h.slice(0,1)));
   return `Buenas, quiero hacer un guion para mi cliente ${c.name}${c.type?` (${c.type})`:''}. Para ello te dejo una serie de patrones y ejemplos de guiones que me han funcionado con otros clientes, para que puedas replicarlos o coger inspiración.
@@ -521,6 +565,8 @@ function needsOf(st){
   if(st.role==='cuentas'){const sin=clients.filter(c=>!c.contractEnd&&c.clientType!=='intercambio').map(c=>c.name);if(sin.length)out.push('Fecha de fin de contrato de: '+sin.join(', '))}
   if(st.role==='guion'){out.push('Para cada guion: la oferta o precio, dónde está el negocio y la palabra clave del descuento (campos de abajo)');const sin=clients.filter(c=>(+c.phase||0)===0).length;if(sin)out.push(sin+' clientes aún sin guion: dime a cuáles priorizar')}
   if(st.role==='informes')out.push('Capturas de Instagram Insights (abajo), o escribe las cifras a mano');
+  if(st.role==='edpod')out.push('El vídeo completo del episodio (ruta o enlace) y qué temas o momentos quieres');
+  if(st.role==='edcli')out.push('La carpeta de brutos del cliente, el orden de las tomas y el gancho');
   return out;
 }
 function wireTools(st){
@@ -560,9 +606,19 @@ function wireTools(st){
     show(guionPrompt(cl,{of:v('gof'),lo:v('glo'),kw:v('gkw'),fm:v('gfm')}),260);
     res.insertAdjacentHTML('afterbegin',`<div class="sub" style="margin-bottom:6px">Copia esto y pégalo en ChatGPT o Claude con tu documento de guiones virales.${v('gof')&&v('glo')&&v('gkw')?'':' Si rellenas oferta, lugar y palabra clave sale más afinado.'}</div>`);
   };
+  const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
+  const walkTo=cl=>{if(cl)dispatch(st,cl)};
+  const cortes=()=>{walkTo(clients.find(c=>/mentedoras/i.test(c.name)));show(encargoCortes({ep:val('epf'),n:val('epn'),d:val('epd'),t:val('ept')}),230)};
+  const portada=()=>{walkTo(clients.find(c=>/mentedoras/i.test(c.name)));show(encargoPortada({t:val('ept')}),200)};
+  const montaje=cl=>{if(!cl){res.innerHTML='<div class="sub">¿De qué cliente? Elige uno o escribe «junta los clips de '+esc((clients[0]||{}).name||'')+'».</div>';return}
+    document.getElementById('ecl').value=cl.id;walkTo(cl);show(encargoMontaje(cl,{f:val('ecf'),o:val('eco'),g:val('ecg')}),230)};
+  [['epgo',cortes],['epcv',portada]].forEach(([i,fn])=>{const b=document.getElementById(i);if(b)b.onclick=fn});
+  const ecg=document.getElementById('ecgo');if(ecg)ecg.onclick=()=>montaje(clients.find(x=>String(x.id)===document.getElementById('ecl').value));
   const gg=document.getElementById('ggo');if(gg)gg.onclick=()=>makeGuion(clients.find(x=>String(x.id)===document.getElementById('gcl').value));
   go.onclick=()=>{
     const t=req.value,cl=find(t);dispatch(st,cl);
+    if(st.role==='edpod'){/portada|caratula/i.test(normTxt(t))?portada():cortes();return}
+    if(st.role==='edcli'){montaje(cl||clients.find(x=>String(x.id)===document.getElementById('ecl').value));return}
     if(st.role==='guion'){makeGuion(cl||clients.find(x=>String(x.id)===document.getElementById('gcl').value));return}
     if(st.role==='informes'){
       const per=/mes|mensual/i.test(t)?'mes':'semana';document.getElementById('ipe').value=per;needTxt();
