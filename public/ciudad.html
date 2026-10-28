@@ -236,7 +236,6 @@ function drawHouse(h,ts){
   box(bx,by,bw,bh,26,shade(col,-95),shade(col,-135),26);
   box(bx-.2,by-.2,bw+.4,bh+.4,34,act?col:shade(col,-30),shade(col,-80),8);
   const px=h.x+h.s/2-.45,py=h.y+1.75;
-  if(!busy)person(px,py,0,col,t*6+h.x,false,moodOf(st)); // si tiene trabajo, sale a caminar (ver walkers)
   box(h.x+.5,h.y+1.8,1.0,.45,8,'#2a3a4b','#1b2733',8);
   box(h.x+.8,h.y+1.85,.4,.3,8.5,busy?'#00e5e5':'#3a4756','#1b2733',.5);
   st.queue.slice(0,9).forEach((q,i)=>box(h.x+1.7+(i%3)*.22,h.y+1.75+Math.floor(i/3)*.22,.18,.18,6,PHC[Math.max(0,Math.min(8,+q.c.phase||0))],'#222',6));
@@ -249,20 +248,23 @@ function drawHouse(h,ts){
 /* ---- caminantes: quien tiene trabajo sale con un reel a la isla del cliente, trabaja y vuelve ---- */
 let walkers=[],lastTs=0;
 const homeOf=h=>({x:h.x+h.s/2-.45,y:h.y+1.78});
-function buildWalkers(){walkers=houses.filter(h=>h.staff.queue.length).map(h=>{const p=homeOf(h);return{h,st:h.staff,x:p.x,y:p.y,tx:p.x,ty:p.y,state:'sit',t:Math.random()*3,col:null}})}
+/* Pasean solos (es solo movimiento), pero el TRABAJO —informes, listas— solo lo hacen cuando se lo pides. */
+const auto=true;
+function buildWalkers(){walkers=houses.map(h=>{const p=homeOf(h);return{h,st:h.staff,x:p.x,y:p.y,tx:p.x,ty:p.y,state:'sit',t:Math.random()*3,col:null,req:null}})}
+function dispatch(st,cl){const w=walkers.find(x=>x.st===st);if(w&&w.state==='sit')w.req={cl}} // la petición pone en marcha al trabajador
 function stepWalkers(dt){
   walkers.forEach(w=>{
     const home=homeOf(w.h);
     if(w.state==='sit'||w.state==='work'){
       w.t+=dt;
-      if(w.state==='sit'&&w.t>2.5){
-        const q=w.st.queue[Math.floor(Math.random()*w.st.queue.length)],is=islands.find(i=>i.c===q.c);
-        if(is){w.tx=is.x+is.s/2+(Math.random()-.5)*1.4;w.ty=is.y+is.s-.45;w.col=PHC[Math.max(0,Math.min(8,+q.c.phase||0))];w.state='go'}else w.t=0;
+      if(w.state==='sit'&&((w.req&&w.t>.3)||(auto&&w.st.queue.length&&w.t>2.5))){
+        const q=w.st.queue[Math.floor(Math.random()*w.st.queue.length)],cl=(w.req&&w.req.cl)||(q&&q.c)||clients.find(c=>w.st.clients.has(c.id)),is=cl&&islands.find(i=>i.c===cl);
+        if(is){w.tx=is.x+is.s/2+(Math.random()-.5)*1.4;w.ty=is.y+is.s-.45;w.col=PHC[Math.max(0,Math.min(8,+cl.phase||0))];w.state='go'}else{w.t=0;w.req=null}
       }else if(w.state==='work'&&w.t>3){w.tx=home.x;w.ty=home.y;w.state='back'}
       return;
     }
     const dx=w.tx-w.x,dy=w.ty-w.y,d=Math.hypot(dx,dy),step=1.7*dt;
-    if(d<=step){w.x=w.tx;w.y=w.ty;w.t=0;w.state=w.state==='go'?'work':'sit'}else{w.x+=dx/d*step;w.y+=dy/d*step}
+    if(d<=step){w.x=w.tx;w.y=w.ty;w.t=0;if(w.state==='go')w.state='work';else{w.state='sit';w.req=null}}else{w.x+=dx/d*step;w.y+=dy/d*step}
   });
 }
 function paint(ts){
@@ -273,7 +275,7 @@ function paint(ts){
   const sorted=[...islands,...houses].sort((a,b)=>(a.x+a.y+a.s)-(b.x+b.y+b.s));
   const drawWalkers=()=>walkers.forEach((w,i)=>{
     const moving=w.state==='go'||w.state==='back';
-    person(w.x,w.y,0,w.st.color,ts/1000*(moving?12:6)+i,moving||w.state==='work',moodOf(w.st));
+    person(w.x,w.y,0,w.st.color,ts/1000*(moving?12:6)+i,moving||w.state==='work'||(w.state==='sit'&&w.st.queue.length>0),moodOf(w.st));
     if(w.state==='go'&&w.col)box(w.x+.12,w.y-.1,.2,.2,14,w.col,'#222',6); // el reel que lleva
   });
   sorted.forEach(is=>{
@@ -402,7 +404,7 @@ function wireTools(st){
     res.innerHTML=`<div class="sub">${clients.length} informes ${per==='mes'?'mensuales':'semanales'} (uno por cliente) abiertos en otra pestaña. Solo llevan la producción: para añadir Instagram, pide cada cliente por separado.</div>`;
   };
   go.onclick=()=>{
-    const t=req.value,cl=find(t);
+    const t=req.value,cl=find(t);dispatch(st,cl);
     if(st.role==='informes'){
       const per=/mes|mensual/i.test(t)?'mes':'semana';document.getElementById('ipe').value=per;needTxt();
       if(/todos|cada cliente|por cliente/i.test(norm(t))){makeAll(per);return}
