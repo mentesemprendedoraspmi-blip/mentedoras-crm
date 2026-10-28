@@ -102,6 +102,8 @@ async function load(){
 }
 
 /* ---- helpers de cliente ---- */
+const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function monthLabel(k){const [y,m]=k.split('-');return MESES[+m-1]+' '+y}
 function monthKey(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
 const isActive=c=>c.active!==false; // misma regla que el CRM
 function reelsOf(c){ // reels del mes actual, como el panel del CRM
@@ -137,7 +139,8 @@ const ROLE={
   cm:{icon:'📱',busy:'para subir',idle:'al día',title:'Community manager',q:'Reels para subir (editados)',d:'Subidos este mes'},
   pub:{icon:'📅',busy:'a subir ≤7 días',idle:'al día',title:'Calendario de publicación: reels con fecha en los próximos 7 días o atrasados',q:'Reels por subir (≤7 días o atrasados)',d:'Reels ya subidos'},
   cuentas:{icon:'📑',busy:'a vigilar',idle:'todo en orden',title:'Cuentas: contratos que vencen en 30 días, vencidos y entregas vencidas',q:'Casos a vigilar',d:'—'},
-  guion:{icon:'✍',busy:'sin guion',idle:'al día',title:'Guiones: clientes pendientes de crear o aprobar el guion',q:'Clientes esperando guion',d:'Clientes ya con guion aprobado'}
+  guion:{icon:'✍',busy:'sin guion',idle:'al día',title:'Guiones: clientes pendientes de crear o aprobar el guion',q:'Clientes esperando guion',d:'Clientes ya con guion aprobado'},
+  informes:{icon:'📊',busy:'por hacer',idle:'a tu orden',title:'Informes: genera el informe semanal o mensual de cualquier cliente',q:'Pídele un informe abajo',d:'—'}
 };
 const skey=(role,name)=>role+'|'+name;
 function buildStaff(){
@@ -157,7 +160,7 @@ function buildStaff(){
   const iso0=d=>d.toISOString().slice(0,10),t0=iso0(new Date()),t7=iso0(new Date(Date.now()+7*864e5)),t30=iso0(new Date(Date.now()+30*864e5)),t14=iso0(new Date(Date.now()-14*864e5));
   const fmt=d=>d.slice(8)+'/'+d.slice(5,7);
   const post=(role,name)=>m[skey(role,name)]=m[skey(role,name)]||{role,name,queue:[],done:0,clients:new Set()};
-  const pub=post('pub','Publicaciones'),cta=post('cuentas','Cuentas'),gui=post('guion','Guiones');
+  const pub=post('pub','Publicaciones'),cta=post('cuentas','Cuentas'),gui=post('guion','Guiones');post('informes','Informes');
   clients.forEach(c=>{
     Object.entries(c.pubCal||{}).forEach(([mk,byReel])=>Object.entries(byReel||{}).forEach(([rid,pd])=>{
       const reel=(Array.isArray(c.reels)?c.reels:((c.reels||{})[mk]||[])).find(r=>String(r.id)===String(rid));
@@ -173,7 +176,7 @@ function buildStaff(){
     if(ph<=1){gui.queue.push({c,note:ph===0?'pendiente de crear guion':'pendiente de OK de guion'});gui.clients.add(c.id)}else gui.done++;
   });
   pub.queue.sort((a,b)=>a.date.localeCompare(b.date));cta.queue.sort((a,b)=>a.date.localeCompare(b.date));
-  const ORD={editor:0,cm:1,pub:2,cuentas:3,guion:4};
+  const ORD={editor:0,cm:1,pub:2,cuentas:3,guion:4,informes:5};
   const list=Object.values(m).sort((a,b)=>(ORD[a.role]-ORD[b.role])||a.name.localeCompare(b.name,'es'));
   list.forEach((s,i)=>s.color=PAL[i%PAL.length]);
   staffMap=m;return list;
@@ -292,8 +295,124 @@ function openStaff(h){
     ${st.stale?`<div class="row"><span>Con fecha antigua (+14 días) sin marcar como subidos</span><span>${st.stale}</span></div>`:''}
     <div class="sub" style="margin-top:14px">${detail?'Detalle':'En cola por cliente'}</div>
     ${Object.values(by).map(g=>`<div class="row"><span><a href="#" data-c="${esc(g.c.id)}" style="color:var(--cy);text-decoration:none">${esc(g.c.name)}</a>${g.notes.length?`<br><small style="color:var(--mut)">${g.notes.map(esc).join(' · ')}</small>`:''}</span><span>${g.notes.length?'':g.n}</span></div>`).join('')||'<div class="sub">Nada pendiente. 🎉</div>'}
+    ${needsOf(st).length?`<div class="box" style="background:#2a2410;border:1px solid #f59e0b;border-radius:10px;padding:10px;margin-top:14px;font-size:13px"><b style="color:#fcd34d">Necesito de ti</b>${needsOf(st).map(x=>`<div style="margin-top:4px">• ${esc(x)}</div>`).join('')}</div>`:''}
+    <div class="sub" style="margin:18px 0 6px">Pídele algo a ${esc(st.name)}</div>${toolsHtml(st)}
     <a class="btn" href="/">Abrir en el CRM</a>`;
   document.getElementById('panel').classList.add('open');
+  wireTools(st);
+}
+
+/* ---- peticiones: el trabajador hace el trabajo aquí mismo, con los datos del CRM ---- */
+const FLD='background:#0f151c;border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:7px 9px;font-size:13px;width:100%';
+const BTN='background:var(--cy);color:#00282a;font-weight:700;border:0;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer';
+function toolsHtml(st){
+  const hint=st.role==='informes'?'p. ej. «informe mensual de GINTONICS»':'p. ej. «qué tengo de '+esc((clients[0]||{}).name||'un cliente')+'» o déjalo vacío';
+  let h=`<div style="display:flex;gap:6px"><input id="req" style="${FLD}" placeholder="${hint}"><button id="reqgo" style="${BTN}">Pedir</button></div>`;
+  if(st.role==='informes'){
+    const ig=[['views','Visualizaciones'],['reach','Cuentas alcanzadas'],['inter','Interacciones'],['visits','Visitas al perfil'],['fol','Seguidores'],['newfol','Seguidores nuevos'],['clicks','Clics en la bio']];
+    h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+      <select id="icl" style="${FLD}">${clients.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select>
+      <select id="ipe" style="${FLD}"><option value="semana">Semanal</option><option value="mes">Mensual</option></select></div>
+      <details style="margin-top:8px"><summary style="cursor:pointer;color:var(--mut);font-size:13px">Cifras de Instagram (opcional)</summary>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">${ig.map(([k,l])=>`<input id="ig-${k}" inputmode="numeric" placeholder="${l}" style="${FLD}">`).join('')}</div>
+      <div class="sub" style="margin-top:6px">En el CRM no hay datos de Instagram: si no los escribes, el informe solo cuenta la producción.</div></details>
+      <div class="sub" id="ineed" style="margin:12px 0 4px"></div>
+      ${SHOTS.map(([k,l,w])=>`<label style="display:block;font-size:13px;margin:6px 0 2px">📸 ${l}${w==='mes'?' <span style="color:var(--mut)">(solo mensual)</span>':''}</label><input type="file" id="sh-${k}" accept="image/*" multiple style="font-size:12px;width:100%">`).join('')}
+      <button id="igo" style="${BTN};margin-top:10px;width:100%">Generar informe</button>`;
+  }
+  return h+`<div id="res" style="margin-top:10px"></div>`;
+}
+/* capturas que pide el trabajador de informes (las del anexo de tu informe de ejemplo) */
+const SHOTS=[['res','Resumen de Instagram Insights (visualizaciones, seguidores, interacciones)'],['diario','Gráfica de visualizaciones diarias','mes'],['top','Publicaciones con más visualizaciones'],['aud','Audiencia por género y edad','mes']];
+function periodRange(per){const f=d=>d.toLocaleDateString('es-ES',{day:'numeric',month:'long'}),b=new Date(Date.now()-(per==='mes'?30:7)*864e5);return `del ${f(b)} al ${f(new Date())}`}
+/* lo que el trabajador necesita de ti y no está en el CRM */
+function needsOf(st){
+  const mk=monthKey(),out=[];
+  if(st.role==='editor'||st.role==='cm'){const sin=clients.filter(c=>reelsOf(c).some(r=>r.grabado&&!r.editado&&!r.editor&&!(c.editors||[]).length)).map(c=>c.name);if(sin.length)out.push('Asignar editor a: '+sin.join(', '))}
+  if(st.role==='pub'){const sin=[];clients.forEach(c=>{const pc=(c.pubCal||{})[mk]||{};const n=reelsOf(c).filter(r=>r.editado&&!r.subido&&!(pc[r.id]&&(pc[r.id].pub||pc[r.id].tiktok||pc[r.id].youtube))).length;if(n)sin.push(c.name+' ('+n+')')});if(sin.length)out.push('Fecha de publicación de reels ya editados: '+sin.join(', '))}
+  if(st.role==='cuentas'){const sin=clients.filter(c=>!c.contractEnd&&c.clientType!=='intercambio').map(c=>c.name);if(sin.length)out.push('Fecha de fin de contrato de: '+sin.join(', '))}
+  if(st.role==='guion'){const sin=clients.filter(c=>(+c.phase||0)===0).length;if(sin)out.push(sin+' clientes aún sin guion: dime a cuáles priorizar y qué temas quieres')}
+  if(st.role==='informes')out.push('Capturas de Instagram Insights (abajo), o escribe las cifras a mano');
+  return out;
+}
+function wireTools(st){
+  const req=document.getElementById('req'),go=document.getElementById('reqgo'),res=document.getElementById('res');
+  const find=t=>{t=(t||'').toLowerCase();return clients.find(c=>t.includes(String(c.name).toLowerCase()))};
+  const text=cl=>{
+    const L=st.queue.filter(q=>!cl||q.c===cl).map(q=>'• '+q.c.name+(q.note?' — '+q.note:q.r?' — '+(q.r.label||'Reel'):''));
+    return ROLE[st.role].icon+' '+st.name+(cl?' · '+cl.name:'')+' — '+new Date().toLocaleDateString('es-ES')+'\n'+(L.length?L.join('\n'):'Nada pendiente 🎉');
+  };
+  const show=t=>{res.innerHTML=`<textarea readonly style="${FLD};height:130px">${esc(t)}</textarea><button id="cp" style="${BTN};margin-top:6px">Copiar</button>`;
+    document.getElementById('cp').onclick=()=>{const ta=res.querySelector('textarea');ta.select();try{navigator.clipboard.writeText(ta.value)}catch(e){document.execCommand('copy')}}};
+  const readImg=f=>new Promise(ok=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1400/im.width),cv2=document.createElement('canvas');cv2.width=im.width*k;cv2.height=im.height*k;cv2.getContext('2d').drawImage(im,0,0,cv2.width,cv2.height);ok(cv2.toDataURL('image/jpeg',.85))};im.onerror=()=>ok(null);im.src=r.result};r.onerror=()=>ok(null);r.readAsDataURL(f)});
+  const needTxt=()=>{const ne=document.getElementById('ineed');if(ne)ne.innerHTML='Para el informe '+(document.getElementById('ipe').value==='mes'?'mensual':'semanal')+' necesito capturas de Instagram Insights '+periodRange(document.getElementById('ipe').value)+':'};
+  if(st.role==='informes'){document.getElementById('ipe').onchange=needTxt;needTxt()}
+  const makeReport=async()=>{
+    const w=window.open('','_blank'); // se abre ya, antes de leer las imágenes, para que no lo bloquee el navegador
+    const c=clients.find(x=>String(x.id)===document.getElementById('icl').value),per=document.getElementById('ipe').value,ig={};
+    ['views','reach','inter','visits','fol','newfol','clicks'].forEach(k=>{const v=document.getElementById('ig-'+k).value.trim();if(v)ig[k]=v});
+    const shots=[];
+    for(const [k,l] of SHOTS){const inp=document.getElementById('sh-'+k),imgs=[];for(const f of (inp&&inp.files)||[]){const d=await readImg(f);if(d)imgs.push(d)}if(imgs.length)shots.push({l,imgs})}
+    const html=reportHtml(c,per,ig,shots);
+    if(!w){res.innerHTML='<div class="sub">El navegador bloqueó la ventana: permite ventanas emergentes y vuelve a pulsar.</div>';return}
+    w.document.open();w.document.write(html);w.document.close();
+    res.innerHTML=`<div class="sub">Informe ${per==='mes'?'mensual':'semanal'} de ${esc(c.name)} abierto en otra pestaña. Pulsa «Guardar como PDF» arriba a la derecha.${shots.length?'':' Sin capturas de Instagram: solo lleva la producción.'}</div>`;
+  };
+  go.onclick=()=>{
+    const t=req.value,cl=find(t);
+    if(st.role==='informes'){
+      if(!cl){res.innerHTML='<div class="sub">¿De qué cliente? Escribe su nombre, por ejemplo «informe semanal de '+esc((clients[0]||{}).name||'')+'».</div>';return}
+      document.getElementById('icl').value=cl.id;document.getElementById('ipe').value=/mes/i.test(t)?'mes':'semana';makeReport();return}
+    show(text(cl));
+  };
+  req.addEventListener('keydown',e=>{if(e.key==='Enter')go.click()});
+  const igo=document.getElementById('igo');if(igo)igo.onclick=makeReport;
+}
+function reportHtml(c,per,ig,shots=[]){
+  const M=per==='mes',now=new Date(),iso0=d=>d.toISOString().slice(0,10),t0=iso0(now),from=iso0(new Date(Date.now()-(M?30:7)*864e5)),to=iso0(new Date(Date.now()+(M?30:7)*864e5));
+  const fmt=d=>d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):'—',n=x=>Number(String(x).replace(/\./g,'').replace(',','.')),nf=x=>isFinite(n(x))?n(x).toLocaleString('es-ES'):esc(x);
+  const rs=reelsOf(c),inRange=d=>d&&d.slice(0,10)>=from&&d.slice(0,10)<=t0;
+  const done={grab:rs.filter(r=>M?r.grabado:inRange(r.fechaGrab)).length,env:rs.filter(r=>M?r.enviado:inRange(r.fechaEnviadoTS)).length,sub:rs.filter(r=>M?r.subido:inRange(r.fechaSubidoTS)).length};
+  const pend=rs.filter(r=>!r.subido).length;
+  const next=[];Object.entries(c.pubCal||{}).forEach(([mk,by])=>Object.entries(by||{}).forEach(([rid,pd])=>{
+    const r=(Array.isArray(c.reels)?c.reels:((c.reels||{})[mk]||[])).find(x=>String(x.id)===String(rid));if(!r||r.subido)return;
+    [['pub','Instagram'],['tiktok','TikTok'],['youtube','YouTube']].forEach(([k,l])=>{const d=pd&&pd[k];if(d&&d>=t0&&d<=to)next.push({d,l,label:r.label||'Reel'})})}));
+  next.sort((a,b)=>a.d.localeCompare(b.d));
+  const ph=Math.max(0,Math.min(8,+c.phase||0),0),name=esc(c.name),title=M?'Informe mensual':'Informe semanal',period=M?`Últimos 30 días · hasta el ${fmt(t0)}`:`Semana del ${fmt(from)} al ${fmt(t0)}`;
+  const card=(v,l,s,hi)=>`<div class="k${hi?' hi':''}"><small>${l}</small><b>${v}</b><span>${s||''}</span></div>`;
+  const igk=[['views','Visualizaciones','en el periodo'],['reach','Cuentas alcanzadas','personas distintas'],['inter','Interacciones','me gusta, comentarios, compartidos…'],['visits','Visitas al perfil','en el periodo'],['fol','Seguidores',ig.newfol?'+'+esc(ig.newfol)+' en el periodo':''],['clicks','Clics en la bio','']].filter(([k])=>ig[k]);
+  return `<!doctype html><html lang="es"><meta charset="utf-8"><title>${title} · ${name}</title><style>
+  @page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;font:14px/1.5 Inter,system-ui,Segoe UI,Arial,sans-serif;color:#15181d;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pg{width:210mm;min-height:297mm;padding:18mm 16mm;page-break-after:always;position:relative}
+  .cover{background:radial-gradient(circle at 85% 40%,#0b3a40 0,#0b0d10 55%);color:#fff;display:flex;flex-direction:column;justify-content:space-between}
+  .tag{letter-spacing:.3em;font-size:11px;color:#00cfe0;font-weight:700;text-transform:uppercase}
+  .cover h1{font-size:54px;letter-spacing:.08em;margin:8px 0;background:linear-gradient(#fff,#9aa3ad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .line{width:60px;height:3px;background:#00cfe0;margin:18px 0}.top{font-size:12px;letter-spacing:.2em;color:#aab}
+  .three{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.three div{border-top:2px solid #444;padding-top:8px}.three b{font-size:26px;display:block}.three span{font-size:12px;color:#99a}
+  h2{font-size:28px;margin:4px 0 6px}.sec{font-size:11px;letter-spacing:.2em;color:#00a9b8;font-weight:700;text-transform:uppercase}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}.k{background:#f1f2f4;border-radius:12px;padding:14px}.k small{display:block;color:#667}.k b{font-size:30px;display:block;line-height:1.2}.k span{font-size:12px;color:#667}
+  .k.hi{background:#00b8c8;color:#fff}.k.hi small,.k.hi span{color:#e6fcff}
+  .box{background:#e5f7f9;border-left:3px solid #00b8c8;border-radius:10px;padding:14px;margin:10px 0}.box.g{background:#f1f2f4;border:0}
+  table{width:100%;border-collapse:collapse;margin-top:10px}td,th{padding:8px 6px;border-bottom:1px solid #e3e5e8;text-align:left;font-size:13px}th{color:#667;font-weight:600}
+  .st{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;color:#fff}.foot{position:absolute;left:16mm;right:16mm;bottom:10mm;font-size:11px;color:#889}
+  .bar{position:fixed;top:0;right:0;padding:8px}.bar button{${BTN};}@media print{.bar{display:none}}
+  </style><body><div class="bar"><button onclick="print()">Guardar como PDF</button></div>
+  <div class="pg cover"><div class="top">Un informe de <b style="color:#00cfe0">MENTEDORAS</b></div>
+   <div><div class="tag">${title}</div><h1>${name.toUpperCase()}</h1><div>${esc(c.type||'')}</div><div class="line"></div><div style="color:#aab">${period}</div></div>
+   <div class="three"><div><b>${done.sub}</b><span>reels subidos</span></div><div><b>${done.grab}</b><span>reels grabados</span></div><div><b>${pend}</b><span>reels pendientes de subir</span></div></div></div>
+  <div class="pg"><div class="sec">Resumen</div><h2>${M?'El mes en cifras':'La semana en cifras'}</h2>
+   <p>${name} lleva ${done.sub} reel${done.sub===1?'':'s'} subido${done.sub===1?'':'s'} y ${done.grab} grabado${done.grab===1?'':'s'} en este periodo${rs.length?`; de los ${rs.length} reels de ${monthLabel(monthKey())}, quedan ${pend} por subir`:''}.</p>
+   <div class="grid">${card(done.sub,'Reels subidos',M?'este mes':'esta semana',1)}${card(done.grab,'Reels grabados',M?'este mes':'esta semana')}${card(done.env,'Enviados al cliente',M?'este mes':'esta semana')}${card(pend,'Pendientes de subir','del mes actual')}${card(esc(PHASES[ph]),'Fase actual','')}${card(next.length,'Próximas publicaciones','en los próximos '+(M?30:7)+' días')}</div>
+   ${igk.length?`<div class="sec" style="margin-top:22px">Instagram</div><div class="grid">${igk.map(([k,l,s],i)=>card(nf(ig[k]),l,s,i===0)).join('')}</div>`:`<div class="box g">Las cifras de Instagram (alcance, visualizaciones, seguidores) no están en el CRM. Añádelas al pedir el informe y aparecerán aquí.</div>`}
+   <div class="foot">${title} · por MENTEDORAS · ${period}</div></div>
+  <div class="pg"><div class="sec">Producción</div><h2>Reels de ${monthLabel(monthKey())}</h2>
+   <table><tr><th>Reel</th><th>Estado</th><th>Grabado</th><th>Subido</th></tr>${rs.map(r=>{const s=reelState(r),L={pend:'Pendiente',grab:'Grabado',edit:'Editado',sub:'Subido'}[s];return `<tr><td>${esc(r.label||'Reel')}</td><td><span class="st" style="background:${REEL_COL[s]}">${L}</span></td><td>${fmt(r.fechaGrab)}</td><td>${fmt((r.fechaSubidoTS||'').slice(0,10))}</td></tr>`}).join('')||'<tr><td colspan="4">Sin reels este mes.</td></tr>'}</table>
+   <div class="sec" style="margin-top:26px">Próximos pasos</div><h2>Lo que viene</h2>
+   ${next.length?`<table><tr><th>Fecha</th><th>Reel</th><th>Red</th></tr>${next.map(x=>`<tr><td>${fmt(x.d)}</td><td>${esc(x.label)}</td><td>${x.l}</td></tr>`).join('')}</table>`:'<div class="box g">No hay publicaciones programadas en el calendario para este periodo.</div>'}
+   <div class="foot">${title} · por MENTEDORAS · ${period}</div></div>
+  ${shots.length?`<div class="pg"><div class="sec">Anexo</div><h2>Los datos originales de Instagram</h2><p style="color:#667">Capturas de Instagram Insights, ${period}.</p>
+   ${shots.map(s=>`<div style="margin:12px 0"><b>${esc(s.l)}</b><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${s.imgs.map(i=>`<img src="${i}" style="max-width:${s.imgs.length>1?'48%':'60%'};max-height:110mm;border:1px solid #e3e5e8;border-radius:8px">`).join('')}</div></div>`).join('')}
+   <div class="foot">${title} · por MENTEDORAS · ${period}</div></div>`:''}</body></html>`;
 }
 document.getElementById('pbody').addEventListener('click',e=>{const a=e.target.closest('[data-c]');if(!a)return;e.preventDefault();const is=islands.find(i=>String(i.c.id)===a.dataset.c);if(is)openPanel(is)});
 function openPanel(is){
