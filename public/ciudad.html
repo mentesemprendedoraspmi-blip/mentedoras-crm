@@ -71,18 +71,21 @@ async function loadConfig(){
   const m=html.match(/const FIREBASE_CONFIG=(\{[^}]+\})/); if(!m) throw new Error('config no encontrada');
   return Function('return '+m[1])();
 }
+const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,ko)=>setTimeout(()=>ko(new Error('tiempo agotado')),ms))]);
 async function load(){
   try{
-    const cfg=await loadConfig();
-    await loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
-    await loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js');
-    if(!firebase.apps.length) firebase.initializeApp(cfg);
-    const db=firebase.firestore();
-    const snap=await db.collection('crm').doc('clients').get();
-    let list=snap.exists&&snap.data().list;
-    if(!list||!list.length){const q=await db.collection('client_docs').get();list=q.docs.map(d=>d.data())}
-    if(!list||!list.length) throw new Error('sin clientes');
-    clients=list;
+    clients=await withTimeout((async()=>{
+      const cfg=await loadConfig();
+      await loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
+      await loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js');
+      if(!firebase.apps.length) firebase.initializeApp(cfg);
+      const db=firebase.firestore();
+      const snap=await db.collection('crm').doc('clients').get();
+      let list=snap.exists&&snap.data().list;
+      if(!list||!list.length){const q=await db.collection('client_docs').get();list=q.docs.map(d=>d.data())}
+      if(!list||!list.length) throw new Error('sin clientes');
+      return list;
+    })(),12000);
   }catch(e){
     console.warn('Ciudad: usando datos de ejemplo →',e);
     demo=true;clients=DEMO;
@@ -137,9 +140,13 @@ function box(x,y,w,h,z,top,side,d){
 function pill(t,x,y,z,color,size){
   const p=iso(x,y,z);cx.font=`600 ${size*cam.z}px system-ui`;cx.textAlign='center';
   const w=cx.measureText(t).width+14*cam.z,h=20*cam.z;cx.fillStyle='#181f28ee';
-  cx.beginPath();cx.roundRect(p.X-w/2,p.Y-h*.75,w,h,7*cam.z);cx.fill();cx.fillStyle=color;cx.fillText(t,p.X,p.Y);
+  cx.beginPath();if(cx.roundRect)cx.roundRect(p.X-w/2,p.Y-h*.75,w,h,7*cam.z);else cx.rect(p.X-w/2,p.Y-h*.75,w,h);cx.fill();cx.fillStyle=color;cx.fillText(t,p.X,p.Y);
 }
 function draw(ts){
+  try{paint(ts)}catch(e){console.warn('Ciudad: error al dibujar',e)}
+  requestAnimationFrame(draw);
+}
+function paint(ts){
   cx.clearRect(0,0,W,H);
   const g=cx.createRadialGradient(W/2,H/2,40,W/2,H/2,Math.max(W,H)*.7);g.addColorStop(0,'#18222d');g.addColorStop(1,'#111418');cx.fillStyle=g;cx.fillRect(0,0,W,H);
   const pad=1.2;box(-pad,-pad,maxX+pad*2-1.6,maxY+pad*2-1.6,0,'#17212b','#0f161d',10);
@@ -160,7 +167,6 @@ function draw(ts){
     pill(`${s.sub}/${rs.length} subidos`,is.x+is.s/2,is.y+is.s+.35,-2,'#8fa3b8',11);
     if(act){const p=iso(is.x+is.s/2,is.y+is.s/2,0);cx.strokeStyle='#fff';cx.lineWidth=2;cx.beginPath();cx.ellipse(p.X,p.Y+6*cam.z,is.s*TW/2*.8*cam.z,is.s*TH/2*.8*cam.z,0,0,7);cx.stroke()}
   });
-  requestAnimationFrame(draw);
 }
 requestAnimationFrame(draw);
 
