@@ -46,6 +46,7 @@
   <span><i style="background:#f59e0b"></i>Grabado</span>
   <span><i style="background:#a855f7"></i>Editado</span>
   <span><i style="background:#00e5e5"></i>Subido</span>
+  <span><i style="background:#38bdf8;border-radius:50%"></i>Equipo (casita = su cola, color = su gente en cada isla)</span>
 </div>
 <script>
 /* Solo LECTURA: lee los clientes de tu Firebase (crm/clients). No escribe nada. */
@@ -119,6 +120,7 @@ function chips(){
    `<span class="chip"><span class="dot" style="background:#ef4444"></span>${overdue} entregas vencidas</span>`+
    `<span class="chip"><span class="dot" style="background:#a855f7"></span>${editing} reels en edición</span>`+
    `<span class="chip"><span class="dot" style="background:#f59e0b"></span>${grab}/${total} grabados este mes</span>`+
+   `<span class="chip"><span class="dot" style="background:#38bdf8"></span>${clients.reduce((n,c)=>n+reelsOf(c).filter(x=>x.grabado&&!x.editado).length,0)} esperando editor</span>`+
    `<a class="chip" href="/">← Volver al CRM</a>`;
 }
 
@@ -127,10 +129,34 @@ const cv=document.getElementById('c'),cx=cv.getContext('2d');
 const TW=64,TH=32; let W,H,dpr=Math.min(devicePixelRatio||1,2),cam={x:0,y:0,z:1,fit:1};
 let islands=[],hover=null,selected=null,minX=0,maxX=1,minY=0,maxY=1;
 const iso=(x,y,z=0)=>({X:cam.x+(x-y)*TW/2*cam.z,Y:cam.y+(x+y)*TH/2*cam.z-z*cam.z});
+/* ---- equipo: una casita por editor y por community manager, con sus reels en cola ---- */
+const PAL=['#38bdf8','#f472b6','#a3e635','#fb923c','#c084fc','#facc15','#2dd4bf','#f87171','#94a3b8','#60a5fa','#34d399','#fb7185'];
+const HS=2.4,HG=1.8; let houses=[],staffMap={};
+const skey=(role,name)=>role+'|'+name;
+function buildStaff(){
+  const m={};
+  const get=(role,name)=>m[skey(role,name)]||(m[skey(role,name)]={role,name,queue:[],done:0,clients:new Set()});
+  clients.forEach(c=>{
+    const eds=Array.isArray(c.editors)?c.editors:[];
+    eds.forEach(e=>get('editor',e).clients.add(c.id));
+    if(c.cm)get('cm',c.cm).clients.add(c.id);
+    reelsOf(c).forEach(r=>{
+      const e=r.editor||eds[0];
+      if(e){const S=get('editor',e);S.clients.add(c.id);if(r.grabado&&!r.editado)S.queue.push({c,r});if(r.editado)S.done++}
+      if(c.cm){const S=get('cm',c.cm);if(r.editado&&!r.subido)S.queue.push({c,r});if(r.subido)S.done++}
+    });
+  });
+  const list=Object.values(m).sort((a,b)=>(a.role===b.role?0:a.role==='editor'?-1:1)||a.name.localeCompare(b.name,'es'));
+  list.forEach((s,i)=>s.color=PAL[i%PAL.length]);
+  staffMap=m;return list;
+}
 function layout(){
   const n=clients.length,cols=Math.max(1,Math.ceil(Math.sqrt(n))),S=3,G=1.6;
   islands=clients.map((c,i)=>({c,x:(i%cols)*(S+G),y:Math.floor(i/cols)*(S+G),s:S}));
-  const rows=Math.ceil(n/cols);maxX=cols*(S+G);maxY=rows*(S+G);fit();
+  const rows=Math.ceil(n/cols),gw=cols*(S+G),gh=rows*(S+G);
+  const staff=buildStaff(),sx=gw+1.2;
+  houses=staff.map((st,i)=>({staff:st,x:sx+(i%2)*(HS+HG),y:Math.floor(i/2)*(HS+HG),s:HS}));
+  maxX=houses.length?sx+2*(HS+HG):gw;maxY=Math.max(gh,Math.ceil(houses.length/2)*(HS+HG));fit();
 }
 function fit(){
   W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0);
@@ -155,12 +181,36 @@ function draw(ts){
   try{paint(ts)}catch(e){console.warn('Ciudad: error al dibujar',e)}
   requestAnimationFrame(draw);
 }
+function person(x,y,z,color,t,working){
+  const s=cam.z,q=iso(x,y,z+(working?Math.sin(t)*1.2:0)),g=iso(x,y,z);
+  cx.fillStyle='#0006';cx.beginPath();cx.ellipse(g.X,g.Y+2*s,6*s,2.5*s,0,0,7);cx.fill();
+  cx.fillStyle=color;cx.beginPath();if(cx.roundRect)cx.roundRect(q.X-4.5*s,q.Y-13*s,9*s,13*s,3.5*s);else cx.rect(q.X-4.5*s,q.Y-13*s,9*s,13*s);cx.fill();
+  cx.fillStyle='#f1d4b8';cx.beginPath();cx.arc(q.X,q.Y-17.5*s,4.5*s,0,7);cx.fill();
+}
+function drawHouse(h,ts){
+  const st=h.staff,col=st.color,act=(hover===h||selected===h),busy=st.queue.length>0,t=ts/1000;
+  box(h.x,h.y,h.s,h.s,0,'#1d2a37','#121b24',6);
+  const bx=h.x+.35,by=h.y+.2,bw=h.s-.7,bh=1.4;
+  box(bx,by,bw,bh,26,shade(col,-95),shade(col,-135),26);
+  box(bx-.2,by-.2,bw+.4,bh+.4,34,act?col:shade(col,-30),shade(col,-80),8);
+  const px=h.x+h.s/2-.45,py=h.y+1.75;
+  person(px,py,0,col,t*6+h.x,busy);
+  box(h.x+.5,h.y+1.8,1.0,.45,8,'#2a3a4b','#1b2733',8);
+  box(h.x+.8,h.y+1.85,.4,.3,8.5,busy?'#00e5e5':'#3a4756','#1b2733',.5);
+  st.queue.slice(0,9).forEach((q,i)=>box(h.x+1.7+(i%3)*.22,h.y+1.75+Math.floor(i/3)*.22,.18,.18,6,PHC[Math.max(0,Math.min(8,+q.c.phase||0))],'#222',6));
+  pill(st.name,h.x+h.s/2,h.y+h.s/2,52,col,13);
+  const lab=st.role==='editor'?(busy?`${st.queue.length} para editar`:'sin cola'):(busy?`${st.queue.length} para subir`:'al día');
+  pill((st.role==='editor'?'✂ ':'📱 ')+lab,h.x+h.s/2,h.y+h.s+.3,-2,busy?'#fcd34d':'#8fa3b8',11);
+  if(!busy){const z=iso(px+.3,py,34);cx.fillStyle='#8fa3b8';cx.font=`700 ${12*cam.z}px system-ui`;cx.fillText('z Z',z.X,z.Y+Math.sin(t*2)*2)}
+  if(act){const p=iso(h.x+h.s/2,h.y+h.s/2,0);cx.strokeStyle='#fff';cx.lineWidth=2;cx.beginPath();cx.ellipse(p.X,p.Y+6*cam.z,h.s*TW/2*.8*cam.z,h.s*TH/2*.8*cam.z,0,0,7);cx.stroke()}
+}
 function paint(ts){
   cx.clearRect(0,0,W,H);
   const g=cx.createRadialGradient(W/2,H/2,40,W/2,H/2,Math.max(W,H)*.7);g.addColorStop(0,'#18222d');g.addColorStop(1,'#111418');cx.fillStyle=g;cx.fillRect(0,0,W,H);
   const pad=1.2;box(-pad,-pad,maxX+pad*2-1.6,maxY+pad*2-1.6,0,'#17212b','#0f161d',10);
-  const sorted=[...islands].sort((a,b)=>(a.x+a.y)-(b.x+b.y));
+  const sorted=[...islands,...houses].sort((a,b)=>(a.x+a.y+a.s)-(b.x+b.y+b.s));
   sorted.forEach(is=>{
+    if(is.staff){drawHouse(is,ts);return}
     const ph=Math.max(0,Math.min(8,+is.c.phase||0)),col=PHC[ph],{rs,s}=stats(is.c);
     const pend=rs.length&&s.sub<rs.length, pulse=pend?(1+Math.sin(ts/500+is.x)*.5)*3:0;
     const act=(hover===is||selected===is);
@@ -172,6 +222,9 @@ function paint(ts){
       const x0=is.x+.35+cxI*(sz+gap),y0=is.y+.45+cyI*(sz+gap);
       const st=reelState(r);box(x0,y0,sz,sz,14,REEL_COL[st],shade(REEL_COL[st].length==7?REEL_COL[st]:'#444444',-60),st==='sub'?9:5);
     });
+    // el equipo de este cliente, con el color de su casita
+    const crew=[...(Array.isArray(is.c.editors)?is.c.editors.map(e=>skey('editor',e)):[]),...(is.c.cm?[skey('cm',is.c.cm)]:[])].map(k=>staffMap[k]).filter(Boolean);
+    crew.forEach((st,k)=>person(is.x+.55+k*.65,is.y+is.s-.5,0,st.color,ts/1000*5+k+is.x,st.queue.some(q=>q.c===is.c)));
     pill(is.c.name,is.x+is.s/2,is.y+is.s/2,34+pulse,col,13);
     pill(`${s.sub}/${rs.length} subidos`,is.x+is.s/2,is.y+is.s+.35,-2,'#8fa3b8',11);
     if(act){const p=iso(is.x+is.s/2,is.y+is.s/2,0);cx.strokeStyle='#fff';cx.lineWidth=2;cx.beginPath();cx.ellipse(p.X,p.Y+6*cam.z,is.s*TW/2*.8*cam.z,is.s*TH/2*.8*cam.z,0,0,7);cx.stroke()}
@@ -182,8 +235,10 @@ requestAnimationFrame(draw);
 /* ---- interacción ---- */
 function hit(mx,my){
   let best=null;
-  islands.forEach(is=>{const a=iso(is.x,is.y),b=iso(is.x+is.s,is.y),c=iso(is.x+is.s,is.y+is.s),d=iso(is.x,is.y+is.s);
-    const inside=(()=>{const P=[a,b,c,d];let r=false;for(let i=0,j=3;i<4;j=i++){const A=P[i],B=P[j];if((A.Y>my)!==(B.Y>my)&&mx<(B.X-A.X)*(my-A.Y)/(B.Y-A.Y)+A.X)r=!r}return r})();
+  const inPoly=(P)=>{let r=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const A=P[i],B=P[j];if((A.Y>my)!==(B.Y>my)&&mx<(B.X-A.X)*(my-A.Y)/(B.Y-A.Y)+A.X)r=!r}return r};
+  [...islands,...houses].forEach(is=>{
+    const foot=z=>[iso(is.x,is.y,z),iso(is.x+is.s,is.y,z),iso(is.x+is.s,is.y+is.s,z),iso(is.x,is.y+is.s,z)];
+    const inside=inPoly(foot(0))||(is.staff&&(inPoly(foot(34))||inPoly([...foot(0).slice(2),...foot(34).slice(0,2).reverse()])));
     if(inside&&(!best||(is.x+is.y)>(best.x+best.y)))best=is});
   return best;
 }
@@ -198,7 +253,23 @@ cv.addEventListener('wheel',e=>{e.preventDefault();cam.z=Math.max(.3,Math.min(2.
 
 /* ---- ficha del cliente (solo lectura) ---- */
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function openStaff(h){
+  selected=h;const st=h.staff,by={};
+  st.queue.forEach(q=>{(by[q.c.id]=by[q.c.id]||{c:q.c,n:0}).n++});
+  const ed=st.role==='editor';
+  document.getElementById('pbody').innerHTML=
+   `<h2 style="color:${st.color}">${esc(st.name)}</h2><div class="sub">${ed?'Editor/a de vídeo':'Community manager'}</div>
+    <div class="row"><span>${ed?'Reels para editar (grabados)':'Reels para subir (editados)'}</span><span>${st.queue.length}</span></div>
+    <div class="row"><span>${ed?'Editados este mes':'Subidos este mes'}</span><span>${st.done}</span></div>
+    <div class="row"><span>Clientes que lleva</span><span>${st.clients.size}</span></div>
+    <div class="sub" style="margin-top:14px">En cola por cliente</div>
+    ${Object.values(by).map(g=>`<div class="row"><span><a href="#" data-c="${esc(g.c.id)}" style="color:var(--cy);text-decoration:none">${esc(g.c.name)}</a></span><span>${g.n}</span></div>`).join('')||'<div class="sub">Nada pendiente. 🎉</div>'}
+    <a class="btn" href="/">Abrir en el CRM</a>`;
+  document.getElementById('panel').classList.add('open');
+}
+document.getElementById('pbody').addEventListener('click',e=>{const a=e.target.closest('[data-c]');if(!a)return;e.preventDefault();const is=islands.find(i=>String(i.c.id)===a.dataset.c);if(is)openPanel(is)});
 function openPanel(is){
+  if(is.staff)return openStaff(is);
   selected=is;const c=is.c,{rs,s}=stats(c),ph=Math.max(0,Math.min(8,+c.phase||0));
   const lab={pend:'Pendiente',grab:'Grabado',edit:'Editado',sub:'Subido'};
   document.getElementById('pbody').innerHTML=
