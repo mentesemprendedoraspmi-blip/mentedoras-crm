@@ -46,9 +46,6 @@
   <span><i style="background:#f59e0b"></i>Grabado</span>
   <span><i style="background:#a855f7"></i>Editado</span>
   <span><i style="background:#00e5e5"></i>Subido</span>
-  <span><i style="background:#4ade80;transform:rotate(45deg)"></i>Rombo: al día</span>
-  <span><i style="background:#facc15;transform:rotate(45deg)"></i>con trabajo</span>
-  <span><i style="background:#ef4444;transform:rotate(45deg)"></i>atrasado o saturado (7+)</span>
 </div>
 <script>
 /* Solo LECTURA: lee los clientes de tu Firebase (crm/clients). No escribe nada. */
@@ -189,7 +186,7 @@ function layout(){
   const n=clients.length,cols=Math.max(1,Math.ceil(Math.sqrt(n))),S=3,G=1.6;
   islands=clients.map((c,i)=>({c,x:(i%cols)*(S+G),y:Math.floor(i/cols)*(S+G),s:S}));
   const rows=Math.ceil(n/cols),gw=cols*(S+G),gh=rows*(S+G);
-  const staff=buildStaff(),sx=gw+1.2;
+  const staff=buildStaff().filter(s=>s.role!=='editor'&&s.role!=='cm'),sx=gw+1.2; // sin las personas editoras/CM: solo los puestos
   houses=staff.map((st,i)=>({staff:st,x:sx+(i%2)*(HS+HG),y:Math.floor(i/2)*(HS+HG),s:HS}));
   maxX=houses.length?sx+2*(HS+HG):gw;maxY=Math.max(gh,Math.ceil(houses.length/2)*(HS+HG));fit();buildWalkers();
 }
@@ -217,7 +214,7 @@ function draw(ts){
   requestAnimationFrame(draw);
 }
 /* modo Sims: el rombo (plumbob) sobre la cabeza es su estado de ánimo = su carga de trabajo real */
-const MOOD={ok:'#4ade80',busy:'#facc15',bad:'#ef4444'};
+const MOOD={ok:'#4ade80',busy:'#facc15',bad:'#ef4444'},SHOW_MOOD=false; // rombo apagado a petición del usuario
 const moodOf=st=>!st.queue.length?MOOD.ok:(st.queue.length>=7||st.queue.some(q=>q.note&&/atrasado|vencid/.test(q.note)))?MOOD.bad:MOOD.busy;
 function person(x,y,z,color,t,working,mood){
   const s=cam.z,q=iso(x,y,z+(working?Math.sin(t)*1.2:0)),g=iso(x,y,z);
@@ -225,7 +222,7 @@ function person(x,y,z,color,t,working,mood){
   cx.fillStyle=color;cx.beginPath();if(cx.roundRect)cx.roundRect(q.X-4.5*s,q.Y-13*s,9*s,13*s,3.5*s);else cx.rect(q.X-4.5*s,q.Y-13*s,9*s,13*s);cx.fill();
   cx.fillStyle='#f1d4b8';cx.beginPath();cx.arc(q.X,q.Y-17.5*s,4.5*s,0,7);cx.fill();
   cx.fillStyle='#2b2118';cx.beginPath();cx.arc(q.X,q.Y-19*s,4.6*s,Math.PI,0);cx.fill(); // pelo
-  if(mood){const b=Math.sin(t*.6)*1.5,cy=q.Y-32*s+b*s,w=3.6*s,h=6*s;
+  if(mood&&SHOW_MOOD){const b=Math.sin(t*.6)*1.5,cy=q.Y-32*s+b*s,w=3.6*s,h=6*s;
     cx.fillStyle=mood;cx.beginPath();cx.moveTo(q.X,cy-h);cx.lineTo(q.X+w,cy);cx.lineTo(q.X,cy+h);cx.lineTo(q.X-w,cy);cx.closePath();cx.fill();
     cx.fillStyle='#fff6';cx.beginPath();cx.moveTo(q.X,cy-h);cx.lineTo(q.X+w,cy);cx.lineTo(q.X,cy);cx.closePath();cx.fill()}
 }
