@@ -132,6 +132,13 @@ const iso=(x,y,z=0)=>({X:cam.x+(x-y)*TW/2*cam.z,Y:cam.y+(x+y)*TH/2*cam.z-z*cam.z
 /* ---- equipo: una casita por editor y por community manager, con sus reels en cola ---- */
 const PAL=['#38bdf8','#f472b6','#a3e635','#fb923c','#c084fc','#facc15','#2dd4bf','#f87171','#94a3b8','#60a5fa','#34d399','#fb7185'];
 const HS=2.4,HG=1.8; let houses=[],staffMap={};
+const ROLE={
+  editor:{icon:'✂',busy:'para editar',idle:'sin cola',title:'Editor/a de vídeo',q:'Reels para editar (grabados)',d:'Editados este mes'},
+  cm:{icon:'📱',busy:'para subir',idle:'al día',title:'Community manager',q:'Reels para subir (editados)',d:'Subidos este mes'},
+  pub:{icon:'📅',busy:'a subir ≤7 días',idle:'al día',title:'Calendario de publicación: reels con fecha en los próximos 7 días o atrasados',q:'Reels por subir (≤7 días o atrasados)',d:'Reels ya subidos'},
+  cuentas:{icon:'📑',busy:'a vigilar',idle:'todo en orden',title:'Cuentas: contratos que vencen en 30 días, vencidos y entregas vencidas',q:'Casos a vigilar',d:'—'},
+  guion:{icon:'✍',busy:'sin guion',idle:'al día',title:'Guiones: clientes pendientes de crear o aprobar el guion',q:'Clientes esperando guion',d:'Clientes ya con guion aprobado'}
+};
 const skey=(role,name)=>role+'|'+name;
 function buildStaff(){
   const m={};
@@ -146,7 +153,28 @@ function buildStaff(){
       if(c.cm){const S=get('cm',c.cm);if(r.editado&&!r.subido)S.queue.push({c,r});if(r.subido)S.done++}
     });
   });
-  const list=Object.values(m).sort((a,b)=>(a.role===b.role?0:a.role==='editor'?-1:1)||a.name.localeCompare(b.name,'es'));
+  /* trabajadores de puesto: salen de fechas y fases reales del CRM */
+  const iso0=d=>d.toISOString().slice(0,10),t0=iso0(new Date()),t7=iso0(new Date(Date.now()+7*864e5)),t30=iso0(new Date(Date.now()+30*864e5)),t14=iso0(new Date(Date.now()-14*864e5));
+  const fmt=d=>d.slice(8)+'/'+d.slice(5,7);
+  const post=(role,name)=>m[skey(role,name)]=m[skey(role,name)]||{role,name,queue:[],done:0,clients:new Set()};
+  const pub=post('pub','Publicaciones'),cta=post('cuentas','Cuentas'),gui=post('guion','Guiones');
+  clients.forEach(c=>{
+    Object.entries(c.pubCal||{}).forEach(([mk,byReel])=>Object.entries(byReel||{}).forEach(([rid,pd])=>{
+      const reel=(Array.isArray(c.reels)?c.reels:((c.reels||{})[mk]||[])).find(r=>String(r.id)===String(rid));
+      const ds=['pub','tiktok','youtube'].map(k=>pd&&pd[k]).filter(Boolean).sort();
+      if(!reel||!ds.length)return;
+      if(reel.subido){pub.done++;return}
+      if(ds[0]<t14){pub.stale=(pub.stale||0)+1;return} // fechas antiguas que nadie marcó como subidas
+      if(ds[0]<=t7){pub.queue.push({c,r:reel,date:ds[0],note:(reel.label||'Reel')+' · '+(ds[0]<t0?'atrasado ':ds[0]===t0?'hoy ':'')+fmt(ds[0])});pub.clients.add(c.id)}
+    }));
+    if(c.contractEnd&&c.contractEnd<=t30){cta.queue.push({c,date:c.contractEnd,note:(c.contractEnd<t0?'contrato vencido ':'contrato vence ')+fmt(c.contractEnd)});cta.clients.add(c.id)}
+    if(c.delivery&&new Date(c.delivery+'T12:00:00')<new Date()){cta.queue.push({c,date:c.delivery,note:'entrega vencida '+fmt(c.delivery)});cta.clients.add(c.id)}
+    const ph=+c.phase||0;
+    if(ph<=1){gui.queue.push({c,note:ph===0?'pendiente de crear guion':'pendiente de OK de guion'});gui.clients.add(c.id)}else gui.done++;
+  });
+  pub.queue.sort((a,b)=>a.date.localeCompare(b.date));cta.queue.sort((a,b)=>a.date.localeCompare(b.date));
+  const ORD={editor:0,cm:1,pub:2,cuentas:3,guion:4};
+  const list=Object.values(m).sort((a,b)=>(ORD[a.role]-ORD[b.role])||a.name.localeCompare(b.name,'es'));
   list.forEach((s,i)=>s.color=PAL[i%PAL.length]);
   staffMap=m;return list;
 }
@@ -199,8 +227,8 @@ function drawHouse(h,ts){
   box(h.x+.8,h.y+1.85,.4,.3,8.5,busy?'#00e5e5':'#3a4756','#1b2733',.5);
   st.queue.slice(0,9).forEach((q,i)=>box(h.x+1.7+(i%3)*.22,h.y+1.75+Math.floor(i/3)*.22,.18,.18,6,PHC[Math.max(0,Math.min(8,+q.c.phase||0))],'#222',6));
   pill(st.name,h.x+h.s/2,h.y+h.s/2,52,col,13);
-  const lab=st.role==='editor'?(busy?`${st.queue.length} para editar`:'sin cola'):(busy?`${st.queue.length} para subir`:'al día');
-  pill((st.role==='editor'?'✂ ':'📱 ')+lab,h.x+h.s/2,h.y+h.s+.3,-2,busy?'#fcd34d':'#8fa3b8',11);
+  const R=ROLE[st.role],lab=busy?`${st.queue.length} ${R.busy}`:R.idle;
+  pill(R.icon+' '+lab,h.x+h.s/2,h.y+h.s+.3,-2,busy?'#fcd34d':'#8fa3b8',11);
   if(!busy){const z=iso(px+.3,py,34);cx.fillStyle='#8fa3b8';cx.font=`700 ${12*cam.z}px system-ui`;cx.fillText('z Z',z.X,z.Y+Math.sin(t*2)*2)}
   if(act){const p=iso(h.x+h.s/2,h.y+h.s/2,0);cx.strokeStyle='#fff';cx.lineWidth=2;cx.beginPath();cx.ellipse(p.X,p.Y+6*cam.z,h.s*TW/2*.8*cam.z,h.s*TH/2*.8*cam.z,0,0,7);cx.stroke()}
 }
@@ -254,16 +282,16 @@ cv.addEventListener('wheel',e=>{e.preventDefault();cam.z=Math.max(.3,Math.min(2.
 /* ---- ficha del cliente (solo lectura) ---- */
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function openStaff(h){
-  selected=h;const st=h.staff,by={};
-  st.queue.forEach(q=>{(by[q.c.id]=by[q.c.id]||{c:q.c,n:0}).n++});
-  const ed=st.role==='editor';
+  selected=h;const st=h.staff,R=ROLE[st.role],by={},detail=!!st.queue[0]&&!!st.queue[0].note;
+  st.queue.forEach(q=>{(by[q.c.id]=by[q.c.id]||{c:q.c,n:0,notes:[]}).n++;if(q.note)by[q.c.id].notes.push(q.note)});
   document.getElementById('pbody').innerHTML=
-   `<h2 style="color:${st.color}">${esc(st.name)}</h2><div class="sub">${ed?'Editor/a de vídeo':'Community manager'}</div>
-    <div class="row"><span>${ed?'Reels para editar (grabados)':'Reels para subir (editados)'}</span><span>${st.queue.length}</span></div>
-    <div class="row"><span>${ed?'Editados este mes':'Subidos este mes'}</span><span>${st.done}</span></div>
-    <div class="row"><span>Clientes que lleva</span><span>${st.clients.size}</span></div>
-    <div class="sub" style="margin-top:14px">En cola por cliente</div>
-    ${Object.values(by).map(g=>`<div class="row"><span><a href="#" data-c="${esc(g.c.id)}" style="color:var(--cy);text-decoration:none">${esc(g.c.name)}</a></span><span>${g.n}</span></div>`).join('')||'<div class="sub">Nada pendiente. 🎉</div>'}
+   `<h2 style="color:${st.color}">${esc(st.name)}</h2><div class="sub">${esc(R.title)}</div>
+    <div class="row"><span>${esc(R.q)}</span><span>${st.queue.length}</span></div>
+    ${R.d==='—'?'':`<div class="row"><span>${esc(R.d)}</span><span>${st.done}</span></div>`}
+    <div class="row"><span>Clientes implicados</span><span>${st.clients.size}</span></div>
+    ${st.stale?`<div class="row"><span>Con fecha antigua (+14 días) sin marcar como subidos</span><span>${st.stale}</span></div>`:''}
+    <div class="sub" style="margin-top:14px">${detail?'Detalle':'En cola por cliente'}</div>
+    ${Object.values(by).map(g=>`<div class="row"><span><a href="#" data-c="${esc(g.c.id)}" style="color:var(--cy);text-decoration:none">${esc(g.c.name)}</a>${g.notes.length?`<br><small style="color:var(--mut)">${g.notes.map(esc).join(' · ')}</small>`:''}</span><span>${g.notes.length?'':g.n}</span></div>`).join('')||'<div class="sub">Nada pendiente. 🎉</div>'}
     <a class="btn" href="/">Abrir en el CRM</a>`;
   document.getElementById('panel').classList.add('open');
 }
