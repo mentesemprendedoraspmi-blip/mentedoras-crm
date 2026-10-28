@@ -80,11 +80,16 @@ async function load(){
       await loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js');
       if(!firebase.apps.length) firebase.initializeApp(cfg);
       const db=firebase.firestore();
-      const snap=await db.collection('crm').doc('clients').get();
-      let list=snap.exists&&snap.data().list;
-      if(!list||!list.length){const q=await db.collection('client_docs').get();list=q.docs.map(d=>d.data())}
+      // mismo orden que el CRM: índice + client_docs, y la lista antigua solo como reserva
+      let list=null;
+      const idx=await db.collection('crm').doc('clients_index').get();
+      if(idx.exists&&idx.data().ids&&idx.data().ids.length){
+        const q=await db.collection('client_docs').get();const byId={};q.forEach(d=>{byId[d.id]=d.data()});
+        list=idx.data().ids.map(id=>byId[id]).filter(Boolean);
+      }
+      if(!list||!list.length){const snap=await db.collection('crm').doc('clients').get();list=snap.exists&&snap.data().list}
       if(!list||!list.length) throw new Error('sin clientes');
-      return list;
+      return list.filter(isActive);
     })(),12000);
   }catch(e){
     console.warn('Ciudad: usando datos de ejemplo →',e);
@@ -97,19 +102,23 @@ async function load(){
 
 /* ---- helpers de cliente ---- */
 function monthKey(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
-function reelsOf(c){
-  const r=c.reels; if(!r) return Array.from({length:c.numReels||0},(_,i)=>({label:'Reel '+(i+1)}));
-  if(Array.isArray(r)) return r;
-  return r[monthKey()]||Object.values(r)[0]||[];
+const isActive=c=>c.active!==false; // misma regla que el CRM
+function reelsOf(c){ // reels del mes actual, como el panel del CRM
+  const r=c.reels; if(!r||Array.isArray(r)) return Array.isArray(r)?r:[];
+  return r[monthKey()]||[];
 }
 function reelState(r){return r.subido?'sub':r.editado?'edit':r.grabado?'grab':'pend'}
 function stats(c){const rs=reelsOf(c);const s={pend:0,grab:0,edit:0,sub:0};rs.forEach(r=>s[reelState(r)]++);return {rs,s}}
 function chips(){
-  const tot=clients.length;
-  const urgente=clients.filter(c=>{const {rs,s}=stats(c);return rs.length&&s.sub<rs.length}).length;
+  // mismas cuentas que las tarjetas del Resumen del CRM
+  let grab=0,total=0,editing=0;
+  clients.forEach(c=>{const r=reelsOf(c);total+=r.length;grab+=r.filter(x=>x.grabado).length;editing+=r.filter(x=>x.editado&&!x.subido).length});
+  const overdue=clients.filter(c=>c.delivery&&new Date(c.delivery+'T12:00:00')<new Date()).length;
   document.getElementById('chips').innerHTML=
-   `<span class="chip"><span class="dot" style="background:#00e5e5"></span>${tot} clientes</span>`+
-   `<span class="chip"><span class="dot" style="background:#f59e0b"></span>${urgente} con reels pendientes</span>`+
+   `<span class="chip"><span class="dot" style="background:#00e5e5"></span>${clients.length} clientes activos</span>`+
+   `<span class="chip"><span class="dot" style="background:#ef4444"></span>${overdue} entregas vencidas</span>`+
+   `<span class="chip"><span class="dot" style="background:#a855f7"></span>${editing} reels en edición</span>`+
+   `<span class="chip"><span class="dot" style="background:#f59e0b"></span>${grab}/${total} grabados este mes</span>`+
    `<a class="chip" href="/">← Volver al CRM</a>`;
 }
 
