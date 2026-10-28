@@ -190,13 +190,31 @@ function layout(){
   houses=staff.map((st,i)=>({staff:st,x:sx+(i%2)*(HS+HG),y:Math.floor(i/2)*(HS+HG),s:HS}));
   maxX=houses.length?sx+2*(HS+HG):gw;maxY=Math.max(gh,Math.ceil(houses.length/2)*(HS+HG));fit();buildWalkers();
 }
+/* Vista fija: la ciudad se encuadra una vez y no se mueve; solo te acercas (rueda, pellizco, botones o doble clic). */
+let base={z:1,x:0,y:0};
+function sizeCanvas(){W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0)}
 function fit(){
-  W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0);
+  sizeCanvas();
   const w=(maxX+maxY)*TW/2+160,h=(maxX+maxY)*TH/2+200;
   cam.z=Math.max(.3,Math.min(1.4,W/w,(H-80)/h));
   cam.x=W/2-((maxX-maxY)/2)*TW/2*cam.z;cam.y=H/2-((maxX+maxY)/2)*TH/2*cam.z+10;
+  base={z:cam.z,x:cam.x,y:cam.y};
 }
-addEventListener('resize',fit);
+addEventListener('resize',()=>{const zoomed=cam.z>base.z*1.02;if(!zoomed)fit();else sizeCanvas()});
+function zoomAt(mx,my,k){
+  const z=Math.max(base.z,Math.min(base.z*4,cam.z*k)),r=z/cam.z;
+  cam.x=mx-(mx-cam.x)*r;cam.y=my-(my-cam.y)*r;cam.z=z;
+  if(cam.z<=base.z*1.01){cam.z=base.z;cam.x=base.x;cam.y=base.y} // al alejarte del todo vuelve a la vista fija
+  clampCam();
+}
+function clampCam(){ // no dejes que el mapa se pierda de vista
+  const c=iso(maxX/2,maxY/2,0);
+  if(c.X<0)cam.x-=c.X;if(c.X>W)cam.x-=c.X-W;if(c.Y<0)cam.y-=c.Y;if(c.Y>H)cam.y-=c.Y-H;
+}
+const zoomBtn=(id,t,fn)=>{const b=document.createElement('button');b.id=id;b.textContent=t;b.setAttribute('aria-label',t);b.style.cssText='width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:22px;cursor:pointer';b.onclick=fn;return b};
+const zbar=document.createElement('div');zbar.style.cssText='position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:5';
+zbar.append(zoomBtn('zin','+',()=>zoomAt(W/2,H/2,1.4)),zoomBtn('zout','−',()=>zoomAt(W/2,H/2,1/1.4)),zoomBtn('zhome','⌂',()=>{cam.z=base.z;cam.x=base.x;cam.y=base.y}));
+document.body.appendChild(zbar);
 function shade(hex,p){const n=parseInt(hex.slice(1),16);const c=v=>Math.max(0,Math.min(255,v));return `rgb(${c((n>>16)+p)},${c((n>>8&255)+p)},${c((n&255)+p)})`}
 function box(x,y,w,h,z,top,side,d){
   const a=iso(x,y,z),b=iso(x+w,y,z),c=iso(x+w,y+h,z),e=iso(x,y+h,z),k=d*cam.z;
@@ -395,14 +413,22 @@ function hit(mx,my){
     if(inside&&(!best||(is.x+is.y)>(best.x+best.y)))best=is});
   return best;
 }
-let drag=null,moved=false;
-cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};moved=false});
-addEventListener('pointerup',e=>{if(drag&&!moved){const h=hit(e.clientX,e.clientY);if(h)openPanel(h);else closePanel()}drag=null});
+let drag=null,moved=false,gesture=0;const ptrs=new Map();
+const pinchDist=()=>{const [a,b]=[...ptrs.values()];return Math.hypot(a.x-b.x,a.y-b.y)},pinchMid=()=>{const [a,b]=[...ptrs.values()];return{x:(a.x+b.x)/2,y:(a.y+b.y)/2}};
+cv.addEventListener('pointerdown',e=>{ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});if(ptrs.size===2){gesture=pinchDist();moved=true;drag=null}else{drag={x:e.clientX,y:e.clientY};moved=false}});
+addEventListener('pointerup',e=>{const was=ptrs.has(e.pointerId);ptrs.delete(e.pointerId);if(ptrs.size<2)gesture=0;
+  if(was&&ptrs.size===0&&drag&&!moved){const h=hit(e.clientX,e.clientY);if(h)openPanel(h);else closePanel()}if(ptrs.size===0)drag=null});
+addEventListener('pointercancel',e=>{ptrs.delete(e.pointerId);gesture=0;drag=null});
 cv.addEventListener('pointermove',e=>{
-  if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;if(moved){cam.x+=dx;cam.y+=dy;drag={x:e.clientX,y:e.clientY}}return}
-  hover=hit(e.clientX,e.clientY);cv.style.cursor=hover?'pointer':'grab';
+  if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===2&&gesture){const d=pinchDist(),m=pinchMid();zoomAt(m.x,m.y,d/gesture);gesture=d;return}
+  if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;
+    if(moved&&cam.z>base.z*1.02){cam.x+=dx;cam.y+=dy;clampCam();drag={x:e.clientX,y:e.clientY}} // solo se desplaza si estás acercado
+    return}
+  hover=hit(e.clientX,e.clientY);cv.style.cursor=hover?'pointer':(cam.z>base.z*1.02?'grab':'default');
 });
-cv.addEventListener('wheel',e=>{e.preventDefault();cam.z=Math.max(.3,Math.min(2.4,cam.z*(e.deltaY<0?1.1:.9)))},{passive:false});
+cv.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,e.deltaY<0?1.15:1/1.15)},{passive:false});
+cv.addEventListener('dblclick',e=>zoomAt(e.clientX,e.clientY,1.8));
 
 /* ---- ficha del cliente (solo lectura) ---- */
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
