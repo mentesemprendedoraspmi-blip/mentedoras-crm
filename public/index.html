@@ -1260,6 +1260,7 @@ function buildSBNav(){
   html+=nav('board','ti-layout-kanban','Tablero','<span class="nbadge" id="bbadge">0</span>');
   html+=nav('ideas','ti-bulb','Mejoras');
   html+=nav('clients','ti-users','Clientes');
+  html+=`<div class="ni" onclick="window.open('/ciudad.html','_blank')"><i class="ti ti-building-community"></i>Ciudad</div>`;
   if(isCMup())html+=nav('cal','ti-calendar','Calendario');
   if(isCEO())html+=nav('payments','ti-coin','Pagos equipo');
   if(isPMup())html+=nav('finance','ti-chart-bar','Facturación');
