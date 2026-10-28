@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ciudad · Mentedoras</title>
+<meta name="theme-color" content="#111418">
+<style>
+  :root{--bg:#111418;--panel:#181f28;--ink:#e8eef5;--mut:#8fa3b8;--cy:#00e5e5;--line:#26323f}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Arial,sans-serif;overflow:hidden}
+  canvas{display:block;width:100vw;height:100vh;cursor:grab;touch-action:none}
+  header{position:fixed;left:0;right:0;top:0;display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 16px;pointer-events:none}
+  .brand{font:italic 700 24px Georgia,serif;color:var(--cy);pointer-events:auto;text-decoration:none}
+  .brand small{display:block;font:500 11px system-ui;color:var(--mut);letter-spacing:.08em;text-transform:uppercase}
+  .right{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;pointer-events:auto}
+  .chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;color:var(--ink);text-decoration:none;display:flex;gap:8px;align-items:center}
+  .dot{width:10px;height:10px;border-radius:50%}
+  #banner{position:fixed;left:50%;top:64px;transform:translateX(-50%);background:#3b2a0a;border:1px solid #f59e0b;color:#fcd34d;border-radius:10px;padding:6px 12px;font-size:12px;display:none}
+  #panel{position:fixed;top:0;right:0;height:100%;width:min(360px,100vw);background:var(--panel);border-left:1px solid var(--line);padding:18px;transform:translateX(105%);transition:transform .25s;overflow:auto}
+  #panel.open{transform:none}
+  #panel h2{margin:0 0 2px;font:italic 700 24px Georgia,serif;color:var(--cy)}
+  #panel .sub{color:var(--mut);font-size:13px;margin-bottom:14px}
+  .row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .row span:first-child{color:var(--mut)}
+  .reels{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+  .reel{border:1px solid var(--line);border-radius:10px;padding:8px;font-size:12px}
+  .reel b{display:block;font-size:13px;margin-bottom:2px}
+  .x{position:absolute;right:12px;top:10px;background:none;border:0;color:var(--mut);font-size:22px;cursor:pointer}
+  .btn{display:inline-block;margin-top:14px;background:var(--cy);color:#00282a;font-weight:700;border-radius:10px;padding:9px 14px;text-decoration:none;font-size:14px}
+  .legend{position:fixed;left:16px;bottom:12px;display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--mut);pointer-events:none}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  @media (max-width:700px){.brand{font-size:18px}.chip{padding:4px 9px;font-size:12px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<header>
+  <a class="brand" href="/">Mentedoras<small>Ciudad de clientes</small></a>
+  <div class="right" id="chips"></div>
+</header>
+<div id="banner"></div>
+<aside id="panel"><button class="x" id="close" aria-label="Cerrar">×</button><div id="pbody"></div></aside>
+<div class="legend">
+  <span><i style="background:#3a4756"></i>Reel pendiente</span>
+  <span><i style="background:#f59e0b"></i>Grabado</span>
+  <span><i style="background:#a855f7"></i>Editado</span>
+  <span><i style="background:#00e5e5"></i>Subido</span>
+</div>
+<script>
+/* Solo LECTURA: lee los clientes de tu Firebase (crm/clients). No escribe nada. */
+const FIREBASE_CONFIG = null; // se rellena sola desde el CRM (ver loadConfig)
+const PHASES=['Pendiente de crear guion','Pendiente de OK de guion','Pendiente de grabación','Grabado, pendiente de editar','Editándose','Editado, pendiente de revisión','Revisado','Pendiente de subir','¡Subido! 🎉'];
+const PHC=['#3B82F6','#10B981','#F59E0B','#F97316','#A855F7','#EC4899','#EF4444','#06B6D4','#00E5E5'];
+const REEL_COL={pend:'#3a4756',grab:'#f59e0b',edit:'#a855f7',sub:'#00e5e5'};
+
+let clients=[], demo=false;
+const DEMO=[
+  {id:'d1',name:'Green Wash',type:'Lavadero de coches',phase:2,numReels:5,editors:['Dani'],cm:'Laura'},
+  {id:'d2',name:'Schwa',type:'Academia de idiomas',phase:4,numReels:5,editors:['Darwin'],cm:'Laura'},
+  {id:'d3',name:'FOKO',type:'Museo sensorial',phase:7,numReels:5,editors:['Dante']},
+  {id:'d4',name:'Hector',type:'Coach empresarial',phase:3,numReels:8,editors:['Oscar'],cm:'Laura'},
+  {id:'d5',name:'Linda',type:'Podóloga',phase:8,numReels:5,editors:['Darwin']}
+];
+
+/* ---- carga de datos (Firebase en solo lectura) ---- */
+function loadScript(src){return new Promise((ok,ko)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=ko;document.head.appendChild(s)})}
+async function loadConfig(){
+  // reutiliza la misma configuración pública que ya usa el CRM (index.html), sin duplicarla aquí
+  const html=await (await fetch('/index.html',{cache:'no-store'})).text();
+  const m=html.match(/const FIREBASE_CONFIG=(\{[^}]+\})/); if(!m) throw new Error('config no encontrada');
+  return Function('return '+m[1])();
+}
+async function load(){
+  try{
+    const cfg=await loadConfig();
+    await loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
+    await loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js');
+    if(!firebase.apps.length) firebase.initializeApp(cfg);
+    const db=firebase.firestore();
+    const snap=await db.collection('crm').doc('clients').get();
+    let list=snap.exists&&snap.data().list;
+    if(!list||!list.length){const q=await db.collection('client_docs').get();list=q.docs.map(d=>d.data())}
+    if(!list||!list.length) throw new Error('sin clientes');
+    clients=list;
+  }catch(e){
+    console.warn('Ciudad: usando datos de ejemplo →',e);
+    demo=true;clients=DEMO;
+    const b=document.getElementById('banner');b.style.display='block';
+    b.textContent='Datos de ejemplo: no se pudieron leer tus clientes ('+(e.message||e)+')';
+  }
+  layout();chips();
+}
+
+/* ---- helpers de cliente ---- */
+function monthKey(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
+function reelsOf(c){
+  const r=c.reels; if(!r) return Array.from({length:c.numReels||0},(_,i)=>({label:'Reel '+(i+1)}));
+  if(Array.isArray(r)) return r;
+  return r[monthKey()]||Object.values(r)[0]||[];
+}
+function reelState(r){return r.subido?'sub':r.editado?'edit':r.grabado?'grab':'pend'}
+function stats(c){const rs=reelsOf(c);const s={pend:0,grab:0,edit:0,sub:0};rs.forEach(r=>s[reelState(r)]++);return {rs,s}}
+function chips(){
+  const tot=clients.length;
+  const urgente=clients.filter(c=>{const {rs,s}=stats(c);return rs.length&&s.sub<rs.length}).length;
+  document.getElementById('chips').innerHTML=
+   `<span class="chip"><span class="dot" style="background:#00e5e5"></span>${tot} clientes</span>`+
+   `<span class="chip"><span class="dot" style="background:#f59e0b"></span>${urgente} con reels pendientes</span>`+
+   `<a class="chip" href="/">← Volver al CRM</a>`;
+}
+
+/* ---- canvas isométrico ---- */
+const cv=document.getElementById('c'),cx=cv.getContext('2d');
+const TW=64,TH=32; let W,H,dpr=Math.min(devicePixelRatio||1,2),cam={x:0,y:0,z:1,fit:1};
+let islands=[],hover=null,selected=null,minX=0,maxX=1,minY=0,maxY=1;
+const iso=(x,y,z=0)=>({X:cam.x+(x-y)*TW/2*cam.z,Y:cam.y+(x+y)*TH/2*cam.z-z*cam.z});
+function layout(){
+  const n=clients.length,cols=Math.max(1,Math.ceil(Math.sqrt(n))),S=3,G=1.6;
+  islands=clients.map((c,i)=>({c,x:(i%cols)*(S+G),y:Math.floor(i/cols)*(S+G),s:S}));
+  const rows=Math.ceil(n/cols);maxX=cols*(S+G);maxY=rows*(S+G);fit();
+}
+function fit(){
+  W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0);
+  const w=(maxX+maxY)*TW/2+160,h=(maxX+maxY)*TH/2+200;
+  cam.z=Math.max(.3,Math.min(1.4,W/w,(H-80)/h));
+  cam.x=W/2-((maxX-maxY)/2)*TW/2*cam.z;cam.y=H/2-((maxX+maxY)/2)*TH/2*cam.z+10;
+}
+addEventListener('resize',fit);
+function shade(hex,p){const n=parseInt(hex.slice(1),16);const c=v=>Math.max(0,Math.min(255,v));return `rgb(${c((n>>16)+p)},${c((n>>8&255)+p)},${c((n&255)+p)})`}
+function box(x,y,w,h,z,top,side,d){
+  const a=iso(x,y,z),b=iso(x+w,y,z),c=iso(x+w,y+h,z),e=iso(x,y+h,z),k=d*cam.z;
+  cx.fillStyle=side;cx.beginPath();cx.moveTo(e.X,e.Y);cx.lineTo(c.X,c.Y);cx.lineTo(c.X,c.Y+k);cx.lineTo(e.X,e.Y+k);cx.fill();
+  cx.fillStyle=shade(side.startsWith('#')?side:'#222222',-14);cx.beginPath();cx.moveTo(b.X,b.Y);cx.lineTo(c.X,c.Y);cx.lineTo(c.X,c.Y+k);cx.lineTo(b.X,b.Y+k);cx.fill();
+  cx.fillStyle=top;cx.beginPath();cx.moveTo(a.X,a.Y);cx.lineTo(b.X,b.Y);cx.lineTo(c.X,c.Y);cx.lineTo(e.X,e.Y);cx.closePath();cx.fill();
+}
+function pill(t,x,y,z,color,size){
+  const p=iso(x,y,z);cx.font=`600 ${size*cam.z}px system-ui`;cx.textAlign='center';
+  const w=cx.measureText(t).width+14*cam.z,h=20*cam.z;cx.fillStyle='#181f28ee';
+  cx.beginPath();cx.roundRect(p.X-w/2,p.Y-h*.75,w,h,7*cam.z);cx.fill();cx.fillStyle=color;cx.fillText(t,p.X,p.Y);
+}
+function draw(ts){
+  cx.clearRect(0,0,W,H);
+  const g=cx.createRadialGradient(W/2,H/2,40,W/2,H/2,Math.max(W,H)*.7);g.addColorStop(0,'#18222d');g.addColorStop(1,'#111418');cx.fillStyle=g;cx.fillRect(0,0,W,H);
+  const pad=1.2;box(-pad,-pad,maxX+pad*2-1.6,maxY+pad*2-1.6,0,'#17212b','#0f161d',10);
+  const sorted=[...islands].sort((a,b)=>(a.x+a.y)-(b.x+b.y));
+  sorted.forEach(is=>{
+    const ph=Math.max(0,Math.min(8,+is.c.phase||0)),col=PHC[ph],{rs,s}=stats(is.c);
+    const pend=rs.length&&s.sub<rs.length, pulse=pend?(1+Math.sin(ts/500+is.x)*.5)*3:0;
+    const act=(hover===is||selected===is);
+    box(is.x,is.y,is.s,is.s,0,act?shade(col,-60):shade(col,-110),shade(col,-150),14);
+    // reels como pantallas sobre la isla
+    const n=rs.length,perRow=Math.min(4,n||1);
+    rs.forEach((r,i)=>{
+      const cxI=i%perRow,cyI=Math.floor(i/perRow),sz=.55,gap=.15;
+      const x0=is.x+.35+cxI*(sz+gap),y0=is.y+.45+cyI*(sz+gap);
+      const st=reelState(r);box(x0,y0,sz,sz,14,REEL_COL[st],shade(REEL_COL[st].length==7?REEL_COL[st]:'#444444',-60),st==='sub'?9:5);
+    });
+    pill(is.c.name,is.x+is.s/2,is.y+is.s/2,34+pulse,col,13);
+    pill(`${s.sub}/${rs.length} subidos`,is.x+is.s/2,is.y+is.s+.35,-2,'#8fa3b8',11);
+    if(act){const p=iso(is.x+is.s/2,is.y+is.s/2,0);cx.strokeStyle='#fff';cx.lineWidth=2;cx.beginPath();cx.ellipse(p.X,p.Y+6*cam.z,is.s*TW/2*.8*cam.z,is.s*TH/2*.8*cam.z,0,0,7);cx.stroke()}
+  });
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+/* ---- interacción ---- */
+function hit(mx,my){
+  let best=null;
+  islands.forEach(is=>{const a=iso(is.x,is.y),b=iso(is.x+is.s,is.y),c=iso(is.x+is.s,is.y+is.s),d=iso(is.x,is.y+is.s);
+    const inside=(()=>{const P=[a,b,c,d];let r=false;for(let i=0,j=3;i<4;j=i++){const A=P[i],B=P[j];if((A.Y>my)!==(B.Y>my)&&mx<(B.X-A.X)*(my-A.Y)/(B.Y-A.Y)+A.X)r=!r}return r})();
+    if(inside&&(!best||(is.x+is.y)>(best.x+best.y)))best=is});
+  return best;
+}
+let drag=null,moved=false;
+cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};moved=false});
+addEventListener('pointerup',e=>{if(drag&&!moved){const h=hit(e.clientX,e.clientY);if(h)openPanel(h);else closePanel()}drag=null});
+cv.addEventListener('pointermove',e=>{
+  if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;if(moved){cam.x+=dx;cam.y+=dy;drag={x:e.clientX,y:e.clientY}}return}
+  hover=hit(e.clientX,e.clientY);cv.style.cursor=hover?'pointer':'grab';
+});
+cv.addEventListener('wheel',e=>{e.preventDefault();cam.z=Math.max(.3,Math.min(2.4,cam.z*(e.deltaY<0?1.1:.9)))},{passive:false});
+
+/* ---- ficha del cliente (solo lectura) ---- */
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function openPanel(is){
+  selected=is;const c=is.c,{rs,s}=stats(c),ph=Math.max(0,Math.min(8,+c.phase||0));
+  const lab={pend:'Pendiente',grab:'Grabado',edit:'Editado',sub:'Subido'};
+  document.getElementById('pbody').innerHTML=
+   `<h2>${esc(c.name)}</h2><div class="sub">${esc(c.type||'')}</div>
+    <div class="row"><span>Fase</span><span style="color:${PHC[ph]}">${esc(PHASES[ph])}</span></div>
+    <div class="row"><span>Editor/es</span><span>${esc((c.editors||[]).join(', ')||'—')}</span></div>
+    <div class="row"><span>Community manager</span><span>${esc(c.cm||'—')}</span></div>
+    <div class="row"><span>Reels este mes</span><span>${s.sub}/${rs.length} subidos</span></div>
+    <div class="reels">${rs.map(r=>{const st=reelState(r);return `<div class="reel" style="border-color:${REEL_COL[st]}"><b>${esc(r.label||'Reel')}</b><span style="color:${REEL_COL[st]}">${lab[st]}</span></div>`}).join('')}</div>
+    <a class="btn" href="/">Abrir en el CRM</a>${demo?'<p class="sub">Datos de ejemplo.</p>':''}`;
+  document.getElementById('panel').classList.add('open');
+}
+function closePanel(){selected=null;document.getElementById('panel').classList.remove('open')}
+document.getElementById('close').onclick=closePanel;
+
+load();
+</script>
+</body>
+</html>
