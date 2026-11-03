@@ -940,7 +940,16 @@ async function loadBoard(){
 }
 async function saveEvents(){await fbSet('crm','events',{list:calEvents,u:new Date().toISOString()});}
 async function savePayments(){await fbSet('crm','payments',{list:paymentsList,cobros:cobrosList,u:new Date().toISOString()});}
-async function saveUsers(){await fbSet('crm','users',{users:USERS,u:new Date().toISOString()});}
+// Los usuarios "de fábrica" del código (Yumara, Laura, Dani...) se vuelven a añadir solos
+// en cada carga — borrarlos de Firestore no bastaba. Se guarda además la lista de claves
+// borradas a propósito, y se aplica siempre después de mezclar con los de fábrica.
+let DELETED_USERS=[];
+function mergeUsers(su){
+  USERS={...USERS,...su.users};
+  DELETED_USERS=Array.isArray(su.deleted)?su.deleted:[];
+  DELETED_USERS.forEach(k=>{if(k!=='adri'&&k!=='alan')delete USERS[k];});
+}
+async function saveUsers(){await fbSet('crm','users',{users:USERS,deleted:DELETED_USERS,u:new Date().toISOString()});}
 
 async function loadAll(){
   if(!fbReady)await initFB();
@@ -956,7 +965,7 @@ async function loadAll(){
       fbGet('crm','payments'),
     ]);
     if(su&&su.users){
-      USERS={...USERS,...su.users};
+      mergeUsers(su);
       // Re-render board if open so column visibility updates with new users
       if(CU&&document.getElementById('view-board')?.classList.contains('on'))renderBoard();
     }
@@ -1151,7 +1160,7 @@ async function doLogin(){
   try{
     if(!fbReady)await initFB();
     const su=await fbGet('crm','users');
-    if(su&&su.users)USERS={...USERS,...su.users};
+    if(su&&su.users)mergeUsers(su);
   }catch(e){console.warn('FB users load failed:',e);}
   if(btn){btn.textContent='Entrar al CRM';btn.disabled=false;}
   const key=Object.keys(USERS).find(k=>k===u);
@@ -3510,7 +3519,76 @@ function renderUsers(){
       </table>
     </div>`;
 }
-function delUser(key){if(!confirm('¿Eliminar usuario '+key+'?'))return;delete USERS[key];saveUsers();renderUsers();showToast('Usuario eliminado','ok');}
+// Qué toca al eliminar a alguien: su columna del Tablero y los clientes donde está como
+// CM o editor. Los pagos y los reels ya hechos se dejan tal cual (son historial).
+function userDeletionImpact(key){
+  const u=USERS[key];
+  const norm=s=>(s||'').trim().toLowerCase();
+  const first=s=>norm(s).split(/\s+/)[0];
+  const cols=boardCols.filter(c=>!c.isFinal);
+  const col=cols.find(c=>norm(c.name)===norm(u.name))
+    ||cols.find(c=>norm(c.name).split(/\s+/).length===1&&first(c.name)===first(u.name))||null;
+  return{
+    col,
+    tasks:col?(col.tasks||[]).length:0,
+    cm:clients.filter(c=>c.cm===u.name),
+    ed:clients.filter(c=>(c.editors||[]).includes(u.name))
+  };
+}
+function delUser(key){
+  const u=USERS[key];if(!u)return;
+  if(CU&&CU.key===key)return showToast('No puedes eliminar tu propio usuario','err');
+  const imp=userDeletionImpact(key);
+  const others=boardCols.filter(c=>!c.isFinal&&(!imp.col||c.id!==imp.col.id));
+  const plural=(n,s,p)=>n===1?s:p;
+  const taskChoice=imp.col&&imp.tasks?`<div class="f"><label>Su columna "${imp.col.name}" tiene ${imp.tasks} tarjeta${plural(imp.tasks,'','s')}. ¿Qué hago con ${plural(imp.tasks,'ella','ellas')}?</label>
+    <select id="du-tasks"><option value="">— Elige —</option><option value="__delete">Borrarlas</option>${others.map(c=>`<option value="${c.id}">Pasarlas a ${c.name}</option>`).join('')}</select></div>`:'';
+  document.getElementById('modal-c').innerHTML=`<div class="modal-t">¿Eliminar a ${u.name}?</div>
+    <ul style="font-size:12px;color:var(--tx2);margin:0 0 12px 16px;line-height:1.7">
+      <li>Ya no podrá entrar al CRM</li>
+      <li>${imp.col?`Se elimina su columna "${imp.col.name}" del Tablero`:'No tiene columna en el Tablero'}</li>
+      <li>${imp.cm.length||imp.ed.length?`Se quita como CM de ${imp.cm.length} cliente${plural(imp.cm.length,'','s')} y como editor de ${imp.ed.length}`:'No está asignado a ningún cliente'}</li>
+    </ul>
+    ${taskChoice}
+    <div style="font-size:11px;color:var(--tx3);margin-bottom:12px">El historial de pagos y los reels ya hechos se conservan.</div>
+    <div class="modal-acts">
+      <button class="btn btn-s" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-s btn-p" style="background:var(--err);border-color:var(--err)" onclick="confirmDelUser('${key}')">Eliminar</button>
+    </div>`;
+  document.getElementById('mo').classList.add('open');
+}
+async function confirmDelUser(key){
+  const u=USERS[key];if(!u)return;
+  const imp=userDeletionImpact(key);
+  let choice='';
+  if(imp.col&&imp.tasks){
+    choice=document.getElementById('du-tasks')?.value||'';
+    if(!choice)return showToast('Elige qué hacer con sus tarjetas','err');
+  }
+  // 1) Usuario: fuera de la lista y apuntado como borrado a propósito
+  delete USERS[key];
+  if(!DELETED_USERS.includes(key))DELETED_USERS.push(key);
+  await saveUsers();
+  // 2) Tablero: su columna (pasando o borrando sus tarjetas)
+  if(imp.col){
+    const tasks=imp.col.tasks||[];
+    const target=choice&&choice!=='__delete'?boardCols.find(c=>c.id===choice):null;
+    if(target){
+      target.tasks=[...tasks,...(target.tasks||[])];
+      for(const t of tasks)await saveBoardTask(t,target.id);
+    }else{
+      await Promise.all(tasks.map(t=>deleteBoardTask(t.id)));
+    }
+    boardCols=boardCols.filter(c=>c.id!==imp.col.id);
+    await saveIndex();
+  }
+  // 3) Clientes donde estaba como CM o editor
+  for(const c of imp.cm){c.cm='';await saveClient_doc(c);}
+  for(const c of imp.ed){c.editors=(c.editors||[]).filter(n=>n!==u.name);await saveClient_doc(c);}
+  closeModal();
+  renderUsers();renderBoard();renderBoardBadge();buildSBNav();
+  showToast(`${u.name} eliminado de todos lados ✓`,'ok');
+}
 
 // ============================================================
 // PROFILE
@@ -5128,6 +5206,7 @@ async function saveNewUser(){
   if(!key||!name||!pass)return showToast('Rellena todos los campos','err');
   if(USERS[key])return showToast('Ese usuario ya existe','err');
   USERS[key]={name,pass,role:roles[level],level};
+  DELETED_USERS=DELETED_USERS.filter(k=>k!==key); // si se vuelve a crear uno borrado, ya no está "borrado"
   closeModal();await saveUsers();renderUsers();buildSBNav();showToast(`Usuario ${name} creado ✓ — contraseña: ${pass}`,'ok');
 }
 async function saveEditUser(key){
