@@ -1462,6 +1462,31 @@ function switchMonthlyControlMonth(dir){
   monthlyControlMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   renderDailyControl();
 }
+// Recuento de guiones del mes (por la fecha en que se marcaron): cuántos y de qué clientes,
+// con lo que se le debe a la autora. Los CEOs ven el de todos; la PM, solo el suyo.
+function monthlyScriptsHtml(){
+  const byAuthor={};
+  clients.forEach(c=>Object.values(c.reels||{}).forEach(rs=>(rs||[]).forEach(r=>{
+    if(!r.guion||!r.fechaGuion||!r.fechaGuion.startsWith(monthlyControlMonth))return;
+    const a=r.guionPor||'Sin asignar';
+    if(!isCEO()&&CU?.name!==a)return;
+    const o=byAuthor[a]=byAuthor[a]||{total:0,clients:{}};
+    o.total++;o.clients[c.name]=(o.clients[c.name]||0)+1;
+  })));
+  const authors=Object.keys(byAuthor).sort((a,b)=>byAuthor[b].total-byAuthor[a].total);
+  return`<div class="card" style="margin-bottom:14px">
+    <div class="card-t"><i class="ti ti-writing"></i>Guiones del mes</div>
+    ${authors.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">
+      ${authors.map(a=>{const o=byAuthor[a];return`<div style="border:1px solid var(--bd2);border-radius:var(--rl);background:var(--bg2);padding:10px 12px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+          <span style="font-weight:600;font-size:13px">${a}</span>
+          <span style="font-size:12px"><strong>${o.total}</strong> guion${o.total===1?'':'es'} · <strong style="color:var(--c)">${o.total*GUION_PRICE} €</strong></span>
+        </div>
+        ${Object.entries(o.clients).sort((x,y)=>y[1]-x[1]).map(([cn,n])=>`<div class="pf" style="padding:4px 0"><span style="font-size:12px">${cn}</span><span class="bcc">${n}</span></div>`).join('')}
+      </div>`;}).join('')}
+    </div>`:`<div style="font-size:12px;color:var(--tx3);padding:4px 0">Nadie ha marcado guiones este mes todavía.</div>`}
+  </div>`;
+}
 // Todo lo que se envía a Control Mensual (desde la columna Finalizado, o archivado a
 // mano) queda aquí agrupado por quién lo hizo — t.movedFrom guarda la columna original
 // de la que venía la tarjeta antes de pasar por Finalizado; si no la tiene (se archivó
@@ -1486,6 +1511,7 @@ function monthlyControlHtml(){
     <button class="btn btn-s" onclick="switchMonthlyControlMonth(1)"><i class="ti ti-chevron-right"></i></button>
     <span style="margin-left:auto;font-size:12px;color:var(--tx3)">${total} tarea${total===1?'':'s'} finalizada${total===1?'':'s'}</span>
   </div>`;
+  html+=monthlyScriptsHtml();
   if(!people.length){
     html+=`<div style="text-align:center;padding:30px;color:var(--tx3)">Nadie ha enviado tarjetas a Control Mensual este mes todavía.</div>`;
   }else{
@@ -4041,6 +4067,18 @@ function renderProfile(c){
   </div>`;
 }
 
+// Guiones: los hace la PM (Yumara) y se le pagan GUION_PRICE € por cada uno. La casilla y
+// el recuento los ven solo los CEOs y la PM — nadie más (CMs y editores ni la columna).
+const GUION_PRICE=10;
+function canSeeGuion(){return isPMup();}
+// A quién se apunta el guion: la PM (aunque lo marque un CEO por ella); si no hay PM, quien lo marque.
+function guionAuthorName(){
+  return Object.values(USERS).find(u=>u.level==='pm'||u.role==='PM')?.name||CU?.name||'';
+}
+function guionCellHtml(cid,mk,i,r){
+  if(!canSeeGuion())return'';
+  return`<td><div class="chk${r.guion?' on':''}"${r.guion&&r.guionPor?` title="Guion de ${r.guionPor}"`:''} onclick="toggleReel('${cid}','${mk}',${i},'guion')" ontouchend="event.preventDefault();toggleReel('${cid}','${mk}',${i},'guion')">${r.guion?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>`;
+}
 function renderReelTable(c,mk){
   const reels=c.reels[mk]||[];
   const grabados=reels.filter(r=>r.grabado).length;
@@ -4055,9 +4093,10 @@ function renderReelTable(c,mk){
   if(!reels.length)return header+`<div style="text-align:center;padding:30px;color:var(--tx3)">Sin reels para este mes</div>`;
   return header+`<div class="card">
     <table class="rtable" style="width:100%">
-      <tr><th>Reel</th><th>Grabado</th><th>F.Grab.</th><th>📤 Enviado</th><th>Editado</th><th>F.Entrega</th><th><span style="color:#E1306C">📲 Trial</span></th><th>Subido</th><th>Editor</th><th>Notas</th><th></th></tr>
+      <tr><th>Reel</th>${canSeeGuion()?'<th>✍️ Guion</th>':''}<th>Grabado</th><th>F.Grab.</th><th>📤 Enviado</th><th>Editado</th><th>F.Entrega</th><th><span style="color:#E1306C">📲 Trial</span></th><th>Subido</th><th>Editor</th><th>Notas</th><th></th></tr>
       ${reels.map((r,i)=>`<tr>
         <td style="font-weight:600;color:var(--tx)">${r.label}</td>
+        ${guionCellHtml(c.id,mk,i,r)}
         <td>
           <div style="display:flex;align-items:center;gap:5px">
             <div class="chk${r.grabado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'grabado')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'grabado')">${r.grabado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div>
@@ -4103,6 +4142,7 @@ function renderPodcastReelTable(c,mk,reels){
   const esc=s=>(s||'').replace(/'/g,"\\'");
   const rowHtml=(r,i,n)=>`<tr>
         <td style="padding-left:18px;color:var(--tx3);font-size:11px;white-space:nowrap">Reel ${n}</td>
+        ${guionCellHtml(c.id,mk,i,r)}
         <td><div class="chk${r.grabado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'grabado')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'grabado')">${r.grabado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
         <td><input type="date" value="${r.fechaGrab||''}" style="width:130px;padding:3px 6px;font-size:11px" onchange="updateReel('${c.id}','${mk}',${i},'fechaGrab',this.value)"></td>
         <td><div class="chk${r.editado?' on':''}" onclick="toggleReel('${c.id}','${mk}',${i},'editado')" ontouchend="event.preventDefault();toggleReel('${c.id}','${mk}',${i},'editado')">${r.editado?'<i class="ti ti-check" style="font-size:9px;color:#fff"></i>':''}</div></td>
@@ -4118,10 +4158,10 @@ function renderPodcastReelTable(c,mk,reels){
       </tr>`;
   return`<div class="card">
     <table class="rtable" style="width:100%">
-      <tr><th>Invitado</th><th>Grabado</th><th>F.Grab.</th><th>Editado</th><th>F.Entrega</th><th>YT</th><th>Instagram</th><th>TikTok</th><th>Editor</th><th>Notas</th><th></th></tr>
+      <tr><th>Invitado</th>${canSeeGuion()?'<th>✍️ Guion</th>':''}<th>Grabado</th><th>F.Grab.</th><th>Editado</th><th>F.Entrega</th><th>YT</th><th>Instagram</th><th>TikTok</th><th>Editor</th><th>Notas</th><th></th></tr>
       ${groups.map(g=>`
         <tr style="background:var(--bg3)">
-          <td colspan="11" style="padding:6px 10px">
+          <td colspan="${canSeeGuion()?12:11}" style="padding:6px 10px">
             <div style="display:flex;align-items:center;gap:8px">
               <input type="text" value="${g.name==='Sin invitado'?'':esc(g.name)}" placeholder="Nombre del invitado" style="font-weight:700;font-size:12px;padding:4px 8px;max-width:200px" onchange="renamePodcastGuest('${c.id}','${mk}','${esc(g.name)}',this.value)">
               <button class="btn btn-s" style="font-size:11px;padding:3px 8px" onclick="addPodcastReel('${c.id}','${mk}','${esc(g.name)}')"><i class="ti ti-plus" style="font-size:10px"></i>Reel</button>
@@ -4341,6 +4381,11 @@ function applyGrabadoAutomation(c,mk,i){
 async function toggleReel(cid,mk,i,field){
   const c=clients.find(c=>c.id===cid);if(!c||!c.reels[mk])return;
   c.reels[mk][i][field]=!c.reels[mk][i][field];
+  if(field==='guion'){
+    // Fecha del día de marcado + autora, para el recuento mensual; al desmarcar se quitan.
+    if(c.reels[mk][i].guion){c.reels[mk][i].fechaGuion=today();c.reels[mk][i].guionPor=guionAuthorName();}
+    else{delete c.reels[mk][i].fechaGuion;delete c.reels[mk][i].guionPor;}
+  }
   // Al marcar sin fecha puesta, se rellena con la de hoy — evita quedarse con la tarjeta
   // marcada pero sin fecha, que es lo que confundía en el Resumen y en el Calendario.
   if(c.reels[mk][i][field]){
